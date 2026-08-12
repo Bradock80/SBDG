@@ -102,7 +102,8 @@ public static class AuditPayloadBuilder
 
     public static object SaleExchange(
         int saleId, int exchangeId, double returnTotal, double newTotal, double difference,
-        string? paymentType, int? operatorId, string? operatorName, string? notes) =>
+        string? paymentType, int? operatorId, string? operatorName, string? notes,
+        object? newItems = null) =>
         new
         {
             op = "troca_venda",
@@ -116,6 +117,7 @@ public static class AuditPayloadBuilder
             user_id = operatorId,
             operator_name = operatorName,
             notes,
+            new_items = newItems,
         };
 
 

@@ -168,7 +168,9 @@ public static class SaleExchangeService
 
             returnTotal = ProductPriceHelper.RoundPrice(returnTotal);
 
-            var newLines = new List<(Product Product, double Qty, double UnitPrice, double Amount)>();
+            var newLines = new List<(
+                Product Product, double Qty, double UnitPrice, double Amount,
+                double StockUnitsPerSale, double StockQty, string DisplayName, string? ModeLabel)>();
             double newTotal = 0;
             foreach (var n in request.NewItems.Where(x => x.Qty > 0.0001))
             {
@@ -176,13 +178,26 @@ public static class SaleExchangeService
                     ?? throw new SaleExchangeException($"Produto #{n.ProductId} não encontrado.");
                 if (!product.Active)
                     throw new SaleExchangeException($"Produto inativo: {product.Name}");
-                var qty = ProductPriceHelper.RoundPrice(n.Qty);
-                var price = n.UnitPrice is > 0 ? ProductPriceHelper.RoundPrice(n.UnitPrice.Value) : product.SalePrice;
-                if (price < 0)
-                    throw new SaleExchangeException("Preço inválido no item novo.");
-                var amount = ProductPriceHelper.RoundPrice(qty * price);
-                newLines.Add((product, qty, price, amount));
-                newTotal += amount;
+
+                SaleExchangeResolvedNewLine resolved;
+                try
+                {
+                    resolved = ResolveNewSaleLine(product, n);
+                }
+                catch (InvalidOperationException ex)
+                {
+                    throw new SaleExchangeException(ex.Message);
+                }
+                catch (PdvException ex)
+                {
+                    throw new SaleExchangeException(ex.Message);
+                }
+
+                newLines.Add((
+                    product, resolved.Qty, resolved.UnitPrice, resolved.Amount,
+                    resolved.StockUnitsPerSale, resolved.StockQty,
+                    resolved.DisplayName, resolved.ModeLabel));
+                newTotal += resolved.Amount;
             }
             newTotal = ProductPriceHelper.RoundPrice(newTotal);
             var difference = ProductPriceHelper.RoundPrice(newTotal - returnTotal);
@@ -214,10 +229,10 @@ public static class SaleExchangeService
                 }
             }
 
-            // Estoque: novos
-            foreach (var (product, qty, _, _) in newLines)
+            // Estoque: novos (quantidade física = qty × StockUnitsPerSale)
+            foreach (var (product, _, _, _, _, stockQty, _, _) in newLines)
             {
-                foreach (var (comp, deduct) in ProductCompositionService.StockMovementsForSale(product, qty))
+                foreach (var (comp, deduct) in ProductCompositionService.StockMovementsForSale(product, stockQty))
                 {
                     StockService.ApplySaleDeduction(conn, tx, comp.Id, deduct,
                         notes: "Troca — novo item",
@@ -275,7 +290,7 @@ public static class SaleExchangeService
                 ins.ExecuteNonQuery();
             }
 
-            foreach (var (product, qty, price, amount) in newLines)
+            foreach (var (product, qty, price, amount, _, _, displayName, _) in newLines)
             {
                 using var ins = conn.CreateCommand();
                 ins.Transaction = tx;
@@ -288,7 +303,7 @@ public static class SaleExchangeService
                 ins.Parameters.AddWithValue("$ex", exchangeId);
                 ins.Parameters.AddWithValue("$pid", product.Id);
                 ins.Parameters.AddWithValue("$code", product.Code ?? "");
-                ins.Parameters.AddWithValue("$name", product.Name);
+                ins.Parameters.AddWithValue("$name", displayName);
                 ins.Parameters.AddWithValue("$unit", product.Unit);
                 ins.Parameters.AddWithValue("$qty", qty);
                 ins.Parameters.AddWithValue("$price", price);
@@ -351,9 +366,21 @@ public static class SaleExchangeService
 
             tx.Commit();
 
+            var newItemsAudit = newLines.Select(l => (object)new
+            {
+                product_id = l.Product.Id,
+                product_name = l.DisplayName,
+                qty = l.Qty,
+                unit_price = l.UnitPrice,
+                amount = l.Amount,
+                stock_units_per_sale = l.StockUnitsPerSale,
+                stock_qty = l.StockQty,
+                mode = l.ModeLabel,
+            }).ToList();
+
             AuditService.LogJson("troca", "venda", request.OriginalSaleId.ToString(),
                 AuditPayloadBuilder.SaleExchange(request.OriginalSaleId, exchangeId, returnTotal, newTotal,
-                    difference, paymentType, user?.Id, user?.Nome, request.Notes),
+                    difference, paymentType, user?.Id, user?.Nome, request.Notes, newItemsAudit),
                 message);
 
             return new SaleExchangeResult
@@ -414,6 +441,61 @@ public static class SaleExchangeService
         ins.Parameters.AddWithValue("$date", DateTime.Today.ToString("yyyy-MM-dd"));
         ins.Parameters.AddWithValue("$notes", notes);
         ins.ExecuteNonQuery();
+    }
+
+    /// <summary>
+    /// Resolve preço/fator do item novo. Cigarro: UI só escolhe mode; preço vem de ResolveCigaretteSale.
+    /// Produto comum: UnitPrice opcional ou SalePrice; StockUnitsPerSale = 1.
+    /// </summary>
+    public static SaleExchangeResolvedNewLine ResolveNewSaleLine(Product product, SaleExchangeNewLine line)
+    {
+        ArgumentNullException.ThrowIfNull(product);
+        ArgumentNullException.ThrowIfNull(line);
+
+        var qty = ProductPriceHelper.RoundPrice(line.Qty);
+        if (qty <= 0)
+            throw new SaleExchangeException("Quantidade inválida no item novo.");
+
+        if (ProductClassificationHelper.IsCigarette(product.Name, product.GroupName))
+        {
+            var normalized = NormalizeCigaretteMode(line.CigaretteMode);
+            var effective = PdvCigaretteSaleMode.IsAvulso(normalized)
+                ? PdvCigaretteSaleMode.Avulso
+                : PdvCigaretteSaleMode.Maco;
+
+            var resolved = PdvService.ResolveCigaretteSale(product, effective);
+            var amount = ProductPriceHelper.RoundPrice(qty * resolved.UnitPrice);
+            var stockQty = PdvService.StockQuantityForSale(qty, resolved.StockUnitsPerSale);
+            return new SaleExchangeResolvedNewLine(
+                qty,
+                resolved.UnitPrice,
+                amount,
+                resolved.StockUnitsPerSale,
+                stockQty,
+                PdvCartHelper.LineDisplayName(product, resolved.ModeLabel),
+                resolved.ModeLabel);
+        }
+
+        var price = line.UnitPrice is > 0
+            ? ProductPriceHelper.RoundPrice(line.UnitPrice.Value)
+            : product.SalePrice;
+        if (price < 0)
+            throw new SaleExchangeException("Preço inválido no item novo.");
+        var commonAmount = ProductPriceHelper.RoundPrice(qty * price);
+        return new SaleExchangeResolvedNewLine(
+            qty, price, commonAmount, 1, qty, product.Name, ModeLabel: null);
+    }
+
+    /// <summary>Null/vazio → MAÇO. AVULSO/MACO válidos. Outro → erro.</summary>
+    public static string? NormalizeCigaretteMode(string? mode)
+    {
+        if (string.IsNullOrWhiteSpace(mode))
+            return null;
+        if (PdvCigaretteSaleMode.IsAvulso(mode))
+            return PdvCigaretteSaleMode.Avulso;
+        if (PdvCigaretteSaleMode.IsMaco(mode))
+            return PdvCigaretteSaleMode.Maco;
+        throw new SaleExchangeException("Modalidade inválida. Use AVULSO ou MACO.");
     }
 
     private static Product? LoadProduct(SqliteConnection conn, SqliteTransaction tx, int id)

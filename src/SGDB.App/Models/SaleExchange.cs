@@ -19,7 +19,10 @@ public sealed class SaleExchangeNewLine
 {
     public int ProductId { get; init; }
     public double Qty { get; init; }
+    /// <summary>Usado só para produto comum. Cigarro: preço vem de ResolveCigaretteSale (mode).</summary>
     public double? UnitPrice { get; init; }
+    /// <summary>AVULSO / MAÇO. Null em cigarro → MAÇO. Ignorado em produto comum.</summary>
+    public string? CigaretteMode { get; init; }
 }
 
 public sealed class SaleExchangeRequest
@@ -40,6 +43,16 @@ public sealed class SaleExchangeResult
     public string Message { get; init; } = "";
     public bool WarnManualPixRefund { get; init; }
 }
+
+/// <summary>Resultado da resolução de item novo (preço/fator) — sem UI.</summary>
+public readonly record struct SaleExchangeResolvedNewLine(
+    double Qty,
+    double UnitPrice,
+    double Amount,
+    double StockUnitsPerSale,
+    double StockQty,
+    string DisplayName,
+    string? ModeLabel);
 
 public sealed class SaleExchangeSaleItemVm : INotifyPropertyChanged
 {
@@ -89,6 +102,10 @@ public sealed class SaleExchangeNewItemVm : INotifyPropertyChanged
     public string ProductCode { get; init; } = "";
     public string ProductName { get; init; } = "";
     public string Unit { get; init; } = "UN";
+    /// <summary>Em memória — merge key com ProductId. Cigarro MAÇO = fator; AVULSO = 1.</summary>
+    public double StockUnitsPerSale { get; init; } = 1;
+    /// <summary>AVULSO / MAÇO quando aplicável; null = produto comum.</summary>
+    public string? CigaretteMode { get; init; }
 
     public double Qty
     {

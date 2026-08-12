@@ -260,7 +260,28 @@ public partial class SaleExchangeWindow : Window
 
     private void AddProductToNewItems(Product product)
     {
-        var existing = _newItems.FirstOrDefault(n => n.ProductId == product.Id);
+        double unitPrice;
+        double stockUnitsPerSale = 1;
+        string displayName = product.Name;
+        string? cigaretteMode = null;
+
+        if (ProductClassificationHelper.IsCigarette(product.Name, product.GroupName))
+        {
+            if (!TryResolveCigaretteSaleForExchange(product, out var chosen) || chosen is null)
+                return;
+            unitPrice = chosen.UnitPrice;
+            stockUnitsPerSale = chosen.StockUnitsPerSale;
+            displayName = PdvCartHelper.LineDisplayName(chosen.Product, chosen.ModeLabel);
+            cigaretteMode = chosen.ModeLabel;
+        }
+        else
+        {
+            unitPrice = product.SalePrice;
+        }
+
+        var existing = _newItems.FirstOrDefault(n =>
+            n.ProductId == product.Id
+            && Math.Abs(n.StockUnitsPerSale - stockUnitsPerSale) < 0.0001);
         if (existing is not null)
         {
             existing.Qty += 1;
@@ -271,10 +292,12 @@ public partial class SaleExchangeWindow : Window
             {
                 ProductId = product.Id,
                 ProductCode = product.Code ?? "",
-                ProductName = product.Name,
+                ProductName = displayName,
                 Unit = product.Unit,
                 Qty = 1,
-                UnitPrice = product.SalePrice,
+                UnitPrice = unitPrice,
+                StockUnitsPerSale = stockUnitsPerSale,
+                CigaretteMode = cigaretteMode,
             };
             vm.PropertyChanged += (_, _) => Recalc();
             _newItems.Add(vm);
@@ -284,6 +307,44 @@ public partial class SaleExchangeWindow : Window
         ProductSearchBox.Clear();
         ProductSearchBox.Focus();
         Recalc();
+    }
+
+    /// <summary>
+    /// Cigarro com PrecoAvulso → diálogo; sem PrecoAvulso → MAÇO direto.
+    /// Service não abre UI — só a View.
+    /// </summary>
+    private bool TryResolveCigaretteSaleForExchange(Product product, out PdvScanResult? chosen)
+    {
+        chosen = null;
+
+        if (PdvCartHelper.NeedsCigaretteModeChoice(product))
+        {
+            var extra = ProductExtra.Parse(product.ExtraJson);
+            var packPrice = extra.PrecoAtacado > 0 ? extra.PrecoAtacado : product.SalePrice;
+            var dlg = new PdvCigaretteModeWindow(
+                product.Name,
+                ProductPriceHelper.RoundPrice(extra.PrecoAvulso),
+                ProductPriceHelper.RoundPrice(packPrice))
+            {
+                Owner = this,
+            };
+            if (dlg.ShowDialog() != true || string.IsNullOrWhiteSpace(dlg.SelectedMode))
+                return false;
+
+            chosen = PdvService.ResolveManualSale(product, dlg.SelectedMode);
+            return true;
+        }
+
+        try
+        {
+            chosen = PdvService.ResolveCigaretteSale(product, PdvCigaretteSaleMode.Maco);
+            return true;
+        }
+        catch (InvalidOperationException ex)
+        {
+            MessageBox.Show(ex.Message, "Troca / Devolução", MessageBoxButton.OK, MessageBoxImage.Warning);
+            return false;
+        }
     }
 
     private void RemoveNew_Click(object sender, RoutedEventArgs e)
@@ -371,7 +432,9 @@ public partial class SaleExchangeWindow : Window
             {
                 ProductId = i.ProductId,
                 Qty = i.Qty,
+                // Cigarro: UnitPrice ignorado no service (mode resolve). Comum: usa o da UI.
                 UnitPrice = i.UnitPrice,
+                CigaretteMode = i.CigaretteMode,
             })
             .ToList();
 
