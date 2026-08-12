@@ -1,0 +1,222 @@
+<Window x:Class="SGDB.Views.PdvVendasConsultaWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Consulta de Vendas do Dia"
+        Width="1400" Height="900" MinWidth="1100" MinHeight="700"
+        WindowState="Maximized"
+        WindowStartupLocation="CenterOwner"
+        Background="#ECE9D8"
+        FontFamily="Segoe UI, Tahoma"
+        PreviewKeyDown="Window_PreviewKeyDown">
+    <Window.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceDictionary Source="/Themes/PdvTheme.xaml"/>
+            </ResourceDictionary.MergedDictionaries>
+            <Style x:Key="ConsultaCellText" TargetType="TextBlock">
+                <Setter Property="TextTrimming" Value="CharacterEllipsis"/>
+                <Setter Property="VerticalAlignment" Value="Center"/>
+                <Setter Property="ToolTip" Value="{Binding RelativeSource={RelativeSource Self}, Path=Text}"/>
+            </Style>
+        </ResourceDictionary>
+    </Window.Resources>
+    <Border Background="#ECE9D8" BorderBrush="#666666" BorderThickness="2" Margin="6">
+        <Grid>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="*"/>
+                <RowDefinition Height="Auto"/>
+            </Grid.RowDefinitions>
+
+            <Border Style="{StaticResource PdvConsultaTitleBar}">
+                <Grid>
+                    <TextBlock x:Name="TitleText" Style="{StaticResource PdvConsultaTitleText}"
+                               Text="Consulta de Vendas do Dia"/>
+                    <Button Content="×" Style="{StaticResource PdvCloseButton}"
+                            HorizontalAlignment="Right" Click="Close_Click"/>
+                </Grid>
+            </Border>
+
+            <Grid Grid.Row="1" Margin="10">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="1.15*"/>
+                </Grid.ColumnDefinitions>
+
+                <!-- LEFT -->
+                <Border Grid.Column="0" Style="{StaticResource PdvConsultaPanel}" Margin="0,0,5,0">
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="*"/>
+                            <RowDefinition Height="Auto"/>
+                        </Grid.RowDefinitions>
+                        <Border Style="{StaticResource PdvConsultaSideHeader}">
+                            <TextBlock Text="Vendas de hoje" FontSize="13" FontWeight="Bold"/>
+                        </Border>
+                        <DataGrid x:Name="SalesGrid" Grid.Row="1"
+                                  Style="{StaticResource PdvConsultaDataGrid}"
+                                  SelectionChanged="SalesGrid_SelectionChanged"
+                                  IsReadOnly="True" AutoGenerateColumns="False"
+                                  LoadingRow="SalesGrid_LoadingRow"
+                                  PreviewMouseWheel="Grid_PreviewMouseWheel">
+                            <DataGrid.Columns>
+                                <DataGridTextColumn Header="#" Binding="{Binding Id}" Width="48"
+                                                    ElementStyle="{StaticResource ConsultaCellText}"/>
+                                <DataGridTextColumn Header="Hora" Binding="{Binding TimeDisplay}" Width="58"
+                                                    ElementStyle="{StaticResource ConsultaCellText}"/>
+                                <DataGridTextColumn Header="Cliente" Binding="{Binding CustomerDisplay}" Width="*"
+                                                    ElementStyle="{StaticResource ConsultaCellText}"/>
+                                <DataGridTextColumn Header="Vendedor" Binding="{Binding SellerDisplay}" Width="90"
+                                                    ElementStyle="{StaticResource ConsultaCellText}"/>
+                                <DataGridTextColumn Header="Forma" Binding="{Binding FormaDisplay}" Width="88"
+                                                    ElementStyle="{StaticResource ConsultaCellText}"/>
+                                <DataGridTextColumn Header="Total" Binding="{Binding TotalDisplay}" Width="78"
+                                                    ElementStyle="{StaticResource ConsultaCellText}"/>
+                                <DataGridTextColumn Header="St." Binding="{Binding StatusDisplay}" Width="44"
+                                                    ElementStyle="{StaticResource ConsultaCellText}"/>
+                            </DataGrid.Columns>
+                        </DataGrid>
+                        <TextBlock x:Name="ListMetaText" Grid.Row="2"
+                                   Style="{StaticResource PdvConsultaMeta}"/>
+                    </Grid>
+                </Border>
+
+                <!-- RIGHT -->
+                <Border Grid.Column="1" Style="{StaticResource PdvConsultaPanel}" Margin="5,0,0,0">
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="*"/>
+                        </Grid.RowDefinitions>
+
+                        <Border Style="{StaticResource PdvConsultaSideHeader}">
+                            <TextBlock x:Name="DetailTitleText" Text="Selecione uma venda"
+                                       FontSize="13" FontWeight="Bold"/>
+                        </Border>
+
+                        <Border Grid.Row="1" BorderBrush="#EEEEEE" BorderThickness="0,0,0,1" Padding="4,0,4,4">
+                            <WrapPanel x:Name="ResumoPanel" Style="{StaticResource PdvConsultaResumoWrap}">
+                                <StackPanel Style="{StaticResource PdvConsultaChip}">
+                                    <TextBlock Text="Data/hora" Style="{StaticResource PdvConsultaChipLabel}"/>
+                                    <TextBlock x:Name="ChipDataHora" Text="—" Style="{StaticResource PdvConsultaChipValue}"/>
+                                </StackPanel>
+                                <StackPanel Style="{StaticResource PdvConsultaChip}">
+                                    <TextBlock Text="Cliente" Style="{StaticResource PdvConsultaChipLabel}"/>
+                                    <TextBlock x:Name="ChipCliente" Text="—" Style="{StaticResource PdvConsultaChipValue}"/>
+                                </StackPanel>
+                                <StackPanel Style="{StaticResource PdvConsultaChip}">
+                                    <TextBlock Text="Vendedor" Style="{StaticResource PdvConsultaChipLabel}"/>
+                                    <TextBlock x:Name="ChipVendedor" Text="—" Style="{StaticResource PdvConsultaChipValue}"/>
+                                </StackPanel>
+                                <StackPanel Style="{StaticResource PdvConsultaChip}">
+                                    <TextBlock Text="Total" Style="{StaticResource PdvConsultaChipLabel}"/>
+                                    <TextBlock x:Name="ChipTotal" Text="—" Style="{StaticResource PdvConsultaChipValue}"/>
+                                </StackPanel>
+                                <StackPanel Style="{StaticResource PdvConsultaChip}">
+                                    <TextBlock Text="Forma de pagamento" Style="{StaticResource PdvConsultaChipLabel}"/>
+                                    <TextBlock x:Name="ChipForma" Text="—" Style="{StaticResource PdvConsultaChipValue}"/>
+                                </StackPanel>
+                            </WrapPanel>
+                        </Border>
+
+                        <Border x:Name="DinheiroPanel" Grid.Row="2" Style="{StaticResource PdvConsultaDinheiroPanel}"
+                                Visibility="Collapsed">
+                            <StackPanel>
+                                <TextBlock Text="DINHEIRO — VALOR RECEBIDO E TROCO"
+                                           Style="{StaticResource PdvConsultaDinheiroTitle}"/>
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+                                    <StackPanel Grid.Column="0" Margin="0,0,8,0">
+                                        <TextBlock x:Name="DinheiroParteLabel" Text="Parte em dinheiro"
+                                                   Style="{StaticResource PdvConsultaChipLabel}"/>
+                                        <TextBlock x:Name="DinheiroParteValue" Style="{StaticResource PdvConsultaDinheiroValue}"/>
+                                    </StackPanel>
+                                    <StackPanel Grid.Column="1" Margin="0,0,8,0">
+                                        <TextBlock Text="Cliente pagou" Style="{StaticResource PdvConsultaChipLabel}"/>
+                                        <TextBlock x:Name="DinheiroRecebidoValue" Style="{StaticResource PdvConsultaDinheiroValue}"/>
+                                    </StackPanel>
+                                    <StackPanel Grid.Column="2">
+                                        <TextBlock Text="Troco" Style="{StaticResource PdvConsultaChipLabel}"/>
+                                        <TextBlock x:Name="DinheiroTrocoValue" Style="{StaticResource PdvConsultaDinheiroTroco}"/>
+                                    </StackPanel>
+                                </Grid>
+                            </StackPanel>
+                        </Border>
+
+                        <DataGrid x:Name="ItemsGrid" Grid.Row="3"
+                                  Style="{StaticResource PdvConsultaDataGrid}"
+                                  IsReadOnly="True" AutoGenerateColumns="False"
+                                  Margin="0,2,0,0"
+                                  PreviewMouseWheel="Grid_PreviewMouseWheel">
+                            <DataGrid.Columns>
+                                <DataGridTextColumn Header="Cód." Binding="{Binding ProductCode}" Width="120"
+                                                    ElementStyle="{StaticResource ConsultaCellText}"/>
+                                <DataGridTextColumn Header="Produto" Binding="{Binding ProductName}" Width="*"
+                                                    MinWidth="160"
+                                                    ElementStyle="{StaticResource ConsultaCellText}"/>
+                                <DataGridTextColumn Header="Qtd" Binding="{Binding QuantityDisplay}" Width="70"
+                                                    ElementStyle="{StaticResource ConsultaCellText}"/>
+                                <DataGridTextColumn Header="Preço" Binding="{Binding UnitPriceDisplay}" Width="72"
+                                                    ElementStyle="{StaticResource ConsultaCellText}"/>
+                                <DataGridTextColumn Header="Subtotal" Binding="{Binding SubtotalDisplay}" Width="84"
+                                                    ElementStyle="{StaticResource ConsultaCellText}"/>
+                            </DataGrid.Columns>
+                        </DataGrid>
+                    </Grid>
+                </Border>
+            </Grid>
+
+            <Border Grid.Row="2" Style="{StaticResource PdvConsultaFooter}">
+                <Grid>
+                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                        <Button x:Name="BtnTrocar" Style="{StaticResource PdvConsultaBtnPrimary}"
+                                Click="Trocar_Click" ToolTip="F3">
+                            <TextBlock>
+                                <Run FontWeight="Bold">F3</Run>
+                                <Run> Trocar produto</Run>
+                            </TextBlock>
+                        </Button>
+                        <Button x:Name="BtnTrocaDevolucao" Style="{StaticResource PdvConsultaBtnPrimary}"
+                                Click="TrocaDevolucao_Click" ToolTip="F7 — Devolver / trocar itens e cobrar só a diferença">
+                            <TextBlock>
+                                <Run FontWeight="Bold">F7</Run>
+                                <Run> Troca / Devolução</Run>
+                            </TextBlock>
+                        </Button>
+                        <Button x:Name="BtnPagamento" Style="{StaticResource PdvConsultaBtnPrimary}"
+                                Click="Pagamento_Click" ToolTip="F5">
+                            <TextBlock>
+                                <Run FontWeight="Bold">F5</Run>
+                                <Run> Alterar pagamento</Run>
+                            </TextBlock>
+                        </Button>
+                        <Button x:Name="BtnCancelar" Style="{StaticResource PdvConsultaBtnDanger}"
+                                Click="CancelSale_Click" ToolTip="F4">
+                            <TextBlock>
+                                <Run FontWeight="Bold">F4</Run>
+                                <Run> Cancelar venda</Run>
+                            </TextBlock>
+                        </Button>
+                        <Button Content="Atualizar" Style="{StaticResource PdvConsultaBtn}"
+                                Click="Refresh_Click"/>
+                    </StackPanel>
+                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
+                        <TextBlock Style="{StaticResource PdvConsultaHint}" VerticalAlignment="Center"
+                                   Margin="0,0,12,0">
+                            <Run FontWeight="Bold">↑↓</Run><Run> navegar vendas</Run>
+                        </TextBlock>
+                        <Button Content="Esc — Voltar" Style="{StaticResource PdvConsultaBtn}"
+                                Click="Close_Click" Margin="0"/>
+                    </StackPanel>
+                </Grid>
+            </Border>
+        </Grid>
+    </Border>
+</Window>

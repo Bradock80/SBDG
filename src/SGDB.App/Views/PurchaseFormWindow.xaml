@@ -1,0 +1,512 @@
+<Window x:Class="SGDB.Views.PurchaseFormWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:controls="clr-namespace:SGDB.Controls"
+        Title="Compras"
+        Width="1180" MinWidth="1000"
+        Height="760" MinHeight="680"
+        WindowStartupLocation="CenterOwner"
+        ResizeMode="CanResize"
+        Background="{StaticResource SgdbBgBrush}"
+        FontFamily="Tahoma, Segoe UI"
+        PreviewKeyDown="Window_PreviewKeyDown">
+    <Window.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceDictionary Source="/Themes/SgdbTheme.xaml"/>
+                <ResourceDictionary Source="/Themes/ProductFormTheme.xaml"/>
+                <ResourceDictionary Source="/Themes/PurchaseFormTheme.xaml"/>
+            </ResourceDictionary.MergedDictionaries>
+        </ResourceDictionary>
+    </Window.Resources>
+
+    <Border Style="{StaticResource WpdvWindowBorder}">
+        <Grid>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="*"/>
+                <RowDefinition Height="Auto"/>
+            </Grid.RowDefinitions>
+
+            <Border Grid.Row="0" Style="{StaticResource WpdvTitleBar}">
+                <Grid>
+                    <TextBlock x:Name="TitleText" Text="Compras" Style="{StaticResource WpdvTitleText}"/>
+                    <Button Style="{StaticResource WpdvCloseButton}" HorizontalAlignment="Right"
+                            Click="Cancel_Click" ToolTip="Fechar"/>
+                </Grid>
+            </Border>
+
+            <Border Grid.Row="1" Background="{StaticResource CompraBodyBg}" Padding="8,6">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                        <RowDefinition Height="Auto"/>
+                    </Grid.RowDefinitions>
+
+                    <!-- Cabeçalho NF -->
+                    <StackPanel Grid.Row="0" Margin="0,0,0,4">
+                        <TextBlock x:Name="StatusText" FontSize="10" Margin="0,0,0,4" MinHeight="14" TextWrapping="Wrap"/>
+                        <Grid Margin="0,0,0,3">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="52"/>
+                                <ColumnDefinition Width="8"/>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="8"/>
+                                <ColumnDefinition Width="36"/>
+                                <ColumnDefinition Width="8"/>
+                                <ColumnDefinition Width="118"/>
+                            </Grid.ColumnDefinitions>
+                            <StackPanel Grid.Column="0">
+                                <TextBlock Text="Código" Style="{StaticResource CompraTopLabel}"/>
+                                <TextBox x:Name="SupplierCodeBox" Style="{StaticResource CompraFieldReadOnly}" TabIndex="-1"/>
+                            </StackPanel>
+                            <StackPanel Grid.Column="2">
+                                <TextBlock Text="Razão Social ou CNPJ" Style="{StaticResource CompraTopLabel}"/>
+                                <ComboBox x:Name="SupplierBox" Style="{StaticResource CompraCombo}"
+                                          IsEditable="True" StaysOpenOnEdit="True"
+                                          IsTextSearchEnabled="False"
+                                          KeyboardNavigation.DirectionalNavigation="None"
+                                          DisplayMemberPath="DisplayLabel"
+                                          SelectionChanged="SupplierBox_SelectionChanged"
+                                          PreviewKeyDown="SupplierBox_PreviewKeyDown"
+                                          KeyUp="SupplierBox_KeyUp"/>
+                            </StackPanel>
+                            <StackPanel Grid.Column="4">
+                                <TextBlock Text="UF" Style="{StaticResource CompraTopLabel}"/>
+                                <TextBox x:Name="SupplierUfBox" Style="{StaticResource CompraFieldReadOnly}" TabIndex="-1"/>
+                            </StackPanel>
+                            <StackPanel Grid.Column="6">
+                                <TextBlock Text="CNPJ" Style="{StaticResource CompraTopLabel}"/>
+                                <TextBox x:Name="SupplierDocBox" Style="{StaticResource CompraFieldReadOnly}" TabIndex="-1"/>
+                            </StackPanel>
+                        </Grid>
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="8"/>
+                                <ColumnDefinition Width="88"/>
+                                <ColumnDefinition Width="8"/>
+                                <ColumnDefinition Width="44"/>
+                                <ColumnDefinition Width="8"/>
+                                <ColumnDefinition Width="44"/>
+                                <ColumnDefinition Width="8"/>
+                                <ColumnDefinition Width="108"/>
+                                <ColumnDefinition Width="8"/>
+                                <ColumnDefinition Width="108"/>
+                            </Grid.ColumnDefinitions>
+                            <StackPanel Grid.Column="0">
+                                <TextBlock Text="Chave" Style="{StaticResource CompraTopLabel}"/>
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="4"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <TextBox x:Name="NfeKeyBox" Grid.Column="0" Style="{StaticResource CompraField}" MaxLength="44"
+                                             ToolTip="Cole a chave de 44 dígitos: busca o XML e preenche os produtos (precisa da Api-Key do Meu Danfe em Dados da Empresa). XML… continua disponível."
+                                             KeyDown="NfeKeyBox_KeyDown"
+                                             TextChanged="NfeKeyBox_TextChanged"/>
+                                    <StackPanel Grid.Column="2" Orientation="Horizontal">
+                                        <Button x:Name="BtnBuscarNfe" Content="Buscar" MinWidth="52" Height="22" Padding="6,0"
+                                                FontSize="11" Margin="0,0,4,0" Click="BuscarNfe_Click"
+                                                ToolTip="Buscar NF-e pela chave e importar produtos"/>
+                                        <Button Content="XML…" MinWidth="48" Height="22" Padding="6,0"
+                                                FontSize="11" Click="LoadXml_Click"
+                                                ToolTip="Carregar XML da NF-e manualmente e preencher fornecedor, nota e itens"/>
+                                    </StackPanel>
+                                </Grid>
+                            </StackPanel>
+                            <StackPanel Grid.Column="2">
+                                <TextBlock Text="Nº Nota" Style="{StaticResource CompraTopLabel}"/>
+                                <TextBox x:Name="NumberBox" Style="{StaticResource CompraField}" MaxLength="20"/>
+                            </StackPanel>
+                            <StackPanel Grid.Column="4">
+                                <TextBlock Text="Modelo" Style="{StaticResource CompraTopLabel}"/>
+                                <TextBox x:Name="ModelBox" Style="{StaticResource CompraField}" MaxLength="2"/>
+                            </StackPanel>
+                            <StackPanel Grid.Column="6">
+                                <TextBlock Text="Série" Style="{StaticResource CompraTopLabel}"/>
+                                <TextBox x:Name="SeriesBox" Style="{StaticResource CompraField}" MaxLength="10"/>
+                            </StackPanel>
+                            <StackPanel Grid.Column="8">
+                                <TextBlock Text="Dt. Emissão" Style="{StaticResource CompraTopLabel}"/>
+                                <controls:BrDateBox x:Name="EmissionDateBox"/>
+                            </StackPanel>
+                            <StackPanel Grid.Column="10">
+                                <TextBlock Text="Dt. Entrada" Style="{StaticResource CompraTopLabel}"/>
+                                <controls:BrDateBox x:Name="EntryDateBox"/>
+                            </StackPanel>
+                        </Grid>
+                    </StackPanel>
+
+                    <!-- Bloco Itens -->
+                    <Border Grid.Row="1" BorderBrush="#999999" BorderThickness="1" Background="White">
+                        <Grid>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="*"/>
+                            </Grid.RowDefinitions>
+
+                            <Border Grid.Row="0" Style="{StaticResource CompraItensTab}">
+                                <TextBlock Text="Itens" FontSize="11" FontWeight="SemiBold"/>
+                            </Border>
+
+                            <Border Grid.Row="1" Background="#F5F5F5" BorderBrush="#CCCCCC" BorderThickness="0,0,0,1" Padding="8,6,8,4">
+                                <StackPanel x:Name="ItemEntryPanel">
+                                    <Grid Margin="0,0,0,3">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="88"/>
+                                            <ColumnDefinition Width="5"/>
+                                            <ColumnDefinition Width="72"/>
+                                            <ColumnDefinition Width="5"/>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="5"/>
+                                            <ColumnDefinition Width="48"/>
+                                            <ColumnDefinition Width="5"/>
+                                            <ColumnDefinition Width="44"/>
+                                            <ColumnDefinition Width="5"/>
+                                            <ColumnDefinition Width="68"/>
+                                            <ColumnDefinition Width="5"/>
+                                            <ColumnDefinition Width="72"/>
+                                            <ColumnDefinition Width="5"/>
+                                            <ColumnDefinition Width="72"/>
+                                        </Grid.ColumnDefinitions>
+                                        <StackPanel Grid.Column="0">
+                                            <TextBlock Text="EAN" Style="{StaticResource CompraTopLabel}"/>
+                                            <TextBox x:Name="EanBox" Style="{StaticResource CompraField}" MaxLength="14"
+                                                     KeyDown="EanBox_KeyDown" LostFocus="EanBox_LostFocus"/>
+                                        </StackPanel>
+                                        <StackPanel Grid.Column="2">
+                                            <TextBlock Text="Código" Style="{StaticResource CompraTopLabel}"/>
+                                            <TextBox x:Name="ItemCodeBox" Style="{StaticResource CompraField}"
+                                                     KeyDown="ItemCodeBox_KeyDown" LostFocus="ItemCodeBox_LostFocus"/>
+                                        </StackPanel>
+                                        <StackPanel Grid.Column="4">
+                                            <TextBlock Text="Descrição" Style="{StaticResource CompraTopLabel}"/>
+                                            <ComboBox x:Name="ProductBox" Style="{StaticResource CompraCombo}"
+                                                      IsEditable="True" StaysOpenOnEdit="True"
+                                                      IsTextSearchEnabled="False"
+                                                      KeyboardNavigation.DirectionalNavigation="None"
+                                                      DisplayMemberPath="DisplayLabel"
+                                                      SelectionChanged="ProductBox_SelectionChanged"
+                                                      PreviewKeyDown="ProductBox_PreviewKeyDown"
+                                                      KeyUp="ProductBox_KeyUp"/>
+                                        </StackPanel>
+                                        <StackPanel Grid.Column="6">
+                                            <TextBlock Text="CFOP" Style="{StaticResource CompraTopLabel}"/>
+                                            <TextBox x:Name="CfopBox" Style="{StaticResource CompraField}" MaxLength="4"/>
+                                        </StackPanel>
+                                        <StackPanel Grid.Column="8">
+                                            <TextBlock Text="CST" Style="{StaticResource CompraTopLabel}"/>
+                                            <TextBox x:Name="CstBox" Style="{StaticResource CompraField}" MaxLength="3"/>
+                                        </StackPanel>
+                                        <StackPanel Grid.Column="10">
+                                            <TextBlock Text="Quantidade" Style="{StaticResource CompraTopLabel}"/>
+                                            <TextBox x:Name="QtyBox" Style="{StaticResource CompraField}" Text="1,00"
+                                                     TextChanged="ItemPriceFields_TextChanged"/>
+                                        </StackPanel>
+                                        <StackPanel Grid.Column="12">
+                                            <TextBlock Text="Custo unitário" Style="{StaticResource CompraTopLabel}"
+                                                       ToolTip="Custo por unidade de venda (avulso)"/>
+                                            <TextBox x:Name="PriceBox" Style="{StaticResource CompraField}" Text="0,00"
+                                                     TextChanged="ItemPriceFields_TextChanged"/>
+                                        </StackPanel>
+                                        <StackPanel Grid.Column="14">
+                                            <TextBlock Text="Total linha (caixa)" Style="{StaticResource CompraTopLabel}"
+                                                       ToolTip="Total do item (= qtd × unitário). Edite aqui o valor da caixa/fardo — o custo unitário recalcula sozinho."/>
+                                            <TextBox x:Name="LineTotalBox" Style="{StaticResource CompraField}" Text="0,00"
+                                                     TextChanged="LineTotalBox_TextChanged"/>
+                                        </StackPanel>
+                                    </Grid>
+                                    <Grid Margin="0,0,0,3">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="5"/>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="5"/>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="5"/>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="5"/>
+                                            <ColumnDefinition Width="*"/>
+                                        </Grid.ColumnDefinitions>
+                                        <StackPanel Grid.Column="0">
+                                            <TextBlock Text="Custo un. anterior" Style="{StaticResource CompraTopLabel}"
+                                                       ToolTip="Último custo unitário cadastrado no produto"/>
+                                            <TextBox x:Name="PrevCostBox" Style="{StaticResource CompraValBlue}" TabIndex="-1"/>
+                                        </StackPanel>
+                                        <StackPanel Grid.Column="2">
+                                            <TextBlock Text="Margem" Style="{StaticResource CompraTopLabel}"/>
+                                            <Grid>
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="*"/>
+                                                    <ColumnDefinition Width="Auto"/>
+                                                </Grid.ColumnDefinitions>
+                                                <TextBox x:Name="MarginBox" Grid.Column="0" Style="{StaticResource CompraField}" Text="0,00"
+                                                         TextChanged="MarginBox_TextChanged"/>
+                                                <TextBlock Grid.Column="1" Text="%" VerticalAlignment="Center" Margin="4,0,0,0" FontSize="11"/>
+                                            </Grid>
+                                        </StackPanel>
+                                        <StackPanel Grid.Column="4">
+                                            <TextBlock Text="Valor Sugerido" Style="{StaticResource CompraTopLabel}"/>
+                                            <TextBox x:Name="SuggestedPriceBox" Style="{StaticResource CompraValBlue}" TabIndex="-1"/>
+                                        </StackPanel>
+                                        <StackPanel Grid.Column="6">
+                                            <TextBlock Text="Valor Venda Anterior" Style="{StaticResource CompraTopLabel}"/>
+                                            <TextBox x:Name="PrevSaleBox" Style="{StaticResource CompraValBlue}" TabIndex="-1"/>
+                                        </StackPanel>
+                                        <StackPanel Grid.Column="8">
+                                            <TextBlock Text="Valor Venda" Style="{StaticResource CompraTopLabel}"/>
+                                            <TextBox x:Name="SalePriceBox" Style="{StaticResource CompraField}" Text="0,00"
+                                                     TextChanged="SalePriceBox_TextChanged"/>
+                                        </StackPanel>
+                                    </Grid>
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="5"/>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="5"/>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="5"/>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="5"/>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="5"/>
+                                            <ColumnDefinition Width="48"/>
+                                        </Grid.ColumnDefinitions>
+                                        <StackPanel Grid.Column="0">
+                                            <TextBlock Text="Base ST" Style="{StaticResource CompraTopLabel}"/>
+                                            <TextBox x:Name="BaseStBox" Style="{StaticResource CompraField}" Text="0,00"/>
+                                        </StackPanel>
+                                        <StackPanel Grid.Column="2">
+                                            <TextBlock Text="Aliq. ST" Style="{StaticResource CompraTopLabel}"/>
+                                            <TextBox x:Name="AliqStBox" Style="{StaticResource CompraField}" Text="0,00"/>
+                                        </StackPanel>
+                                        <StackPanel Grid.Column="4">
+                                            <TextBlock Text="Valor ST" Style="{StaticResource CompraTopLabel}"/>
+                                            <TextBox x:Name="ValorStBox" Style="{StaticResource CompraField}" Text="0,00"/>
+                                        </StackPanel>
+                                        <StackPanel Grid.Column="6">
+                                            <TextBlock Text="FCP" Style="{StaticResource CompraTopLabel}"/>
+                                            <TextBox x:Name="FcpBox" Style="{StaticResource CompraField}" Text="0,00"/>
+                                        </StackPanel>
+                                        <StackPanel Grid.Column="8">
+                                            <TextBlock Text="CSOSN" Style="{StaticResource CompraTopLabel}"/>
+                                            <TextBox x:Name="CsosnBox" Style="{StaticResource CompraField}" MaxLength="4"/>
+                                        </StackPanel>
+                                        <StackPanel Grid.Column="10">
+                                            <TextBlock Text="Item" Style="{StaticResource CompraTopLabel}"/>
+                                            <TextBox x:Name="ItemSeqBox" Style="{StaticResource CompraFieldReadOnly}" Text="0" TabIndex="-1"/>
+                                        </StackPanel>
+                                    </Grid>
+                                </StackPanel>
+                            </Border>
+
+                            <Border Grid.Row="2" Background="#ECECEC" BorderBrush="#BBBBBB" BorderThickness="0,0,0,1" Padding="6,4,6,6">
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+                                    <StackPanel Grid.Column="0" Orientation="Horizontal">
+                                        <Button x:Name="BtnItemAdd" Content="Adicionar" Style="{StaticResource CompraTbButton}" Click="ItemAdd_Click"/>
+                                        <Button x:Name="BtnItemEdit" Content="Editar" Style="{StaticResource CompraTbButton}" Click="ItemEdit_Click"/>
+                                        <Button x:Name="BtnItemDelete" Content="Excluir" Style="{StaticResource CompraTbButton}" Click="ItemDelete_Click"/>
+                                        <Button x:Name="BtnItemSave" Content="Salvar" Style="{StaticResource CompraTbButton}" Click="ItemSave_Click"/>
+                                        <Button x:Name="BtnItemCancel" Content="Cancelar" Style="{StaticResource CompraTbButton}" Click="ItemCancel_Click"/>
+                                    </StackPanel>
+                                    <StackPanel Grid.Column="1" Orientation="Horizontal" Margin="10,0,10,0" VerticalAlignment="Bottom">
+                                        <Button Content="⏮" Style="{StaticResource CompraNavButton}"/>
+                                        <Button Content="◀" Style="{StaticResource CompraNavButton}"/>
+                                        <Button Content="▶" Style="{StaticResource CompraNavButton}"/>
+                                        <Button Content="⏭" Style="{StaticResource CompraNavButton}"/>
+                                    </StackPanel>
+                                    <StackPanel Grid.Column="2">
+                                        <TextBlock Text="F11 | Passe o leitor aqui para adicionar item (sempre ativo)"
+                                                   Style="{StaticResource CompraTopLabel}"/>
+                                        <TextBox x:Name="BarcodeBox" Style="{StaticResource CompraField}"
+                                                 CharacterCasing="Upper"
+                                                 KeyDown="BarcodeBox_KeyDown"/>
+                                    </StackPanel>
+                                </Grid>
+                            </Border>
+
+                            <DataGrid x:Name="ItemsGrid" Grid.Row="3" AutoGenerateColumns="False"
+                                      IsReadOnly="False" SelectionMode="Single" SelectionUnit="FullRow"
+                                      HeadersVisibility="Column" GridLinesVisibility="All"
+                                      BorderThickness="0" Background="White"
+                                      RowHeight="24" FontSize="11" CanUserAddRows="False"
+                                      SelectionChanged="ItemsGrid_SelectionChanged"
+                                      CellEditEnding="ItemsGrid_CellEditEnding">
+                                <DataGrid.Columns>
+                                    <DataGridTextColumn Header="Item" Binding="{Binding Seq}" Width="40" IsReadOnly="True"/>
+                                    <DataGridTextColumn Header="Código" Binding="{Binding ProductCode}" Width="60" IsReadOnly="True"/>
+                                    <DataGridTextColumn Header="Descrição Produto" Binding="{Binding ProductName}" Width="*" IsReadOnly="True"/>
+                                    <DataGridTextColumn Header="CFOP" Binding="{Binding Cfop}" Width="44" IsReadOnly="True"/>
+                                    <DataGridTextColumn Header="CST" Binding="{Binding Cst}" Width="40" IsReadOnly="True"/>
+                                    <DataGridTextColumn Header="Qtd. Compra" Binding="{Binding QuantityDisplay}" Width="72"
+                                                       IsReadOnly="False"
+                                                       ToolTipService.ToolTip="Editável. Ao mudar a qtd., o preço unitário é recalculado para manter o total da NF."/>
+                                    <DataGridTextColumn Header="Preço" Binding="{Binding UnitPriceDisplay}" Width="68"
+                                                       IsReadOnly="False"
+                                                       ToolTipService.ToolTip="Custo unitário da NF. No cigarro, ao finalizar grava o maço no cadastro."/>
+                                    <DataGridTextColumn Header="Total Item" Binding="{Binding SubtotalDisplay}" Width="72" IsReadOnly="True"/>
+                                    <DataGridTextColumn Header="Custo ant." Binding="{Binding PrevCostDisplay}" Width="72" IsReadOnly="True"/>
+                                    <DataGridTextColumn Header="Margem %" Binding="{Binding MarginDisplay}" Width="58"
+                                                       IsReadOnly="False"
+                                                       ElementStyle="{StaticResource CompraGridEditCell}"
+                                                       EditingElementStyle="{StaticResource CompraGridEditBox}"
+                                                       ToolTipService.ToolTip="Margem do Pr. Venda sobre o custo da NF. Negativa = vendendo abaixo do custo."/>
+                                    <DataGridTextColumn Header="Pr. Sugerido" Binding="{Binding SuggestedPriceDisplay}" Width="72" IsReadOnly="True"
+                                                       ToolTipService.ToolTip="Preço com a margem padrão sobre o custo novo da NF."/>
+                                    <DataGridTextColumn Header="Pr. Venda" Binding="{Binding SalePriceDisplay}" Width="72"
+                                                       IsReadOnly="False"
+                                                       ElementStyle="{StaticResource CompraGridEditCell}"
+                                                       EditingElementStyle="{StaticResource CompraGridEditBox}"
+                                                       ToolTipService.ToolTip="Preço de venda atual. Cigarro = maço; demais = unitário."/>
+                                </DataGrid.Columns>
+                            </DataGrid>
+                        </Grid>
+                    </Border>
+
+                    <!-- Rodapé: parâmetros + vasilhame + totais -->
+                    <Grid Grid.Row="2" Margin="0,6,0,0">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="180"/>
+                            <ColumnDefinition Width="10"/>
+                            <ColumnDefinition Width="260"/>
+                            <ColumnDefinition Width="10"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+
+                        <Border Grid.Column="0" Style="{StaticResource CompraParamsBox}">
+                            <StackPanel>
+                                <TextBlock Text="Parâmetros" Style="{StaticResource CompraSectionTitle}"/>
+                                <CheckBox x:Name="AjustaPrecoBox" Content="Também ajustar preço de venda" FontSize="11" Margin="0,2"
+                                          IsChecked="False"
+                                          ToolTip="Desmarcado: só atualiza compra/custo. Marcado: também grava o Pr. Venda da grade."/>
+                                <TextBlock Text="Qtd/Preço = unitário (estoque). Preço 0,00 = brinde. Ao finalizar: custo médio; cigarro grava maço. Venda só se marcar a opção acima."
+                                           FontSize="9" Foreground="#555" TextWrapping="Wrap" Margin="0,0,0,4"/>
+                                <CheckBox x:Name="IncluirStCustoBox" Content="Incluir ICMS-ST no custo" FontSize="11" Margin="0,2"
+                                          IsChecked="False"
+                                          Checked="IncluirStCustoBox_Changed"
+                                          Unchecked="IncluirStCustoBox_Changed"
+                                          ToolTip="Desmarcado = preço igual à nota (ex.: Doritos 10,66). Marcado = soma ST/FCP ao custo (preço maior)."/>
+                                <StackPanel Orientation="Horizontal" Margin="0,4,0,2">
+                                    <TextBlock Text="Margem %" VerticalAlignment="Center" FontSize="11" Margin="0,0,6,0"/>
+                                    <TextBox x:Name="MargemGeralBox" Width="48" Height="22" Text="30" FontSize="11"
+                                             Padding="4,0" VerticalContentAlignment="Center" TextAlignment="Right"/>
+                                    <Button Content="Aplicar" Margin="6,0,0,0" Padding="8,2" FontSize="11" Height="22"
+                                            Click="ApplyMarginAll_Click"
+                                            ToolTip="Aplica esta margem em todos. Depois edite Margem % ou Pr. Venda na grade nos itens diferentes."/>
+                                </StackPanel>
+                                <TextBlock Text="Pr. Sugerido usa esta margem no custo novo. Pr. Venda mantém o cadastro até você ajustar (ou Aplicar)."
+                                           FontSize="9" Foreground="#555" TextWrapping="Wrap" Margin="0,0,0,4"/>
+                                <CheckBox x:Name="GerarFinanceiroBox" Content="Gerar financeiro" IsChecked="True" FontSize="11" Margin="0,2"/>
+                                <CheckBox x:Name="GerarEstoqueBox" Content="Gerar estoque" IsChecked="True" FontSize="11" Margin="0,2"/>
+                            </StackPanel>
+                        </Border>
+
+                        <Border Grid.Column="2" Background="#F4FAF4" BorderBrush="#7A9E7A" BorderThickness="1" Padding="8,6">
+                            <StackPanel>
+                                <TextBlock Text="Galões (vasilhame)" Style="{StaticResource CompraSectionTitle}"/>
+                                <TextBlock TextWrapping="Wrap" FontSize="10" Foreground="#334433" Margin="0,0,0,6"
+                                           Text="Use quando a nota for água 20L do fornecedor. O item na nota continua sendo só água — aqui você informa o que aconteceu com os galões."/>
+                                <CheckBox x:Name="VasilhameAtivoBox" Content="Ajustar galões ao finalizar compra" FontSize="11" IsEnabled="False"/>
+                            </StackPanel>
+                        </Border>
+
+                        <Border Grid.Column="4" Style="{StaticResource CompraParamsBox}">
+                            <StackPanel>
+                                <TextBlock Text="Totais" Style="{StaticResource CompraSectionTitle}"/>
+                                <Grid>
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="Auto"/>
+                                    </Grid.RowDefinitions>
+                                    <Grid Grid.Row="0">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/><ColumnDefinition Width="4"/>
+                                            <ColumnDefinition Width="*"/><ColumnDefinition Width="4"/>
+                                            <ColumnDefinition Width="*"/><ColumnDefinition Width="4"/>
+                                            <ColumnDefinition Width="*"/><ColumnDefinition Width="4"/>
+                                            <ColumnDefinition Width="*"/><ColumnDefinition Width="4"/>
+                                            <ColumnDefinition Width="*"/><ColumnDefinition Width="4"/>
+                                            <ColumnDefinition Width="*"/><ColumnDefinition Width="4"/>
+                                            <ColumnDefinition Width="*"/>
+                                        </Grid.ColumnDefinitions>
+                                        <StackPanel Grid.Column="0"><TextBlock Text="Subtotal" Style="{StaticResource CompraTopLabel}"/><TextBox x:Name="SubtotalBox" Style="{StaticResource CompraValBlue}" Text="0,00"/></StackPanel>
+                                        <StackPanel Grid.Column="2"><TextBlock Text="Base ICMS" Style="{StaticResource CompraTopLabel}"/><TextBox Style="{StaticResource CompraValBlue}" Text="0,00" IsReadOnly="True" TabIndex="-1"/></StackPanel>
+                                        <StackPanel Grid.Column="4"><TextBlock Text="Valor ICMS" Style="{StaticResource CompraTopLabel}"/><TextBox Style="{StaticResource CompraValBlue}" Text="0,00" IsReadOnly="True" TabIndex="-1"/></StackPanel>
+                                        <StackPanel Grid.Column="6"><TextBlock Text="Base IPI" Style="{StaticResource CompraTopLabel}"/><TextBox Style="{StaticResource CompraValBlue}" Text="0,00" IsReadOnly="True" TabIndex="-1"/></StackPanel>
+                                        <StackPanel Grid.Column="8"><TextBlock Text="Valor IPI" Style="{StaticResource CompraTopLabel}"/><TextBox Style="{StaticResource CompraValBlue}" Text="0,00" IsReadOnly="True" TabIndex="-1"/></StackPanel>
+                                        <StackPanel Grid.Column="10"><TextBlock Text="Base COFINS" Style="{StaticResource CompraTopLabel}"/><TextBox Style="{StaticResource CompraValBlue}" Text="0,00" IsReadOnly="True" TabIndex="-1"/></StackPanel>
+                                        <StackPanel Grid.Column="12"><TextBlock Text="Valor COFINS" Style="{StaticResource CompraTopLabel}"/><TextBox Style="{StaticResource CompraValBlue}" Text="0,00" IsReadOnly="True" TabIndex="-1"/></StackPanel>
+                                        <StackPanel Grid.Column="14"><TextBlock Text="Base PIS" Style="{StaticResource CompraTopLabel}"/><TextBox Style="{StaticResource CompraValBlue}" Text="0,00" IsReadOnly="True" TabIndex="-1"/></StackPanel>
+                                    </Grid>
+                                    <Grid Grid.Row="1" Margin="0,4,0,0">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/><ColumnDefinition Width="4"/>
+                                            <ColumnDefinition Width="*"/><ColumnDefinition Width="4"/>
+                                            <ColumnDefinition Width="*"/><ColumnDefinition Width="4"/>
+                                            <ColumnDefinition Width="*"/><ColumnDefinition Width="4"/>
+                                            <ColumnDefinition Width="*"/><ColumnDefinition Width="4"/>
+                                            <ColumnDefinition Width="*"/><ColumnDefinition Width="4"/>
+                                            <ColumnDefinition Width="*"/><ColumnDefinition Width="4"/>
+                                            <ColumnDefinition Width="*"/>
+                                        </Grid.ColumnDefinitions>
+                                        <StackPanel Grid.Column="0"><TextBlock Text="Valor PIS" Style="{StaticResource CompraTopLabel}"/><TextBox Style="{StaticResource CompraValBlue}" Text="0,00" IsReadOnly="True" TabIndex="-1"/></StackPanel>
+                                        <StackPanel Grid.Column="2"><TextBlock Text="Base ST" Style="{StaticResource CompraTopLabel}"/><TextBox Style="{StaticResource CompraValBlue}" Text="0,00" IsReadOnly="True" TabIndex="-1"/></StackPanel>
+                                        <StackPanel Grid.Column="4"><TextBlock Text="Valor ST" Style="{StaticResource CompraTopLabel}"/><TextBox Style="{StaticResource CompraValBlue}" Text="0,00" IsReadOnly="True" TabIndex="-1"/></StackPanel>
+                                        <StackPanel Grid.Column="6"><TextBlock Text="Desconto" Style="{StaticResource CompraTopLabel}"/><TextBox Style="{StaticResource CompraValBlue}" Text="0,00" IsReadOnly="True" TabIndex="-1"/></StackPanel>
+                                        <StackPanel Grid.Column="8"><TextBlock Text="Frete" Style="{StaticResource CompraTopLabel}"/><TextBox Style="{StaticResource CompraValBlue}" Text="0,00" IsReadOnly="True" TabIndex="-1"/></StackPanel>
+                                        <StackPanel Grid.Column="10"><TextBlock Text="Seguro" Style="{StaticResource CompraTopLabel}"/><TextBox Style="{StaticResource CompraValBlue}" Text="0,00" IsReadOnly="True" TabIndex="-1"/></StackPanel>
+                                        <StackPanel Grid.Column="12"><TextBlock Text="Outras" Style="{StaticResource CompraTopLabel}"/><TextBox Style="{StaticResource CompraValBlue}" Text="0,00" IsReadOnly="True" TabIndex="-1"/></StackPanel>
+                                        <StackPanel Grid.Column="14">
+                                            <TextBlock Text="Total" Style="{StaticResource CompraTopLabel}"/>
+                                            <TextBox x:Name="TotalText" Style="{StaticResource CompraValBlue}" Text="0,00" FontSize="12" FontWeight="Bold"/>
+                                        </StackPanel>
+                                    </Grid>
+                                </Grid>
+                            </StackPanel>
+                        </Border>
+                    </Grid>
+                </Grid>
+            </Border>
+
+            <Border Grid.Row="2" Style="{StaticResource CompraFooterBar}">
+                <StackPanel Orientation="Horizontal">
+                    <Button x:Name="BtnFinalize" Style="{StaticResource WpdvFooterButton}" Click="Finalize_Click">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="💾" FontSize="18" Foreground="{StaticResource SgdbBlueBrush}" Margin="0,0,6,0"/>
+                            <TextBlock Text="F3 | Finalizar" FontSize="12" Foreground="{StaticResource SgdbBlueBrush}"/>
+                        </StackPanel>
+                    </Button>
+                    <Button Style="{StaticResource WpdvFooterButton}" Click="OpenProducts_Click">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="📦" FontSize="18" Foreground="{StaticResource SgdbBlueBrush}" Margin="0,0,6,0"/>
+                            <TextBlock Text="F4 | Produtos" FontSize="12" Foreground="{StaticResource SgdbBlueBrush}"/>
+                        </StackPanel>
+                    </Button>
+                    <Button Style="{StaticResource WpdvFooterButton}" Click="OpenClients_Click">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="👥" FontSize="18" Foreground="{StaticResource SgdbBlueBrush}" Margin="0,0,6,0"/>
+                            <TextBlock Text="F5 | Clientes" FontSize="12" Foreground="{StaticResource SgdbBlueBrush}"/>
+                        </StackPanel>
+                    </Button>
+                    <Button Style="{StaticResource WpdvFooterButton}" Click="Cancel_Click">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="✕" FontSize="18" Foreground="#CC0000" Margin="0,0,6,0"/>
+                            <TextBlock Text="Esc | Sair" FontSize="12" Foreground="#CC0000"/>
+                        </StackPanel>
+                    </Button>
+                </StackPanel>
+            </Border>
+        </Grid>
+    </Border>
+</Window>

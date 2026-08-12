@@ -1,0 +1,79 @@
+<Window x:Class="SGDB.Views.PayableAlterarWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:controls="clr-namespace:SGDB.Controls"
+        Title="Alterar parcela"
+        Width="520" SizeToContent="Height"
+        WindowStartupLocation="CenterOwner"
+        ResizeMode="NoResize"
+        Background="#F3F4F6"
+        FontFamily="Segoe UI, Tahoma"
+        PreviewKeyDown="Window_PreviewKeyDown">
+    <Border Margin="16" Background="White" BorderBrush="#E5E7EB" BorderThickness="1" Padding="20">
+        <StackPanel>
+            <TextBlock Text="Alterar parcela" FontSize="15" FontWeight="SemiBold"
+                       Foreground="#111827" Margin="0,0,0,6"/>
+            <TextBlock Text="Corrija vencimento ou valor gerado errado na compra. Para registrar pagamento use F7 | Baixar."
+                       FontSize="11" Foreground="#6B7280" TextWrapping="Wrap" Margin="0,0,0,14"/>
+
+            <Grid x:Name="ParcelaRow" Margin="0,0,0,10" Visibility="Collapsed">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="120"/>
+                    <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+                <TextBlock Text="Parcela" VerticalAlignment="Center"/>
+                <ComboBox x:Name="ParcelaBox" Grid.Column="1" Height="28"
+                          DisplayMemberPath="DisplayNumber" SelectionChanged="ParcelaBox_SelectionChanged"/>
+            </Grid>
+
+            <Grid Margin="0,0,0,10">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="120"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="12"/>
+                    <ColumnDefinition Width="100"/>
+                    <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+                <TextBlock Text="Vencimento" VerticalAlignment="Center"/>
+                <controls:BrDateBox x:Name="VencimentoBox" Grid.Column="1"/>
+                <TextBlock Grid.Column="3" Text="Valor" VerticalAlignment="Center"/>
+                <TextBox x:Name="ValorBox" Grid.Column="4" Height="28" Padding="6,0"
+                         VerticalContentAlignment="Center" HorizontalContentAlignment="Right"
+                         LostFocus="Money_LostFocus"/>
+            </Grid>
+
+            <Grid Margin="0,0,0,10">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="120"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="12"/>
+                    <ColumnDefinition Width="100"/>
+                    <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+                <TextBlock Text="Desconto" VerticalAlignment="Center"/>
+                <TextBox x:Name="DescontoBox" Grid.Column="1" Height="28" Padding="6,0"
+                         VerticalContentAlignment="Center" HorizontalContentAlignment="Right"
+                         LostFocus="Money_LostFocus"/>
+                <TextBlock Grid.Column="3" Text="Juros" VerticalAlignment="Center"/>
+                <TextBox x:Name="JurosBox" Grid.Column="4" Height="28" Padding="6,0"
+                         VerticalContentAlignment="Center" HorizontalContentAlignment="Right"
+                         LostFocus="Money_LostFocus"/>
+            </Grid>
+
+            <Grid Margin="0,0,0,16">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="120"/>
+                    <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+                <TextBlock Text="Tipo Cobrança" VerticalAlignment="Center"/>
+                <ComboBox x:Name="TipoBox" Grid.Column="1" Height="28"/>
+            </Grid>
+
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                <Button Content="Salvar alteração" Width="130" Height="30" Margin="0,0,8,0"
+                        IsDefault="True" Click="Salvar_Click"/>
+                <Button Content="Cancelar" Width="100" Height="30" IsCancel="True" Click="Cancelar_Click"/>
+            </StackPanel>
+        </StackPanel>
+    </Border>
+</Window>

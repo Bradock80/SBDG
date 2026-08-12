@@ -1,0 +1,157 @@
+<UserControl x:Class="SGDB.Views.BankAccountsModuleView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:controls="clr-namespace:SGDB.Controls"
+             Background="{StaticResource SgdbBgBrush}"
+             Focusable="True"
+             PreviewKeyDown="Root_PreviewKeyDown">
+    <Border BorderBrush="#B8C4D4" BorderThickness="1" Background="White">
+        <Grid>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="*"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+            </Grid.RowDefinitions>
+
+            <Border Grid.Row="0" Padding="16,10" Background="{StaticResource TitleBarGradientBrush}"
+                    BorderBrush="{StaticResource SgdbGoldBrush}" BorderThickness="0,0,0,1">
+                <Grid>
+                    <TextBlock Text="Contas Bancárias / Conciliação"
+                               Foreground="White" FontWeight="SemiBold" FontSize="13"/>
+                    <Button Style="{StaticResource ModuleTabCloseStyle}" HorizontalAlignment="Right"
+                            Click="Close_Click"/>
+                </Grid>
+            </Border>
+
+            <Border Grid.Row="1" Padding="16,10" Background="#FAF8F4" BorderBrush="#E2E8F0" BorderThickness="0,0,0,1">
+                <StackPanel>
+                    <WrapPanel VerticalAlignment="Center" Margin="0,0,0,8">
+                        <TextBlock Text="Conta" VerticalAlignment="Center" Margin="0,0,8,0" FontSize="12"/>
+                        <ComboBox x:Name="AccountBox" Width="200" Height="32" Margin="0,0,8,0"
+                                  DisplayMemberPath="Label" SelectionChanged="Account_Changed"/>
+                        <Button Content="+ Conta" Style="{StaticResource SgdbOutlineButtonStyle}"
+                                Margin="0,0,6,0" Click="NovaConta_Click"/>
+                        <Button Content="Editar" Style="{StaticResource SgdbOutlineButtonStyle}"
+                                Margin="0,0,14,0" Click="EditarConta_Click"/>
+
+                        <TextBlock Text="De" VerticalAlignment="Center" Margin="0,0,6,0" FontSize="12"/>
+                        <controls:BrDateBox x:Name="DateFromBox" Width="118" Margin="0,0,6,0"/>
+                        <TextBlock Text="até" VerticalAlignment="Center" Margin="0,0,6,0" FontSize="12"/>
+                        <controls:BrDateBox x:Name="DateToBox" Width="118" Margin="0,0,10,0"/>
+
+                        <Button Content="Hoje" Style="{StaticResource SgdbOutlineButtonStyle}"
+                                Margin="0,0,4,0" Tag="hoje" Click="PeriodQuick_Click"/>
+                        <Button Content="Ontem" Style="{StaticResource SgdbOutlineButtonStyle}"
+                                Margin="0,0,4,0" Tag="ontem" Click="PeriodQuick_Click"/>
+                        <Button Content="Esta Semana" Style="{StaticResource SgdbOutlineButtonStyle}"
+                                Margin="0,0,4,0" Tag="semana" Click="PeriodQuick_Click"/>
+                        <Button Content="Mês Atual" Style="{StaticResource SgdbOutlineButtonStyle}"
+                                Margin="0,0,10,0" Tag="mes" Click="PeriodQuick_Click"/>
+
+                        <TextBlock x:Name="SaldoText" VerticalAlignment="Center" FontWeight="SemiBold"
+                                   Foreground="#1E3A5F" FontSize="12"/>
+                    </WrapPanel>
+
+                    <WrapPanel VerticalAlignment="Center">
+                        <TextBlock Text="Status" VerticalAlignment="Center" Margin="0,0,6,0" FontSize="12"/>
+                        <ComboBox x:Name="StatusBox" Width="120" Height="32" Margin="0,0,10,0"
+                                  SelectionChanged="Filter_Changed"/>
+                        <Button Content="Só Pendentes" Style="{StaticResource SgdbOutlineButtonStyle}"
+                                Margin="0,0,14,0" Click="SoPendentes_Click"/>
+
+                        <TextBlock Text="Forma" VerticalAlignment="Center" Margin="0,0,6,0" FontSize="12"/>
+                        <ComboBox x:Name="PayBox" Width="140" Height="32" Margin="0,0,10,0"
+                                  SelectionChanged="Filter_Changed"/>
+
+                        <TextBlock Text="Maquininha" VerticalAlignment="Center" Margin="0,0,6,0" FontSize="12"/>
+                        <ComboBox x:Name="OperatorBox" Width="140" Height="32" Margin="0,0,10,0"
+                                  SelectionChanged="Filter_Changed"/>
+
+                        <Button Content="Buscar" Style="{StaticResource SgdbPrimaryButtonStyle}"
+                                Click="Buscar_Click"/>
+                    </WrapPanel>
+                </StackPanel>
+            </Border>
+
+            <DataGrid x:Name="MovGrid" Grid.Row="2" Margin="16,12,16,8"
+                      AutoGenerateColumns="False" IsReadOnly="True" SelectionMode="Single"
+                      HeadersVisibility="Column" CanUserAddRows="False" RowHeaderWidth="0"
+                      GridLinesVisibility="Horizontal" HorizontalGridLinesBrush="#E2E8F0"
+                      AlternatingRowBackground="#F8FAFC" RowHeight="32" FontSize="12"
+                      BorderBrush="#E2E8F0" BorderThickness="1">
+                <DataGrid.Columns>
+                    <DataGridTextColumn Header="Data" Binding="{Binding DateDisplay}" Width="90"/>
+                    <DataGridTextColumn Header="Tipo" Binding="{Binding KindDisplay}" Width="80"/>
+                    <DataGridTextColumn Header="Descrição" Binding="{Binding Description}" Width="*" MinWidth="140"/>
+                    <DataGridTextColumn Header="Forma" Binding="{Binding PaymentType}" Width="100"/>
+                    <DataGridTextColumn Header="Maquininha" Binding="{Binding OperatorDisplay}" Width="110"/>
+                    <DataGridTextColumn Header="Entrada" Binding="{Binding InDisplay}" Width="95"/>
+                    <DataGridTextColumn Header="Saída" Binding="{Binding OutDisplay}" Width="95"/>
+                    <DataGridTextColumn Header="Taxa" Binding="{Binding FeeDisplay}" Width="85"/>
+                    <DataGridTextColumn Header="Status" Binding="{Binding StatusDisplay}" Width="85"/>
+                    <DataGridTextColumn Header="Creditado" Binding="{Binding PostedDisplay}" Width="85"/>
+                </DataGrid.Columns>
+            </DataGrid>
+
+            <!-- Cards de totais -->
+            <Border Grid.Row="3" Padding="16,12" Background="#F8FAFC" BorderBrush="#E2E8F0" BorderThickness="0,1,0,0">
+                <UniformGrid Columns="4" Rows="1">
+                    <Border Margin="0,0,8,0" Padding="12,10" CornerRadius="6" Background="#ECFDF5" BorderBrush="#86EFAC" BorderThickness="1">
+                        <StackPanel>
+                            <TextBlock Text="ENTRADAS" FontSize="10" FontWeight="SemiBold" Foreground="#166534"/>
+                            <TextBlock x:Name="CardInText" Text="R$ 0,00" FontSize="16" FontWeight="Bold" Foreground="#14532D" Margin="0,4,0,0"/>
+                        </StackPanel>
+                    </Border>
+                    <Border Margin="0,0,8,0" Padding="12,10" CornerRadius="6" Background="#FEF2F2" BorderBrush="#FECACA" BorderThickness="1">
+                        <StackPanel>
+                            <TextBlock Text="SAÍDAS" FontSize="10" FontWeight="SemiBold" Foreground="#991B1B"/>
+                            <TextBlock x:Name="CardOutText" Text="R$ 0,00" FontSize="16" FontWeight="Bold" Foreground="#7F1D1D" Margin="0,4,0,0"/>
+                        </StackPanel>
+                    </Border>
+                    <Border Margin="0,0,8,0" Padding="12,10" CornerRadius="6" Background="#FFF7ED" BorderBrush="#FDBA74" BorderThickness="1">
+                        <StackPanel>
+                            <TextBlock Text="TAXAS (MAQUININHA)" FontSize="10" FontWeight="SemiBold" Foreground="#9A3412"/>
+                            <TextBlock x:Name="CardFeeText" Text="R$ 0,00" FontSize="16" FontWeight="Bold" Foreground="#7C2D12" Margin="0,4,0,0"/>
+                            <TextBlock x:Name="CardPendText" Text="" FontSize="10" Foreground="#C2410C" Margin="0,2,0,0"/>
+                        </StackPanel>
+                    </Border>
+                    <Border Padding="12,10" CornerRadius="6" Background="#EFF6FF" BorderBrush="#93C5FD" BorderThickness="1">
+                        <StackPanel>
+                            <TextBlock Text="SALDO DO PERÍODO" FontSize="10" FontWeight="SemiBold" Foreground="#1E40AF"/>
+                            <TextBlock x:Name="CardSaldoText" Text="R$ 0,00" FontSize="16" FontWeight="Bold" Foreground="#1E3A8A" Margin="0,4,0,0"/>
+                            <TextBlock x:Name="CardConfText" Text="" FontSize="10" Foreground="#2563EB" Margin="0,2,0,0"/>
+                        </StackPanel>
+                    </Border>
+                </UniformGrid>
+            </Border>
+
+            <Border Grid.Row="4" Padding="12,10" Background="#F5F3EE" BorderBrush="#E2E8F0" BorderThickness="0,1,0,0">
+                <WrapPanel>
+                    <Button Style="{StaticResource ModuleActionButtonStyle}" Click="NovoLancamento_Click" Margin="0,0,8,0">
+                        <StackPanel><TextBlock Text="➕" HorizontalAlignment="Center"/><TextBlock Text="F2 | Lançar" FontSize="10" FontWeight="SemiBold"/></StackPanel>
+                    </Button>
+                    <Button Style="{StaticResource ModuleActionButtonStyle}" Click="Conferir_Click" Margin="0,0,8,0">
+                        <StackPanel><TextBlock Text="✓" HorizontalAlignment="Center"/><TextBlock Text="F7 | Conferir" FontSize="10" FontWeight="SemiBold"/></StackPanel>
+                    </Button>
+                    <Button Style="{StaticResource ModuleActionButtonStyle}" Click="ConferirTodos_Click" Margin="0,0,8,0">
+                        <StackPanel><TextBlock Text="✓✓" HorizontalAlignment="Center"/><TextBlock Text="F9 | Conferir todos" FontSize="10" FontWeight="SemiBold"/></StackPanel>
+                    </Button>
+                    <Button Style="{StaticResource ModuleActionButtonStyle}" Click="Divergente_Click" Margin="0,0,8,0">
+                        <StackPanel><TextBlock Text="⚠" HorizontalAlignment="Center"/><TextBlock Text="F8 | Divergente" FontSize="10" FontWeight="SemiBold"/></StackPanel>
+                    </Button>
+                    <Button Style="{StaticResource ModuleActionButtonStyle}" Click="Importar_Click" Margin="0,0,8,0">
+                        <StackPanel><TextBlock Text="⬇" HorizontalAlignment="Center"/><TextBlock Text="F5 | Importar vendas" FontSize="10" FontWeight="SemiBold"/></StackPanel>
+                    </Button>
+                    <Button Style="{StaticResource ModuleActionButtonStyle}" Click="ImportarOfx_Click" Margin="0,0,8,0">
+                        <StackPanel><TextBlock Text="📑" HorizontalAlignment="Center"/><TextBlock Text="F6 | Extrato OFX" FontSize="10" FontWeight="SemiBold"/></StackPanel>
+                    </Button>
+                    <Button Style="{StaticResource ModuleActionButtonStyle}" Click="Excluir_Click">
+                        <StackPanel><TextBlock Text="🗑" HorizontalAlignment="Center"/><TextBlock Text="Del | Excluir" FontSize="10" FontWeight="SemiBold"/></StackPanel>
+                    </Button>
+                </WrapPanel>
+            </Border>
+        </Grid>
+    </Border>
+</UserControl>

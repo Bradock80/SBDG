@@ -1,0 +1,101 @@
+<UserControl x:Class="SGDB.Views.MinStockFixModuleView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             Background="#ECE9E4"
+             Focusable="True"
+             PreviewKeyDown="Root_PreviewKeyDown">
+    <Border BorderBrush="#C8C4BC" BorderThickness="1" Background="White">
+        <Grid>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="*"/>
+                <RowDefinition Height="Auto"/>
+            </Grid.RowDefinitions>
+
+            <Border Grid.Row="0" Padding="10,6" Background="#F0F0F0"
+                    BorderBrush="#C8C4BC" BorderThickness="0,0,0,1">
+                <Grid>
+                    <TextBlock Text="Estoque mínimo — corrigir agora" FontWeight="SemiBold" FontSize="13"
+                               Foreground="#1E293B" VerticalAlignment="Center"/>
+                    <Button Style="{StaticResource ModuleTabCloseStyle}" HorizontalAlignment="Right" Click="Close_Click"/>
+                </Grid>
+            </Border>
+
+            <Border Grid.Row="1" Padding="12,10" Background="#FFF7ED"
+                    BorderBrush="#FDBA74" BorderThickness="0,0,0,1">
+                <DockPanel LastChildFill="True">
+                    <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
+                        <Button Content="Atualizar (F5)" Padding="12,6" Margin="0,0,8,0"
+                                Style="{StaticResource SgdbOutlineButtonStyle}" Click="Refresh_Click"/>
+                        <Button Content="Salvar linha (F8)" Padding="12,6" Margin="0,0,8,0"
+                                Style="{StaticResource SgdbOutlineButtonStyle}" Click="SaveSelected_Click"
+                                ToolTip="Salva a linha selecionada"/>
+                        <Button Content="Salvar todos alterados" Padding="12,6"
+                                Style="{StaticResource SgdbPrimaryButtonStyle}" Click="SaveAllChanged_Click"
+                                ToolTip="Aplica estoque e mínimo em todas as linhas que você mudou"/>
+                    </StackPanel>
+                    <StackPanel>
+                        <TextBlock Text="Edite o estoque atual e/ou o mínimo na grade. Depois Salvar na linha ou Salvar todos alterados."
+                                   FontSize="12" Foreground="#9A3412" TextWrapping="Wrap"/>
+                        <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
+                            <TextBlock Text="Buscar" VerticalAlignment="Center" FontSize="12"
+                                       Foreground="#78350F" Margin="0,0,8,0"/>
+                            <TextBox x:Name="SearchBox" Width="260" Height="30" FontSize="13"
+                                     VerticalContentAlignment="Center" Padding="8,0"
+                                     TextChanged="SearchBox_TextChanged"/>
+                            <CheckBox x:Name="OnlyDrinksBox" Content="Só cerveja / refri"
+                                      Margin="16,0,0,0" VerticalAlignment="Center"
+                                      Checked="OnlyDrinksBox_Changed" Unchecked="OnlyDrinksBox_Changed"/>
+                            <TextBlock x:Name="CountText" Margin="16,0,0,0" VerticalAlignment="Center"
+                                       FontSize="12" FontWeight="SemiBold" Foreground="#9A3412"/>
+                        </StackPanel>
+                    </StackPanel>
+                </DockPanel>
+            </Border>
+
+            <DataGrid x:Name="Grid" Grid.Row="2" Margin="10"
+                      AutoGenerateColumns="False"
+                      CanUserAddRows="False" CanUserDeleteRows="False"
+                      HeadersVisibility="Column" GridLinesVisibility="Horizontal"
+                      HorizontalGridLinesBrush="#E2E8F0" BorderBrush="#C8C4BC" BorderThickness="1"
+                      Background="White" RowHeaderWidth="0" RowHeight="34" FontSize="13"
+                      SelectionMode="Single" SelectionUnit="FullRow"
+                      AlternatingRowBackground="#FFFBEB">
+                <DataGrid.ColumnHeaderStyle>
+                    <Style TargetType="DataGridColumnHeader">
+                        <Setter Property="Padding" Value="8,6"/>
+                        <Setter Property="Background" Value="#FFEDD5"/>
+                        <Setter Property="FontWeight" Value="SemiBold"/>
+                    </Style>
+                </DataGrid.ColumnHeaderStyle>
+                <DataGrid.Columns>
+                    <DataGridTextColumn Header="Código" Binding="{Binding Code}" Width="90" IsReadOnly="True"/>
+                    <DataGridTextColumn Header="Produto" Binding="{Binding Name}" Width="*" IsReadOnly="True"/>
+                    <DataGridTextColumn Header="Grupo" Binding="{Binding GroupName}" Width="120" IsReadOnly="True"/>
+                    <DataGridTextColumn Header="Estoque"
+                                        Binding="{Binding StockEdit, UpdateSourceTrigger=PropertyChanged}"
+                                        Width="100"/>
+                    <DataGridTextColumn Header="Mínimo"
+                                        Binding="{Binding MinEdit, UpdateSourceTrigger=PropertyChanged}"
+                                        Width="80"/>
+                    <DataGridTextColumn Header="Sugestão"
+                                        Binding="{Binding SugestaoDisplay}" Width="80" IsReadOnly="True"/>
+                    <DataGridTemplateColumn Header="" Width="90">
+                        <DataGridTemplateColumn.CellTemplate>
+                            <DataTemplate>
+                                <Button Content="Salvar" Padding="8,2" Margin="4,0"
+                                        Click="SaveRow_Click"
+                                        Style="{StaticResource SgdbOutlineButtonStyle}"/>
+                            </DataTemplate>
+                        </DataGridTemplateColumn.CellTemplate>
+                    </DataGridTemplateColumn>
+                </DataGrid.Columns>
+            </DataGrid>
+
+            <Border Grid.Row="3" Padding="12,8" Background="#F8FAFC" BorderBrush="#C8C4BC" BorderThickness="0,1,0,0">
+                <TextBlock x:Name="MetaText" FontSize="12" Foreground="#334155" TextWrapping="Wrap"/>
+            </Border>
+        </Grid>
+    </Border>
+</UserControl>

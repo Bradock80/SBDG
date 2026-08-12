@@ -1,0 +1,256 @@
+<Window x:Class="SGDB.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:views="clr-namespace:SGDB.Views"
+        xmlns:controls="clr-namespace:SGDB.Controls"
+        Title="SGDB — Gestão de Depósito"
+        Height="760" Width="1180"
+        MinHeight="560" MinWidth="900"
+        WindowStartupLocation="CenterScreen"
+        Background="{StaticResource SgdbBgBrush}"
+        FontFamily="Segoe UI, Tahoma">
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
+
+        <!-- Barra superior azul/dourado -->
+        <Border Grid.Row="0" Background="{StaticResource TitleBarGradientBrush}"
+                BorderBrush="{StaticResource SgdbGoldBrush}" BorderThickness="0,0,0,2"
+                Padding="12,6">
+            <Grid>
+                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                    <Border Width="22" Height="22" CornerRadius="11"
+                            BorderBrush="{StaticResource SgdbGoldBrush}" BorderThickness="2"
+                            Background="{StaticResource SgdbBlueMidBrush}" Margin="0,0,4,0">
+                        <TextBlock Text="S" FontWeight="Bold" FontSize="11"
+                                   Foreground="{StaticResource SgdbGoldLightBrush}"
+                                   HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                    </Border>
+                    <TextBlock Text="GDB" FontWeight="ExtraBold" FontSize="15"
+                               Foreground="White" VerticalAlignment="Center"/>
+                    <TextBlock x:Name="DepositoTitleText" Text="Meu Depósito"
+                               Margin="20,0,0,0" FontSize="12" FontWeight="SemiBold"
+                               Foreground="{StaticResource SgdbGoldLightBrush}"
+                               VerticalAlignment="Center"/>
+                </StackPanel>
+
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
+                    <!-- Aviso discreto: só aparece se houver item no mínimo -->
+                    <Button x:Name="StockAlertBtn" Visibility="Collapsed"
+                            Click="StockAlertBtn_Click" Cursor="Hand"
+                            Margin="0,0,8,0" Padding="10,3"
+                            Background="#FEF3C7" BorderBrush="#F59E0B" BorderThickness="1"
+                            ToolTip="Produtos no estoque mínimo — clique para corrigir">
+                        <TextBlock x:Name="StockAlertBtnText" FontSize="11" FontWeight="SemiBold"
+                                   Foreground="#92400E" Text="Estoque mín."/>
+                    </Button>
+                    <Button x:Name="LotExpiryAlertBtn" Visibility="Collapsed"
+                            Click="LotExpiryAlertBtn_Click" Cursor="Hand"
+                            Margin="0,0,12,0" Padding="10,3"
+                            Background="#FEE2E2" BorderBrush="#F87171" BorderThickness="1"
+                            ToolTip="Lotes próximos do vencimento (FEFO)">
+                        <TextBlock x:Name="LotExpiryAlertBtnText" FontSize="11" FontWeight="SemiBold"
+                                   Foreground="#991B1B" Text="Validade"/>
+                    </Button>
+                    <TextBlock x:Name="UserNameText" Foreground="White" FontWeight="SemiBold"
+                               FontSize="11" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                    <TextBlock x:Name="UserRoleText" Foreground="{StaticResource SgdbGoldLightBrush}"
+                               FontSize="11" VerticalAlignment="Center" Margin="0,0,12,0"/>
+                    <Button Content="Sair" Style="{StaticResource TitleBarLogoutButtonStyle}"
+                            Click="Logout_Click"/>
+                </StackPanel>
+            </Grid>
+        </Border>
+
+        <!-- Menu estilo deposito-gestao -->
+        <Menu x:Name="MainMenu" Grid.Row="1" Style="{StaticResource SgdbMenuStyle}"
+              BorderBrush="#73D4A84B" BorderThickness="0,0,0,1">
+            <MenuItem Header="Sistema">
+                <MenuItem Header="Dados da Empresa &amp; Logo" Tag="empresa" Click="MenuModule_Click"/>
+                <MenuItem Header="Usuários &amp; Permissões de Acesso" Tag="usuarios" Click="MenuModule_Click"/>
+                <Separator/>
+                <MenuItem Header="Impressoras &amp; Cupom" Tag="impressoras" Click="MenuModule_Click"/>
+                <MenuItem Header="Periféricos (Leitor, Gaveta e Balança)" Tag="perifericos" Click="MenuModule_Click"/>
+                <Separator/>
+                <MenuItem Header="Log de Operações (Auditoria)" Tag="auditoria" Click="MenuModule_Click"/>
+                <MenuItem Header="Backup &amp; Restauração" Tag="backup" Click="MenuModule_Click"/>
+                <Separator/>
+                <MenuItem Header="Rede Loja (2 PCs)…" Click="MenuRedeLoja_Click"
+                          ToolTip="Servidor no PC da loja + Cliente no notebook"/>
+                <Separator/>
+                <MenuItem Header="Verificar atualizações…" Click="MenuCheckUpdate_Click"
+                          ToolTip="Consulta o GitHub se há versão nova"/>
+            </MenuItem>
+            <MenuItem Header="Administrativo">
+                <MenuItem Header="Pessoas" Tag="clientes" Click="MenuModule_Click"/>
+                <MenuItem Header="Vendedores" Tag="vendedores" Click="MenuModule_Click"/>
+                <MenuItem Header="Forma de Pagamentos" Tag="formas_pagamento" Click="MenuModule_Click"/>
+                <MenuItem Header="Tabela de Preço" Tag="tabela_preco" Click="MenuModule_Click"/>
+                <MenuItem Header="Tipos de vasilhame" Tag="tipos_vasilhame" Click="MenuModule_Click"/>
+            </MenuItem>
+            <MenuItem Header="Estoque">
+                <MenuItem Header="Cadastros">
+                    <MenuItem Header="Produtos" Tag="produtos" Click="MenuModule_Click"/>
+                    <MenuItem Header="Grupos" Tag="estoque_grupos" Click="MenuModule_Click"/>
+                    <MenuItem Header="Unidades" Tag="estoque_unidades" Click="MenuModule_Click"/>
+                    <MenuItem Header="Marcas" Tag="estoque_marcas" Click="MenuModule_Click"/>
+                </MenuItem>
+                <MenuItem Header="Operações">
+                    <MenuItem Header="Importar XML NF-e" Tag="estoque_importar_xml" Click="MenuModule_Click"/>
+                    <MenuItem Header="Inventário / Auditoria" Tag="estoque_inventario" Click="MenuModule_Click"/>
+                    <MenuItem Header="Ajusta Estoque" Tag="ajusta_estoque" Click="MenuModule_Click"/>
+                    <MenuItem Header="Ajusta Saldo de Estoque" Tag="ajusta_saldo" Click="MenuModule_Click"/>
+                    <MenuItem Header="Ajusta Preço" Tag="ajusta_preco" Click="MenuModule_Click"/>
+                    <MenuItem Header="Zera Estoque Negativo" Tag="estoque_zera_negativo" Click="MenuModule_Click"/>
+                </MenuItem>
+                <MenuItem Header="Relatórios">
+                    <MenuItem Header="Curva ABC / Giro" Tag="estoque_curva_abc" Click="MenuModule_Click"/>
+                    <Separator/>
+                    <MenuItem Header="Mais vendidos" Tag="estoque_mais_vendidos" Click="MenuModule_Click"/>
+                    <MenuItem Header="Menos vendidos" Tag="estoque_menos_vendidos" Click="MenuModule_Click"/>
+                    <MenuItem Header="Mais lucrativos" Tag="estoque_mais_lucrativos" Click="MenuModule_Click"/>
+                    <MenuItem Header="Menos lucrativos" Tag="estoque_menos_lucrativos" Click="MenuModule_Click"/>
+                    <Separator/>
+                    <MenuItem Header="Estoque Negativo" Tag="estoque_negativo" Click="MenuModule_Click"/>
+                    <MenuItem Header="Estoque Mínimo" Tag="estoque_minimo" Click="MenuModule_Click"/>
+                    <MenuItem Header="Reposição Geladeira" Tag="estoque_geladeira" Click="MenuModule_Click"/>
+                    <MenuItem Header="Val. próximo 7 dias" Tag="estoque_validade" Click="MenuModule_Click"/>
+                    <MenuItem Header="Validade por lote (30/60/90)" Tag="estoque_validade_lotes" Click="MenuModule_Click"
+                              ToolTip="FEFO — lotes próximos do vencimento para promoção"/>
+                </MenuItem>
+            </MenuItem>
+            <MenuItem Header="Financeiro">
+                <MenuItem Header="Contas a Pagar" Tag="pagar" Click="MenuModule_Click"/>
+                <MenuItem Header="Fiado (contas a receber)" Tag="fiado" Click="MenuModule_Click"/>
+                <MenuItem Header="Caixa" Tag="caixa" Click="MenuModule_Click"/>
+                <MenuItem Header="Conferência de Depósitos" Tag="depositos_caixa" Click="MenuModule_Click"
+                          ToolTip="Valores separados no fechamento do caixa para depositar no banco"/>
+                <MenuItem Header="Contas Bancárias / Conciliação" Tag="contas_bancarias" Click="MenuModule_Click"/>
+                <Separator/>
+                <MenuItem Header="Categorias financeiras" Tag="categorias_financeiras" Click="MenuModule_Click"
+                          ToolTip="Categorias de Contas a Pagar e despesas do caixa"/>
+                <MenuItem Header="Vasilhame" Tag="vasilhame" Click="MenuModule_Click"/>
+            </MenuItem>
+            <MenuItem Header="Movimento">
+                <MenuItem Header="PDV" Tag="pdv" Click="MenuModule_Click"/>
+                <MenuItem Header="Delivery" IsEnabled="False" ToolTip="Em breve"/>
+                <MenuItem Header="Decks" Tag="decks" Click="MenuModule_Click"
+                          ToolTip="Contas abertas — consumo sem pagar ainda (várias pessoas ao mesmo tempo)"/>
+                <MenuItem Header="Pedido de Vendas" IsEnabled="False" ToolTip="Em breve"/>
+                <MenuItem Header="Consultar Movimentação" Tag="consultar_movimentacao" Click="MenuModule_Click"/>
+                <Separator/>
+                <MenuItem Header="Compra" Tag="compras" Click="MenuModule_Click"/>
+                <MenuItem Header="Notas de Fornecedores" Tag="estoque_importar_xml" Click="MenuModule_Click"
+                          ToolTip="Importar NF-e XML de fornecedor"/>
+                <MenuItem Header="Troca / Devolução de Venda" Tag="devolucao_venda" Click="MenuModule_Click"
+                          ToolTip="Devolver itens, trocar por outros e cobrar/devolver só a diferença"/>
+                <MenuItem Header="Devolução de Compra" IsEnabled="False" ToolTip="Em breve"/>
+                <Separator/>
+                <MenuItem Header="Histórico de Orçamentos" IsEnabled="False" ToolTip="Em breve"/>
+            </MenuItem>
+            <MenuItem Header="Relatórios">
+                <MenuItem Header="Consultar Movimentação" Tag="consultar_movimentacao" Click="MenuModule_Click"/>
+                <MenuItem Header="Histórico de Vendas" Tag="movimentacao_vendas" Click="MenuModule_Click"
+                          ToolTip="Abre a consulta filtrada em vendas"/>
+                <MenuItem Header="Histórico de Compras" Tag="movimentacao_compras" Click="MenuModule_Click"
+                          ToolTip="Abre a consulta filtrada em compras"/>
+                <MenuItem Header="Vasilhames Pendentes" Tag="vasilhame" Click="MenuModule_Click"
+                          ToolTip="Cascos / garrafeiras em aberto"/>
+                <Separator/>
+                <MenuItem Header="Relatório de Vendas — Geral" Tag="relatorio_mais_vendidos" Click="MenuModule_Click"/>
+                <MenuItem Header="Relatório de Vendas — Clientes" Tag="relatorio_fiado" Click="MenuModule_Click"/>
+                <MenuItem Header="Relatório de Vendas — Vendedores" Tag="relatorio_vendedores" Click="MenuModule_Click"/>
+                <MenuItem Header="DRE Simplificado" Tag="relatorio_dre" Click="MenuModule_Click"
+                          ToolTip="Demonstrativo do Resultado do Exercício (receita, CMV, despesas e lucro)"/>
+                <MenuItem Header="Entradas e Saídas do Estoque" Tag="relatorio_estoque_io" Click="MenuModule_Click"
+                          ToolTip="Movimentações de estoque: vendas, NF-e, ajustes e perdas"/>
+                <Separator/>
+                <MenuItem Header="Painel de Relatórios" Tag="relatorio" Click="MenuModule_Click"/>
+            </MenuItem>
+            <MenuItem Header="Fiscal">
+                <MenuItem Header="NFC-e" IsEnabled="False" ToolTip="Em breve"/>
+                <MenuItem Header="NF-e" IsEnabled="False" ToolTip="Em breve"/>
+                <MenuItem Header="Inutilização" IsEnabled="False" ToolTip="Em breve"/>
+                <MenuItem Header="Carta de Correção" IsEnabled="False" ToolTip="Em breve"/>
+                <Separator/>
+                <MenuItem Header="Relatório CFOP / CSOSN" IsEnabled="False" ToolTip="Em breve"/>
+                <MenuItem Header="Trib. Monofásica" IsEnabled="False" ToolTip="Em breve"/>
+                <Separator/>
+                <MenuItem Header="SPED Fiscal" IsEnabled="False" ToolTip="Em breve"/>
+                <MenuItem Header="SPED Contribuições" IsEnabled="False" ToolTip="Em breve"/>
+            </MenuItem>
+            <MenuItem Header="Ajuda">
+                <MenuItem Header="Sobre o SGDB" Click="MenuAbout_Click"/>
+            </MenuItem>
+        </Menu>
+
+        <!-- Toolbar de ícones -->
+        <Border Grid.Row="2" Background="White"
+                BorderBrush="{StaticResource SgdbGoldBrush}" BorderThickness="0,0,0,2"
+                Padding="10,8">
+            <WrapPanel x:Name="IconToolbar" VerticalAlignment="Center">
+                <Button Style="{StaticResource IconToolbarButtonStyle}" Tag="clientes"
+                        Click="Toolbar_Click" x:Name="BtnClientes">
+                    <controls:ToolbarIconContent IconKey="clientes" Label="Clientes"/>
+                </Button>
+                <Button Style="{StaticResource IconToolbarButtonStyle}" Tag="produtos"
+                        Click="Toolbar_Click" x:Name="BtnProdutos">
+                    <controls:ToolbarIconContent IconKey="produtos" Label="Produtos"/>
+                </Button>
+                <Button Style="{StaticResource IconToolbarButtonStyle}" Tag="caixa"
+                        Click="Toolbar_Click" x:Name="BtnCaixa">
+                    <controls:ToolbarIconContent IconKey="caixa" Label="Caixa"/>
+                </Button>
+                <Button Style="{StaticResource IconToolbarButtonStyle}" Tag="relatorio"
+                        Click="Toolbar_Click" x:Name="BtnRelatorio">
+                    <controls:ToolbarIconContent IconKey="relatorio" Label="Relatório"/>
+                </Button>
+                <Button Style="{StaticResource IconToolbarButtonStyle}" Tag="pagar"
+                        Click="Toolbar_Click" x:Name="BtnPagar">
+                    <controls:ToolbarIconContent IconKey="pagar" Label="Pagar"/>
+                </Button>
+                <Button Style="{StaticResource IconToolbarButtonStyle}" Tag="fiado"
+                        Click="Toolbar_Click" x:Name="BtnFiado">
+                    <controls:ToolbarIconContent IconKey="fiado" Label="Fiado"/>
+                </Button>
+                <Button Style="{StaticResource IconToolbarButtonStyle}" Tag="vasilhame"
+                        Click="Toolbar_Click" x:Name="BtnVasilhame">
+                    <controls:ToolbarIconContent IconKey="vasilhame" Label="Vasilhame"/>
+                </Button>
+                <Button Style="{StaticResource IconToolbarButtonStyle}" Tag="compras"
+                        Click="Toolbar_Click" x:Name="BtnCompras">
+                    <controls:ToolbarIconContent IconKey="compras" Label="Compras"/>
+                </Button>
+                <Button Style="{StaticResource IconToolbarButtonStyle}" Tag="pdv"
+                        Click="Toolbar_Click" x:Name="BtnPdv">
+                    <controls:ToolbarIconContent IconKey="pdv" Label="PDV"/>
+                </Button>
+                <Button Style="{StaticResource IconToolbarButtonStyle}" Tag="decks"
+                        Click="Toolbar_Click" x:Name="BtnDecks"
+                        ToolTip="Decks — contas abertas">
+                    <controls:ToolbarIconContent IconKey="decks" Label="Decks"/>
+                </Button>
+                <Button Style="{StaticResource IconToolbarButtonStyle}" Tag="inicio"
+                        Click="Toolbar_Click" x:Name="BtnMeuNegocio">
+                    <controls:ToolbarIconContent IconKey="inicio" Label="Meu Negócio"/>
+                </Button>
+                <Button Style="{StaticResource IconToolbarButtonStyle}" Tag="home"
+                        Click="Toolbar_Click" x:Name="BtnFechar"
+                        ToolTip="Fechar módulo e voltar à tela SGDB">
+                    <controls:ToolbarIconContent IconKey="fechar" Label="Fechar"/>
+                </Button>
+            </WrapPanel>
+        </Border>
+
+        <!-- Área principal -->
+        <Border x:Name="MainAreaBorder" Grid.Row="3" Background="{StaticResource SplashBackgroundBrush}">
+            <ContentControl x:Name="MainContent"
+                            VerticalContentAlignment="Stretch"
+                            HorizontalContentAlignment="Stretch"/>
+        </Border>
+    </Grid>
+</Window>

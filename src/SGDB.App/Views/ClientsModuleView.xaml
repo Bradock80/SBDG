@@ -1,0 +1,246 @@
+<UserControl x:Class="SGDB.Views.ClientsModuleView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             Background="{StaticResource SgdbBgBrush}"
+             Focusable="True"
+             PreviewKeyDown="ClientsModuleView_PreviewKeyDown">
+    <Border BorderBrush="#B8C4D4" BorderThickness="1" Background="White">
+        <Grid>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="*"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+            </Grid.RowDefinitions>
+
+            <Border Grid.Row="0" Padding="10,6" Background="{StaticResource TitleBarGradientBrush}"
+                    BorderBrush="{StaticResource SgdbGoldBrush}" BorderThickness="0,0,0,1">
+                <Grid>
+                    <TextBlock Text="Clientes" Foreground="White" FontWeight="SemiBold" FontSize="13"/>
+                    <Button x:Name="CloseTabButton" Style="{StaticResource ModuleTabCloseStyle}"
+                            HorizontalAlignment="Right" Click="CloseTabButton_Click"/>
+                </Grid>
+            </Border>
+
+            <Border Grid.Row="1" Padding="12,10" Background="#FAF8F4"
+                    BorderBrush="#E2E8F0" BorderThickness="0,0,0,1">
+                <StackPanel>
+                    <TextBlock Text="F6 | Localizar Nome/Razão"
+                               FontSize="11" FontWeight="SemiBold" Foreground="#334155" Margin="0,0,0,6"/>
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+                        <TextBox x:Name="SearchBox" Grid.Column="0" Height="30" Padding="8,0"
+                                 FontSize="13" VerticalContentAlignment="Center"
+                                 CharacterCasing="Upper"
+                                 TextChanged="SearchBox_TextChanged"/>
+                        <Button Grid.Column="1" Content="Filtrar" Margin="8,0,0,0"
+                                Style="{StaticResource SgdbPrimaryButtonStyle}" Click="Refresh_Click"/>
+                        <Button Grid.Column="2" Content="Limpar" Margin="6,0,0,0"
+                                Style="{StaticResource SgdbOutlineButtonStyle}" Click="ClearFilter_Click"/>
+                    </Grid>
+                </StackPanel>
+            </Border>
+
+            <StackPanel Grid.Row="2" Orientation="Horizontal" Margin="12,8,12,4">
+                <RadioButton x:Name="TipoClientes" Content="Clientes" GroupName="tipo" Margin="0,0,12,0"
+                             IsChecked="True" Checked="Tipo_Changed"/>
+                <RadioButton x:Name="TipoTodos" Content="Todos" GroupName="tipo"
+                             Checked="Tipo_Changed"/>
+            </StackPanel>
+
+            <DataGrid x:Name="PeopleGrid" Grid.Row="3" Margin="0"
+                      AutoGenerateColumns="False" IsReadOnly="True"
+                      SelectionMode="Single" SelectionUnit="FullRow"
+                      HeadersVisibility="Column" GridLinesVisibility="Horizontal"
+                      HorizontalGridLinesBrush="#E2E8F0"
+                      BorderThickness="0" Background="White"
+                      RowHeaderWidth="0"
+                      RowHeight="28" FontSize="12"
+                      CanUserResizeRows="False"
+                      CanUserAddRows="False"
+                      CanUserDeleteRows="False"
+                      MouseDoubleClick="PeopleGrid_MouseDoubleClick">
+                <DataGrid.Resources>
+                    <SolidColorBrush x:Key="{x:Static SystemColors.HighlightBrushKey}" Color="#2563EB"/>
+                    <SolidColorBrush x:Key="{x:Static SystemColors.HighlightTextBrushKey}" Color="White"/>
+                    <SolidColorBrush x:Key="{x:Static SystemColors.InactiveSelectionHighlightBrushKey}" Color="#2563EB"/>
+                    <SolidColorBrush x:Key="{x:Static SystemColors.InactiveSelectionHighlightTextBrushKey}" Color="White"/>
+                </DataGrid.Resources>
+                <DataGrid.ColumnHeaderStyle>
+                    <Style TargetType="DataGridColumnHeader">
+                        <Setter Property="Background" Value="#F1F5F9"/>
+                        <Setter Property="Foreground" Value="#1E293B"/>
+                        <Setter Property="FontWeight" Value="SemiBold"/>
+                        <Setter Property="FontSize" Value="12"/>
+                        <Setter Property="Padding" Value="10,6"/>
+                        <Setter Property="BorderBrush" Value="#E2E8F0"/>
+                        <Setter Property="BorderThickness" Value="0,0,0,1"/>
+                        <Setter Property="HorizontalContentAlignment" Value="Left"/>
+                    </Style>
+                </DataGrid.ColumnHeaderStyle>
+                <DataGrid.CellStyle>
+                    <Style TargetType="DataGridCell">
+                        <Setter Property="Padding" Value="10,4"/>
+                        <Setter Property="BorderThickness" Value="0"/>
+                        <Setter Property="FocusVisualStyle" Value="{x:Null}"/>
+                        <Setter Property="Template">
+                            <Setter.Value>
+                                <ControlTemplate TargetType="DataGridCell">
+                                    <Border Background="{TemplateBinding Background}"
+                                            Padding="{TemplateBinding Padding}"
+                                            SnapsToDevicePixels="True">
+                                        <ContentPresenter VerticalAlignment="Center"/>
+                                    </Border>
+                                </ControlTemplate>
+                            </Setter.Value>
+                        </Setter>
+                        <Style.Triggers>
+                            <Trigger Property="IsSelected" Value="True">
+                                <Setter Property="Background" Value="#2563EB"/>
+                                <Setter Property="Foreground" Value="White"/>
+                            </Trigger>
+                        </Style.Triggers>
+                    </Style>
+                </DataGrid.CellStyle>
+                <DataGrid.RowStyle>
+                    <Style TargetType="DataGridRow">
+                        <Setter Property="Background" Value="White"/>
+                        <Setter Property="Foreground" Value="#0F172A"/>
+                        <Style.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter Property="Background" Value="#EFF6FF"/>
+                            </Trigger>
+                            <Trigger Property="IsSelected" Value="True">
+                                <Setter Property="Background" Value="#2563EB"/>
+                                <Setter Property="Foreground" Value="White"/>
+                            </Trigger>
+                        </Style.Triggers>
+                    </Style>
+                </DataGrid.RowStyle>
+                <DataGrid.Columns>
+                    <DataGridTextColumn Header="Código" Binding="{Binding Id}" Width="70">
+                        <DataGridTextColumn.ElementStyle>
+                            <Style TargetType="TextBlock">
+                                <Setter Property="HorizontalAlignment" Value="Left"/>
+                                <Setter Property="TextAlignment" Value="Left"/>
+                            </Style>
+                        </DataGridTextColumn.ElementStyle>
+                    </DataGridTextColumn>
+                    <DataGridTextColumn Header="Nome/Razão" Binding="{Binding Name}" Width="*">
+                        <DataGridTextColumn.ElementStyle>
+                            <Style TargetType="TextBlock">
+                                <Setter Property="HorizontalAlignment" Value="Left"/>
+                                <Setter Property="TextAlignment" Value="Left"/>
+                                <Setter Property="TextTrimming" Value="CharacterEllipsis"/>
+                            </Style>
+                        </DataGridTextColumn.ElementStyle>
+                    </DataGridTextColumn>
+                    <DataGridTextColumn Header="Apelido/Fantasia" Binding="{Binding TradeDisplay}" Width="140">
+                        <DataGridTextColumn.ElementStyle>
+                            <Style TargetType="TextBlock">
+                                <Setter Property="HorizontalAlignment" Value="Left"/>
+                                <Setter Property="TextAlignment" Value="Left"/>
+                                <Setter Property="TextTrimming" Value="CharacterEllipsis"/>
+                            </Style>
+                        </DataGridTextColumn.ElementStyle>
+                    </DataGridTextColumn>
+                    <DataGridTextColumn Header="CPF/CNPJ" Binding="{Binding DocDisplay}" Width="130">
+                        <DataGridTextColumn.ElementStyle>
+                            <Style TargetType="TextBlock">
+                                <Setter Property="HorizontalAlignment" Value="Left"/>
+                                <Setter Property="TextAlignment" Value="Left"/>
+                            </Style>
+                        </DataGridTextColumn.ElementStyle>
+                    </DataGridTextColumn>
+                    <DataGridTextColumn Header="RG/IE" Binding="{Binding RgDisplay}" Width="100">
+                        <DataGridTextColumn.ElementStyle>
+                            <Style TargetType="TextBlock">
+                                <Setter Property="HorizontalAlignment" Value="Left"/>
+                                <Setter Property="TextAlignment" Value="Left"/>
+                            </Style>
+                        </DataGridTextColumn.ElementStyle>
+                    </DataGridTextColumn>
+                    <DataGridTextColumn Header="UF" Binding="{Binding StateDisplay}" Width="44">
+                        <DataGridTextColumn.ElementStyle>
+                            <Style TargetType="TextBlock">
+                                <Setter Property="HorizontalAlignment" Value="Center"/>
+                                <Setter Property="TextAlignment" Value="Center"/>
+                            </Style>
+                        </DataGridTextColumn.ElementStyle>
+                        <DataGridTextColumn.HeaderStyle>
+                            <Style TargetType="DataGridColumnHeader">
+                                <Setter Property="Background" Value="#F1F5F9"/>
+                                <Setter Property="Foreground" Value="#1E293B"/>
+                                <Setter Property="FontWeight" Value="SemiBold"/>
+                                <Setter Property="FontSize" Value="12"/>
+                                <Setter Property="Padding" Value="10,6"/>
+                                <Setter Property="BorderBrush" Value="#E2E8F0"/>
+                                <Setter Property="BorderThickness" Value="0,0,0,1"/>
+                                <Setter Property="HorizontalContentAlignment" Value="Center"/>
+                            </Style>
+                        </DataGridTextColumn.HeaderStyle>
+                    </DataGridTextColumn>
+                    <DataGridTextColumn Header="Endereço" Binding="{Binding AddressDisplay}" Width="220">
+                        <DataGridTextColumn.ElementStyle>
+                            <Style TargetType="TextBlock">
+                                <Setter Property="HorizontalAlignment" Value="Left"/>
+                                <Setter Property="TextAlignment" Value="Left"/>
+                                <Setter Property="TextTrimming" Value="CharacterEllipsis"/>
+                            </Style>
+                        </DataGridTextColumn.ElementStyle>
+                    </DataGridTextColumn>
+                </DataGrid.Columns>
+            </DataGrid>
+
+            <StackPanel Grid.Row="4" Orientation="Horizontal" Margin="12,8">
+                <RadioButton x:Name="FilterAtivos" Content="Ativos" GroupName="ativo" Margin="0,0,12,0"
+                             IsChecked="True" Checked="Filter_Changed"/>
+                <RadioButton x:Name="FilterInativos" Content="Inativos" GroupName="ativo" Margin="0,0,12,0"
+                             Checked="Filter_Changed"/>
+                <RadioButton x:Name="FilterTodos" Content="Todos" GroupName="ativo"
+                             Checked="Filter_Changed"/>
+            </StackPanel>
+
+            <Border Grid.Row="5" Background="#F5F3EE" BorderBrush="#E2E8F0" BorderThickness="0,1,0,0" Padding="10,8">
+                <WrapPanel>
+                    <Button x:Name="BtnNovo" Style="{StaticResource ModuleActionButtonStyle}" Click="NewPerson_Click">
+                        <StackPanel>
+                            <TextBlock Text="📄+" Style="{StaticResource ModuleActionIconStyle}"/>
+                            <TextBlock Text="F2 | Novo" Style="{StaticResource ModuleActionLabelStyle}"/>
+                        </StackPanel>
+                    </Button>
+                    <Button x:Name="BtnAlterar" Style="{StaticResource ModuleActionButtonStyle}" Click="EditPerson_Click">
+                        <StackPanel>
+                            <TextBlock Text="✎" Style="{StaticResource ModuleActionIconStyle}"/>
+                            <TextBlock Text="F3 | Alterar" Style="{StaticResource ModuleActionLabelStyle}"/>
+                        </StackPanel>
+                    </Button>
+                    <Button Style="{StaticResource ModuleActionButtonStyle}" Click="Print_Click">
+                        <StackPanel>
+                            <TextBlock Text="🖨" Style="{StaticResource ModuleActionIconStyle}"/>
+                            <TextBlock Text="F4 | Imprimir" Style="{StaticResource ModuleActionLabelStyle}"/>
+                        </StackPanel>
+                    </Button>
+                    <Button Style="{StaticResource ModuleActionButtonStyle}" Click="Refresh_Click">
+                        <StackPanel>
+                            <TextBlock Text="↻" Style="{StaticResource ModuleActionIconStyle}"/>
+                            <TextBlock Text="F5 | Atualizar" Style="{StaticResource ModuleActionLabelStyle}"/>
+                        </StackPanel>
+                    </Button>
+                    <Button x:Name="BtnExcluir" Style="{StaticResource ModuleActionButtonStyle}" Click="DeletePerson_Click">
+                        <StackPanel>
+                            <TextBlock Text="✕" Style="{StaticResource ModuleActionIconStyle}"/>
+                            <TextBlock Text="F7 | Excluir" Style="{StaticResource ModuleActionLabelStyle}"/>
+                        </StackPanel>
+                    </Button>
+                </WrapPanel>
+            </Border>
+        </Grid>
+    </Border>
+</UserControl>

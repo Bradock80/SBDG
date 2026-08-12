@@ -1,0 +1,44 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <UseWPF>true</UseWPF>
+    <AssemblyName>SGDB</AssemblyName>
+    <RootNamespace>SGDB</RootNamespace>
+    <Version>0.3.12</Version>
+    <Company>SGDB</Company>
+    <Product>SGDB — Gestão de Depósito</Product>
+    <Description>Sistema nativo Windows para gestão de depósito</Description>
+    <ApplicationIcon>Assets\app.ico</ApplicationIcon>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\SGDB.Application\SGDB.Application.csproj" />
+    <ProjectReference Include="..\SGDB.Domain\SGDB.Domain.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="BCrypt.Net-Next" Version="4.0.3" />
+    <PackageReference Include="Microsoft.Data.Sqlite" Version="8.0.11" />
+    <PackageReference Include="QRCoder" Version="1.6.0" />
+    <PackageReference Include="System.IO.Ports" Version="8.0.0" />
+    <PackageReference Include="System.Security.Cryptography.ProtectedData" Version="8.0.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Content Include="Assets\Toolbar\*.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <!-- Cópia ao lado do EXE para atalho da área de trabalho -->
+    <Content Include="Assets\app.ico">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <TargetPath>Assets\app.ico</TargetPath>
+    </Content>
+    <!-- Pack URI das janelas WPF -->
+    <Resource Include="Assets\app.ico" />
+  </ItemGroup>
+
+</Project>

@@ -1,0 +1,190 @@
+<UserControl x:Class="SGDB.Views.CompanySettingsModuleView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             Background="#ECE9E4" Focusable="True" PreviewKeyDown="Root_PreviewKeyDown">
+    <Border BorderBrush="#C8C4BC" BorderThickness="1" Background="White">
+        <Grid>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="*"/>
+                <RowDefinition Height="Auto"/>
+            </Grid.RowDefinitions>
+            <Border Padding="10,6" Background="#F0F0F0" BorderBrush="#C8C4BC" BorderThickness="0,0,0,1">
+                <Grid>
+                    <TextBlock Text="Dados da Empresa &amp; Logo" FontWeight="SemiBold" FontSize="13"/>
+                    <Button Style="{StaticResource ModuleTabCloseStyle}" HorizontalAlignment="Right" Click="Close_Click"/>
+                </Grid>
+            </Border>
+            <ScrollViewer Grid.Row="1" Padding="16" VerticalScrollBarVisibility="Auto">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" MinWidth="360"/>
+                        <ColumnDefinition Width="220"/>
+                    </Grid.ColumnDefinitions>
+                    <StackPanel>
+                        <TextBlock Text="Esses dados saem no cabeçalho do cupom de balcão, fiado e vasilhame."
+                                   FontSize="12" Foreground="#64748B" Margin="0,0,0,14" TextWrapping="Wrap"/>
+                        <TextBlock Text="Nome fantasia *" Margin="0,0,0,4" FontSize="12"/>
+                        <TextBox x:Name="FantasiaBox" Height="32" Margin="0,0,0,10"/>
+                        <TextBlock Text="Razão social" Margin="0,0,0,4" FontSize="12"/>
+                        <TextBox x:Name="RazaoBox" Height="32" Margin="0,0,0,10"/>
+                        <Grid Margin="0,0,0,10">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/><ColumnDefinition Width="12"/><ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+                            <StackPanel>
+                                <TextBlock Margin="0,0,0,4" FontSize="12">
+                                    <Run Text="CNPJ"/>
+                                    <Run Text=" — completa 14 dígitos e busca sozinho" FontSize="10" Foreground="#64748B"/>
+                                </TextBlock>
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <TextBox x:Name="CnpjBox" Height="32" MaxLength="18"
+                                             TextChanged="CnpjBox_TextChanged"
+                                             LostFocus="CnpjBox_LostFocus"/>
+                                    <Button x:Name="BtnLookupCnpj" Grid.Column="1" Content="Buscar" Margin="6,0,0,0"
+                                            Padding="10,0" Height="32"
+                                            Style="{StaticResource SgdbOutlineButtonStyle}"
+                                            Click="LookupCnpj_Click"
+                                            ToolTip="Buscar dados pelo CNPJ"/>
+                                </Grid>
+                            </StackPanel>
+                            <StackPanel Grid.Column="2">
+                                <TextBlock Text="IE" Margin="0,0,0,4" FontSize="12"/>
+                                <TextBox x:Name="IeBox" Height="32"/>
+                            </StackPanel>
+                        </Grid>
+                        <Grid Margin="0,0,0,10">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="2*"/><ColumnDefinition Width="12"/><ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+                            <StackPanel>
+                                <TextBlock Text="Endereço" Margin="0,0,0,4" FontSize="12"/>
+                                <TextBox x:Name="EnderecoBox" Height="32"/>
+                            </StackPanel>
+                            <StackPanel Grid.Column="2">
+                                <TextBlock Text="Número" Margin="0,0,0,4" FontSize="12"/>
+                                <TextBox x:Name="NumeroBox" Height="32"/>
+                            </StackPanel>
+                        </Grid>
+                        <Grid Margin="0,0,0,10">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/><ColumnDefinition Width="12"/><ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="12"/><ColumnDefinition Width="70"/>
+                            </Grid.ColumnDefinitions>
+                            <StackPanel>
+                                <TextBlock Text="Bairro" Margin="0,0,0,4" FontSize="12"/>
+                                <TextBox x:Name="BairroBox" Height="32"/>
+                            </StackPanel>
+                            <StackPanel Grid.Column="2">
+                                <TextBlock Text="Cidade" Margin="0,0,0,4" FontSize="12"/>
+                                <TextBox x:Name="CidadeBox" Height="32"/>
+                            </StackPanel>
+                            <StackPanel Grid.Column="4">
+                                <TextBlock Text="UF" Margin="0,0,0,4" FontSize="12"/>
+                                <TextBox x:Name="UfBox" Height="32" MaxLength="2"/>
+                            </StackPanel>
+                        </Grid>
+                        <Grid Margin="0,0,0,10">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/><ColumnDefinition Width="12"/><ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+                            <StackPanel>
+                                <TextBlock Margin="0,0,0,4" FontSize="12">
+                                    <Run Text="CEP"/>
+                                    <Run Text=" — 8 dígitos preenchem o endereço" FontSize="10" Foreground="#64748B"/>
+                                </TextBlock>
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <TextBox x:Name="CepBox" Height="32" MaxLength="9"
+                                             TextChanged="CepBox_TextChanged"
+                                             LostFocus="CepBox_LostFocus"/>
+                                    <Button x:Name="BtnLookupCep" Grid.Column="1" Content="Buscar" Margin="6,0,0,0"
+                                            Padding="10,0" Height="32"
+                                            Style="{StaticResource SgdbOutlineButtonStyle}"
+                                            Click="LookupCep_Click"
+                                            ToolTip="Buscar endereço pelo CEP"/>
+                                </Grid>
+                            </StackPanel>
+                            <StackPanel Grid.Column="2">
+                                <TextBlock Text="Telefone" Margin="0,0,0,4" FontSize="12"/>
+                                <TextBox x:Name="TelBox" Height="32" MaxLength="16"
+                                         TextChanged="TelBox_TextChanged"
+                                         LostFocus="TelBox_LostFocus"
+                                         ToolTip="Ex.: (24) 99999-9999"/>
+                            </StackPanel>
+                        </Grid>
+                        <TextBlock x:Name="LookupStatus" FontSize="11" Foreground="#64748B"
+                                   Margin="0,0,0,10" TextWrapping="Wrap"/>
+                        <TextBlock Text="E-mail" Margin="0,0,0,4" FontSize="12"/>
+                        <TextBox x:Name="EmailBox" Height="32" Margin="0,0,0,10"/>
+                        <TextBlock Text="Chave PIX oficial" Margin="0,0,0,4" FontSize="12"/>
+                        <TextBox x:Name="PixBox" Height="32" Margin="0,0,0,14"/>
+
+                        <Border Padding="12" Background="#F8FAFC" BorderBrush="#CBD5E1" BorderThickness="1" Margin="0,0,0,10">
+                            <StackPanel>
+                                <TextBlock Text="PIX automático (Mercado Pago)" FontWeight="SemiBold" FontSize="13" Margin="0,0,0,6"/>
+                                <TextBlock Text="Cole o Access Token de produção abaixo. No PDV, ao pagar com PIX, aparece o QR e a venda fecha sozinha quando o cliente pagar."
+                                           FontSize="11" Foreground="#64748B" TextWrapping="Wrap" Margin="0,0,0,10"/>
+                                <CheckBox x:Name="MpPixEnabledBox" Content="Ativar QR PIX automático no PDV" Margin="0,0,0,8"/>
+                                <TextBlock Text="Access Token (produção)" Margin="0,0,0,4" FontSize="12"/>
+                                <TextBox x:Name="MpTokenBox" Height="72" Margin="0,0,0,6"
+                                         TextWrapping="Wrap" AcceptsReturn="False"
+                                         VerticalScrollBarVisibility="Auto"
+                                         FontFamily="Consolas" FontSize="12"
+                                         ToolTip="Cole aqui o Access Token (APP_USR-...). Ctrl+V funciona neste campo."/>
+                                <TextBlock x:Name="MpTokenHint" FontSize="12" FontWeight="SemiBold"
+                                           Foreground="#0F766E" TextWrapping="Wrap"
+                                           Text="Token atual: (não configurado)"/>
+                                <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
+                                    <Button Content="Limpar token" Padding="10,4" Click="ClearMpToken_Click"/>
+                                </StackPanel>
+                            </StackPanel>
+                        </Border>
+
+                        <Border Padding="12" Background="#F8FAFC" BorderBrush="#CBD5E1" BorderThickness="1" Margin="0,0,0,10">
+                            <StackPanel>
+                                <TextBlock Text="Busca NF-e pela chave (Meu Danfe)" FontWeight="SemiBold" FontSize="13" Margin="0,0,0,6"/>
+                                <TextBlock Text="Com a Api-Key, em Nova compra basta colar a chave de 44 dígitos e os produtos da nota entram sozinhos (sem abrir o site). Custo típico: R$ 0,03 por consulta nova."
+                                           FontSize="11" Foreground="#64748B" TextWrapping="Wrap" Margin="0,0,0,10"/>
+                                <TextBlock Text="Api-Key" Margin="0,0,0,4" FontSize="12"/>
+                                <TextBox x:Name="MeuDanfeApiKeyBox" Height="36" Margin="0,0,0,6"
+                                         FontFamily="Consolas" FontSize="12"
+                                         ToolTip="web.meudanfe.com.br → login → API / Integração → criar Api-Key"/>
+                                <TextBlock x:Name="MeuDanfeApiHint" FontSize="12" FontWeight="SemiBold"
+                                           Foreground="#0F766E" TextWrapping="Wrap"
+                                           Text="Api-Key atual: (não configurado)"/>
+                                <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
+                                    <Button Content="Limpar Api-Key" Padding="10,4" Click="ClearMeuDanfeKey_Click"/>
+                                </StackPanel>
+                            </StackPanel>
+                        </Border>
+                    </StackPanel>
+                    <Border Grid.Column="1" Margin="20,0,0,0" Padding="12" Background="#F8FAFC"
+                            BorderBrush="#E2E8F0" BorderThickness="1" VerticalAlignment="Top">
+                        <StackPanel>
+                            <TextBlock Text="Logomarca" FontWeight="SemiBold" Margin="0,0,0,8"/>
+                            <Border Height="120" Background="White" BorderBrush="#CBD5E1" BorderThickness="1">
+                                <Image x:Name="LogoPreview" Stretch="Uniform" Margin="8"/>
+                            </Border>
+                            <Button Content="Escolher logo…" Margin="0,10,0,6" Style="{StaticResource SgdbOutlineButtonStyle}" Click="Logo_Click"/>
+                            <Button Content="Remover logo" Style="{StaticResource SgdbOutlineButtonStyle}" Click="ClearLogo_Click"/>
+                            <TextBlock Text="PNG ou JPG recomendado." FontSize="11" Foreground="#94A3B8" Margin="0,8,0,0" TextWrapping="Wrap"/>
+                        </StackPanel>
+                    </Border>
+                </Grid>
+            </ScrollViewer>
+            <Border Grid.Row="2" Padding="12,10" Background="#F5F3EE" BorderBrush="#E2E8F0" BorderThickness="0,1,0,0">
+                <StackPanel Orientation="Horizontal">
+                    <Button Content="Salvar (F9)" Style="{StaticResource SgdbPrimaryButtonStyle}" Padding="16,8" Click="Save_Click"/>
+                </StackPanel>
+            </Border>
+        </Grid>
+    </Border>
+</UserControl>

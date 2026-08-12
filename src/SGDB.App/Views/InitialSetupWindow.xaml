@@ -1,0 +1,102 @@
+<Window x:Class="SGDB.Views.InitialSetupWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Configuração inicial — SGDB"
+        Height="720" Width="560"
+        WindowStartupLocation="CenterScreen"
+        ResizeMode="NoResize"
+        Background="{StaticResource SplashBackgroundBrush}">
+    <ScrollViewer VerticalScrollBarVisibility="Auto">
+        <StackPanel Margin="28,24" MaxWidth="480" HorizontalAlignment="Center">
+            <TextBlock Text="Configuração inicial" Foreground="#FFE9B8"
+                       FontSize="22" FontWeight="SemiBold" HorizontalAlignment="Center"/>
+            <TextBlock Text="Cadastre a empresa e o administrador principal. Depois você cria os demais usuários dentro do sistema."
+                       Foreground="#D1D9E4" FontSize="12" TextWrapping="Wrap"
+                       TextAlignment="Center" Margin="0,8,0,20"/>
+
+            <Border Background="#A60F2744" BorderBrush="#4DD4A84B" BorderThickness="1"
+                    CornerRadius="10" Padding="22">
+                <StackPanel>
+                    <TextBlock x:Name="ErrorText" Foreground="#FECACA" Visibility="Collapsed"
+                               TextWrapping="Wrap" Background="#40B91C1C" Padding="10,8" Margin="0,0,0,12"/>
+
+                    <TextBlock Text="Empresa" Foreground="#FFE9B8" FontWeight="SemiBold" FontSize="13" Margin="0,0,0,10"/>
+
+                    <TextBlock Text="Nome fantasia *" Foreground="#F3F6FA" FontSize="12" Margin="0,0,0,4"/>
+                    <TextBox x:Name="FantasiaBox" Height="36" Padding="10,0" FontSize="13"
+                             VerticalContentAlignment="Center" Margin="0,0,0,10"/>
+
+                    <TextBlock Text="Razão social" Foreground="#F3F6FA" FontSize="12" Margin="0,0,0,4"/>
+                    <TextBox x:Name="RazaoBox" Height="36" Padding="10,0" FontSize="13"
+                             VerticalContentAlignment="Center" Margin="0,0,0,10"/>
+
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="12"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        <StackPanel>
+                            <TextBlock Text="CNPJ" Foreground="#F3F6FA" FontSize="12" Margin="0,0,0,4"/>
+                            <TextBox x:Name="CnpjBox" Height="36" Padding="10,0" FontSize="13"
+                                     VerticalContentAlignment="Center"/>
+                        </StackPanel>
+                        <StackPanel Grid.Column="2">
+                            <TextBlock Text="Telefone" Foreground="#F3F6FA" FontSize="12" Margin="0,0,0,4"/>
+                            <TextBox x:Name="TelefoneBox" Height="36" Padding="10,0" FontSize="13"
+                                     VerticalContentAlignment="Center"/>
+                        </StackPanel>
+                    </Grid>
+
+                    <TextBlock Text="Cidade / UF" Foreground="#F3F6FA" FontSize="12" Margin="0,10,0,4"/>
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="2*"/>
+                            <ColumnDefinition Width="12"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        <TextBox x:Name="CidadeBox" Height="36" Padding="10,0" FontSize="13"
+                                 VerticalContentAlignment="Center"/>
+                        <TextBox x:Name="UfBox" Grid.Column="2" Height="36" Padding="10,0" FontSize="13"
+                                 MaxLength="2" VerticalContentAlignment="Center"/>
+                    </Grid>
+
+                    <Separator Margin="0,18" Background="#33D4A84B"/>
+
+                    <TextBlock Text="Administrador" Foreground="#FFE9B8" FontWeight="SemiBold" FontSize="13" Margin="0,0,0,10"/>
+
+                    <TextBlock Text="Nome completo *" Foreground="#F3F6FA" FontSize="12" Margin="0,0,0,4"/>
+                    <TextBox x:Name="AdminNomeBox" Height="36" Padding="10,0" FontSize="13"
+                             VerticalContentAlignment="Center" Margin="0,0,0,10"/>
+
+                    <TextBlock Text="Login *" Foreground="#F3F6FA" FontSize="12" Margin="0,0,0,4"/>
+                    <TextBox x:Name="AdminLoginBox" Height="36" Padding="10,0" FontSize="13"
+                             VerticalContentAlignment="Center" Margin="0,0,0,10"/>
+
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="12"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        <StackPanel>
+                            <TextBlock Text="Senha *" Foreground="#F3F6FA" FontSize="12" Margin="0,0,0,4"/>
+                            <PasswordBox x:Name="SenhaBox" Height="36" Padding="10,0" FontSize="13"
+                                         VerticalContentAlignment="Center"/>
+                        </StackPanel>
+                        <StackPanel Grid.Column="2">
+                            <TextBlock Text="Confirmar senha *" Foreground="#F3F6FA" FontSize="12" Margin="0,0,0,4"/>
+                            <PasswordBox x:Name="Senha2Box" Height="36" Padding="10,0" FontSize="13"
+                                         VerticalContentAlignment="Center"/>
+                        </StackPanel>
+                    </Grid>
+
+                    <Button Content="Concluir e entrar" Height="44" Margin="0,20,0,0"
+                            Background="#D4A84B" Foreground="#0F2744" FontWeight="SemiBold"
+                            FontSize="14" BorderThickness="0" Cursor="Hand"
+                            Click="Finish_Click"/>
+                </StackPanel>
+            </Border>
+        </StackPanel>
+    </ScrollViewer>
+</Window>

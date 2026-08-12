@@ -1,0 +1,570 @@
+<Window x:Class="SGDB.Views.ProductFormWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:controls="clr-namespace:SGDB.Controls"
+        Title="Cadastro de Produtos"
+        Width="900" Height="700" MinWidth="780" MinHeight="520"
+        WindowStartupLocation="CenterOwner"
+        ResizeMode="CanResizeWithGrip"
+        Background="{StaticResource SgdbBgBrush}"
+        FontFamily="Tahoma, Segoe UI"
+        PreviewKeyDown="Window_PreviewKeyDown"
+        Loaded="Window_Loaded">
+    <Window.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceDictionary Source="/Themes/SgdbTheme.xaml"/>
+                <ResourceDictionary Source="/Themes/ProductFormTheme.xaml"/>
+            </ResourceDictionary.MergedDictionaries>
+            <Style x:Key="FormFieldRow" TargetType="Grid">
+                <Setter Property="Margin" Value="0,0,0,4"/>
+            </Style>
+            <Style x:Key="FormColLabel" TargetType="TextBlock" BasedOn="{StaticResource WpdvLabel}">
+                <Setter Property="MinWidth" Value="100"/>
+                <Setter Property="Width" Value="100"/>
+                <Setter Property="TextAlignment" Value="Right"/>
+                <Setter Property="TextTrimming" Value="None"/>
+                <Setter Property="Margin" Value="0,0,8,0"/>
+            </Style>
+        </ResourceDictionary>
+    </Window.Resources>
+
+    <Border Style="{StaticResource WpdvWindowBorder}">
+        <Grid>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="*" MinHeight="200"/>
+                <RowDefinition Height="Auto"/>
+            </Grid.RowDefinitions>
+
+            <Border Grid.Row="0" Style="{StaticResource WpdvTitleBar}">
+                <Grid>
+                    <TextBlock x:Name="TitleText" Text="Cadastro de Produtos" Style="{StaticResource WpdvTitleText}"
+                               Margin="0,0,28,0" TextTrimming="CharacterEllipsis"/>
+                    <Button Style="{StaticResource WpdvCloseButton}" HorizontalAlignment="Right"
+                            Click="Cancel_Click" ToolTip="Fechar"/>
+                </Grid>
+            </Border>
+
+            <Border Grid.Row="1" Style="{StaticResource WpdvTabBar}">
+                <StackPanel Orientation="Horizontal">
+                    <ToggleButton x:Name="TabDados" Content="Básicos" Style="{StaticResource WpdvTabButton}"
+                                  IsChecked="True" Click="Tab_Click" Tag="dados"/>
+                    <ToggleButton x:Name="TabComposicao" Content="Kit / Combo" Style="{StaticResource WpdvTabButton}"
+                                  Click="Tab_Click" Tag="composicao"
+                                  ToolTip="Monte kits: energético + bebida quente + vodka, cerveja + gelo, etc."/>
+                    <ToggleButton x:Name="TabPromocao" Content="Promoção" Style="{StaticResource WpdvTabButton}"
+                                  Click="Tab_Click" Tag="promocao"/>
+                    <ToggleButton x:Name="TabImagem" Content="Imagem" Style="{StaticResource WpdvTabButton}"
+                                  Click="Tab_Click" Tag="imagem"/>
+                </StackPanel>
+            </Border>
+
+            <Border Grid.Row="2" Style="{StaticResource WpdvBody}">
+                <ScrollViewer x:Name="BodyScroll"
+                              VerticalScrollBarVisibility="Auto"
+                              HorizontalScrollBarVisibility="Disabled"
+                              CanContentScroll="False"
+                              PanningMode="VerticalOnly"
+                              Padding="0"
+                              Focusable="False">
+                    <Grid Margin="4,2,8,8" MinWidth="740">
+                        <Grid x:Name="PanelDados" Grid.IsSharedSizeScope="True">
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                            </Grid.RowDefinitions>
+
+                            <Grid Grid.Row="0" Margin="0,0,0,8">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="128"/>
+                                </Grid.ColumnDefinitions>
+
+                                <StackPanel Grid.Column="0" Margin="0,0,10,0">
+                                    <Grid Style="{StaticResource FormFieldRow}">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="Auto" SharedSizeGroup="LblMain"/>
+                                            <ColumnDefinition Width="90"/>
+                                            <ColumnDefinition Width="Auto" SharedSizeGroup="LblMain"/>
+                                            <ColumnDefinition Width="*" MinWidth="100"/>
+                                            <ColumnDefinition Width="Auto" SharedSizeGroup="LblMain"/>
+                                            <ColumnDefinition Width="*" MinWidth="120"/>
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Text="Código" Style="{StaticResource FormColLabel}"/>
+                                        <TextBox x:Name="IdBox" Grid.Column="1" Style="{StaticResource WpdvReadOnly}"/>
+                                        <TextBlock Grid.Column="2" Text="Data Cadastro" Style="{StaticResource FormColLabel}"/>
+                                        <TextBox x:Name="CreatedBox" Grid.Column="3" Style="{StaticResource WpdvReadOnly}" Margin="0,0,8,0"/>
+                                        <TextBlock Grid.Column="4" Text="Última entrada" Style="{StaticResource FormColLabel}"/>
+                                        <TextBox x:Name="LastEntryBox" Grid.Column="5" Style="{StaticResource WpdvReadOnly}"
+                                                 ToolTip="Quantidade e data da última compra (entrada) deste produto"/>
+                                    </Grid>
+
+                                    <Grid Style="{StaticResource FormFieldRow}">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="Auto" SharedSizeGroup="LblMain"/>
+                                            <ColumnDefinition Width="*"/>
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Text="Descrição" Style="{StaticResource FormColLabel}"/>
+                                        <TextBox x:Name="NameBox" Grid.Column="1" Style="{StaticResource WpdvInput}"
+                                                 MaxLength="160" CharacterCasing="Upper"
+                                                 LostFocus="NameBox_LostFocus"/>
+                                    </Grid>
+
+                                    <Grid Style="{StaticResource FormFieldRow}">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="Auto" SharedSizeGroup="LblMain"/>
+                                            <ColumnDefinition Width="*" MinWidth="120"/>
+                                            <ColumnDefinition Width="Auto" SharedSizeGroup="LblMain"/>
+                                            <ColumnDefinition Width="100"/>
+                                            <ColumnDefinition Width="Auto" SharedSizeGroup="LblMain"/>
+                                            <ColumnDefinition Width="120"/>
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Text="Código de Barras" Style="{StaticResource FormColLabel}"
+                                                   ToolTip="GTIN da unidade (avulso). Não use o código da caixa/display aqui."/>
+                                        <Grid Grid.Column="1" Margin="0,0,8,0">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="Auto"/>
+                                            </Grid.ColumnDefinitions>
+                                            <TextBox x:Name="BarcodeBox" Style="{StaticResource WpdvInput}" MaxLength="14"/>
+                                            <Button Grid.Column="1" Style="{StaticResource WpdvGearButton}"
+                                                    Click="GearBarcode_Click" ToolTip="Usar referência como barras"/>
+                                        </Grid>
+                                        <TextBlock Grid.Column="2" Text="Cód. Balança" Style="{StaticResource FormColLabel}"/>
+                                        <TextBox x:Name="BalancaBox" Grid.Column="3" Style="{StaticResource WpdvInput}" MaxLength="20" Margin="0,0,8,0"/>
+                                        <TextBlock Grid.Column="4" Text="Referência" Style="{StaticResource FormColLabel}"/>
+                                        <TextBox x:Name="CodeBox" Grid.Column="5" Style="{StaticResource WpdvInput}" MaxLength="40"
+                                                 CharacterCasing="Upper"/>
+                                    </Grid>
+
+                                    <Grid Style="{StaticResource FormFieldRow}">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="Auto" SharedSizeGroup="LblMain"/>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto" SharedSizeGroup="LblMain"/>
+                                            <ColumnDefinition Width="90"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Text="Tipo" Style="{StaticResource FormColLabel}"/>
+                                        <ComboBox x:Name="TipoBox" Grid.Column="1" Style="{StaticResource WpdvCombo}" Margin="0,0,8,0"/>
+                                        <TextBlock Grid.Column="2" Text="F2 | Unidade" Style="{StaticResource FormColLabel}"/>
+                                        <ComboBox x:Name="UnitBox" Grid.Column="3" Style="{StaticResource WpdvCombo}" IsEditable="True"/>
+                                        <Button Grid.Column="4" Style="{StaticResource WpdvPlusButton}" Click="OpenUnit_Click"
+                                                ToolTip="Cadastrar unidade"/>
+                                    </Grid>
+
+                                    <Grid Style="{StaticResource FormFieldRow}">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="Auto" SharedSizeGroup="LblMain"/>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Text="F2 | Marca" Style="{StaticResource FormColLabel}"/>
+                                        <ComboBox x:Name="BrandBox" Grid.Column="1" Style="{StaticResource WpdvCombo}" IsEditable="True"/>
+                                        <Button Grid.Column="2" Style="{StaticResource WpdvPlusButton}" Click="OpenBrand_Click"/>
+                                    </Grid>
+
+                                    <Grid Style="{StaticResource FormFieldRow}">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="Auto" SharedSizeGroup="LblMain"/>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Text="F2 | Grupo" Style="{StaticResource FormColLabel}"/>
+                                        <ComboBox x:Name="GroupBox" Grid.Column="1" Style="{StaticResource WpdvCombo}" IsEditable="True"/>
+                                        <Button Grid.Column="2" Style="{StaticResource WpdvPlusButton}" Click="OpenGroup_Click"/>
+                                    </Grid>
+
+                                    <Grid Style="{StaticResource FormFieldRow}">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="Auto" SharedSizeGroup="LblMain"/>
+                                            <ColumnDefinition Width="*"/>
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Text="Localização" Style="{StaticResource FormColLabel}"/>
+                                        <TextBox x:Name="LocationBox" Grid.Column="1" Style="{StaticResource WpdvInput}"
+                                                 MaxLength="80" CharacterCasing="Upper"/>
+                                    </Grid>
+
+                                    <Grid Style="{StaticResource FormFieldRow}">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="Auto" SharedSizeGroup="LblMain"/>
+                                            <ColumnDefinition Width="*"/>
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Text="Tabela de preço" Style="{StaticResource FormColLabel}"/>
+                                        <ComboBox x:Name="PriceTableBox" Grid.Column="1" Style="{StaticResource WpdvCombo}"
+                                                  DisplayMemberPath="DisplayName"/>
+                                    </Grid>
+
+                                    <Grid Style="{StaticResource FormFieldRow}">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="Auto" SharedSizeGroup="LblMain"/>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto" SharedSizeGroup="LblMain"/>
+                                            <ColumnDefinition Width="80"/>
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Text="Vasilhame" Style="{StaticResource FormColLabel}"/>
+                                        <ComboBox x:Name="VasilhameTipoBox" Grid.Column="1" Style="{StaticResource WpdvCombo}"
+                                                  DisplayMemberPath="DisplayName" Margin="0,0,8,0"/>
+                                        <TextBlock Grid.Column="2" Text="Qtd" Style="{StaticResource FormColLabel}"/>
+                                        <TextBox x:Name="VasilhameQtyBox" Grid.Column="3" Style="{StaticResource WpdvInput}"/>
+                                    </Grid>
+
+                                    <Grid Style="{StaticResource FormFieldRow}">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="Auto" SharedSizeGroup="LblMain"/>
+                                            <ColumnDefinition Width="*"/>
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Text="Inf. Complementar" Style="{StaticResource FormColLabel}"/>
+                                        <TextBox x:Name="InfoBox" Grid.Column="1" Style="{StaticResource WpdvInput}"
+                                                 MaxLength="200" CharacterCasing="Upper"/>
+                                    </Grid>
+                                </StackPanel>
+
+                                <Border Grid.Column="1" Style="{StaticResource WpdvParamsBox}" VerticalAlignment="Top">
+                                    <StackPanel>
+                                        <Border BorderBrush="#A0A0A0" BorderThickness="0,0,0,1" Margin="0,0,0,4" Padding="0,0,0,2">
+                                            <TextBlock Text="Parâmetros" FontWeight="SemiBold" FontSize="11"/>
+                                        </Border>
+                                        <CheckBox x:Name="ActiveBox" Content="Ativo" IsChecked="True" FontSize="11" Margin="0,2"/>
+                                        <CheckBox x:Name="PermiteVendaBox" Content="Permite Venda" IsChecked="True" FontSize="11" Margin="0,2"/>
+                                        <CheckBox x:Name="ComposicaoBox" Content="É Kit / Combo" FontSize="11" Margin="0,2"
+                                                  ToolTip="Se marcado, na venda o PDV baixa o estoque de cada componente (não do kit)."/>
+                                        <CheckBox x:Name="FabricadoBox" Content="Fabricado" FontSize="11" Margin="0,2"/>
+                                        <CheckBox x:Name="PesavelBox" Content="Pesável" FontSize="11" Margin="0,2"/>
+                                    </StackPanel>
+                                </Border>
+                            </Grid>
+
+                            <Border Grid.Row="1" BorderBrush="#808080" BorderThickness="1" Background="#F0F0EA" Padding="8,6">
+                                <Grid Grid.IsSharedSizeScope="True">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" MinWidth="220"/>
+                                        <ColumnDefinition Width="*" MinWidth="220"/>
+                                        <ColumnDefinition Width="*" MinWidth="200"/>
+                                    </Grid.ColumnDefinitions>
+
+                                    <StackPanel Grid.Column="0" Margin="0,0,10,0">
+                                        <TextBlock Text="Preços" FontWeight="SemiBold" FontSize="11" Margin="0,0,0,6" Foreground="#1E3A5F"/>
+                                        <Grid Style="{StaticResource FormFieldRow}">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="Auto" SharedSizeGroup="LblCol"/>
+                                                <ColumnDefinition Width="*"/>
+                                            </Grid.ColumnDefinitions>
+                                            <TextBlock Text="Preço Compra" Style="{StaticResource FormColLabel}"
+                                                       ToolTip="Valor unitário da última nota/compra (referência). Não é a média do estoque."/>
+                                            <TextBox x:Name="PrecoCompraBox" Grid.Column="1" Style="{StaticResource WpdvInput}" LostFocus="PrecoCompraBox_LostFocus"
+                                                     ToolTip="Último preço pago na NF por 1 unidade (cerveja = latão; cigarro = maço)."/>
+                                        </Grid>
+                                        <Grid Style="{StaticResource FormFieldRow}">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="Auto" SharedSizeGroup="LblCol"/>
+                                                <ColumnDefinition Width="*"/>
+                                            </Grid.ColumnDefinitions>
+                                            <TextBlock Text="Custos %" Style="{StaticResource FormColLabel}"
+                                                       ToolTip="Acréscimo sobre a compra (frete, imposto extra, etc.). Ex.: 10 = +10%."/>
+                                            <TextBox x:Name="CustosBox" Grid.Column="1" Style="{StaticResource WpdvInput}" LostFocus="CustosBox_LostFocus"
+                                                     ToolTip="Com 0,00 o Preço Custo fica igual ao Preço Compra (se você recalcular por aqui)."/>
+                                        </Grid>
+                                        <Grid Style="{StaticResource FormFieldRow}">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="Auto" SharedSizeGroup="LblCol"/>
+                                                <ColumnDefinition Width="*"/>
+                                            </Grid.ColumnDefinitions>
+                                            <TextBlock Text="Preço Custo" Style="{StaticResource FormColLabel}"
+                                                       ToolTip="Custo médio do que tem em estoque. Usado no lucro e no CMV."/>
+                                            <TextBox x:Name="CostBox" Grid.Column="1" Style="{StaticResource WpdvInput}" LostFocus="CostBox_LostFocus"
+                                                     ToolTip="Pode ser diferente do Preço Compra: é a média das compras (e brindes a R$ 0)."/>
+                                        </Grid>
+                                        <Grid Style="{StaticResource FormFieldRow}">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="Auto" SharedSizeGroup="LblCol"/>
+                                                <ColumnDefinition Width="*"/>
+                                            </Grid.ColumnDefinitions>
+                                            <TextBlock Text="Lucro %" Style="{StaticResource FormColLabel}"
+                                                       ToolTip="Margem sobre a venda: (Venda − Custo) ÷ Venda."/>
+                                            <TextBox x:Name="LucroBox" Grid.Column="1" Style="{StaticResource WpdvInput}" LostFocus="LucroBox_LostFocus"/>
+                                        </Grid>
+                                        <Grid Style="{StaticResource FormFieldRow}">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="Auto" SharedSizeGroup="LblCol"/>
+                                                <ColumnDefinition Width="*"/>
+                                            </Grid.ColumnDefinitions>
+                                            <TextBlock Text="Preço Venda" Style="{StaticResource FormColLabel}"
+                                                       ToolTip="Preço no balcão (PDV) de 1 unidade."/>
+                                            <TextBox x:Name="SaleBox" Grid.Column="1" Style="{StaticResource WpdvInput}" LostFocus="SaleBox_LostFocus"
+                                                     ToolTip="Ex.: R$ 5,50 no PDV. Independente do Preço Compra."/>
+                                        </Grid>
+                                    </StackPanel>
+
+                                    <StackPanel Grid.Column="1" Margin="0,0,10,0">
+                                        <TextBlock Text="Estoque e embalagem" FontWeight="SemiBold" FontSize="11" Margin="0,0,0,6" Foreground="#1E3A5F"/>
+                                        <Grid Style="{StaticResource FormFieldRow}">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="Auto" SharedSizeGroup="LblCol"/>
+                                                <ColumnDefinition Width="*"/>
+                                            </Grid.ColumnDefinitions>
+                                            <TextBlock Text="Qtd. Atacado" Style="{StaticResource FormColLabel}"
+                                                       ToolTip="A partir desta quantidade no PDV aplica o preço de atacado. Ex.: 3"/>
+                                            <TextBox x:Name="QtdAtacadoBox" Grid.Column="1" Style="{StaticResource WpdvInput}"
+                                                     LostFocus="QtdAtacadoBox_LostFocus"
+                                                     ToolTip="Ex.: 3 = a partir de 3 unidades usa o Preço Atacado"/>
+                                        </Grid>
+                                        <Grid Style="{StaticResource FormFieldRow}">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="Auto" SharedSizeGroup="LblCol"/>
+                                                <ColumnDefinition Width="*"/>
+                                            </Grid.ColumnDefinitions>
+                                            <TextBlock Text="Preço Atacado" Style="{StaticResource FormColLabel}"
+                                                       ToolTip="Preço do maço na venda (ex.: R$ 14,50). Lucro compara custo 13,35 × este valor."/>
+                                            <TextBox x:Name="PrecoAtacadoBox" Grid.Column="1" Style="{StaticResource WpdvInput}"
+                                                     LostFocus="PrecoAtacadoBox_LostFocus"
+                                                     ToolTip="Maço R$ 14,50 — Preço Venda continua o avulso (0,67)"/>
+                                        </Grid>
+                                        <Grid Style="{StaticResource FormFieldRow}">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="Auto" SharedSizeGroup="LblCol"/>
+                                                <ColumnDefinition Width="*"/>
+                                            </Grid.ColumnDefinitions>
+                                            <TextBlock Text="Estoque Mínimo" Style="{StaticResource FormColLabel}"/>
+                                            <TextBox x:Name="MinStockBox" Grid.Column="1" Style="{StaticResource WpdvInput}"/>
+                                        </Grid>
+                                        <Grid Style="{StaticResource FormFieldRow}">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="Auto" SharedSizeGroup="LblCol"/>
+                                                <ColumnDefinition Width="*"/>
+                                            </Grid.ColumnDefinitions>
+                                            <TextBlock x:Name="StockLabel" Text="Estoque Atual" Style="{StaticResource FormColLabel}"/>
+                                            <TextBox x:Name="StockBox" Grid.Column="1" Style="{StaticResource WpdvInput}"
+                                                     ToolTip="Depósito/câmara. Sem geladeira = estoque total. Com geladeira = só o que está fora dela."
+                                                     LostFocus="FridgeFields_Changed"/>
+                                        </Grid>
+                                        <Grid x:Name="FridgePanel" Style="{StaticResource FormFieldRow}" Visibility="Collapsed">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="Auto" SharedSizeGroup="LblCol"/>
+                                                <ColumnDefinition Width="*"/>
+                                            </Grid.ColumnDefinitions>
+                                            <TextBlock Text="Qtd Geladeira" Style="{StaticResource FormColLabel}"
+                                                       ToolTip="Quanto está gelando / à venda no frio."/>
+                                            <TextBox x:Name="StockFridgeBox" Grid.Column="1" Style="{StaticResource WpdvInput}"
+                                                     LostFocus="FridgeFields_Changed"/>
+                                        </Grid>
+                                        <Grid Style="{StaticResource FormFieldRow}">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="Auto" SharedSizeGroup="LblCol"/>
+                                                <ColumnDefinition Width="*"/>
+                                            </Grid.ColumnDefinitions>
+                                            <TextBlock Text="Mín. Geladeira" Style="{StaticResource FormColLabel}"
+                                                       ToolTip="0 = não usa geladeira (opcional). &gt;0 ativa reposição e baixa no PDV pela geladeira primeiro."/>
+                                            <TextBox x:Name="StockFridgeMinBox" Grid.Column="1" Style="{StaticResource WpdvInput}"
+                                                     Text="0" LostFocus="FridgeFields_Changed"
+                                                     ToolTip="Ex.: 12. Deixe 0 se este produto não usa o controle de geladeira."/>
+                                        </Grid>
+                                        <Grid x:Name="TotalStockPanel" Style="{StaticResource FormFieldRow}" Visibility="Collapsed">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="Auto" SharedSizeGroup="LblCol"/>
+                                                <ColumnDefinition Width="*"/>
+                                            </Grid.ColumnDefinitions>
+                                            <TextBlock Text="Total (soma)" Style="{StaticResource FormColLabel}"
+                                                       ToolTip="Depósito + geladeira (somente leitura)."/>
+                                            <TextBox x:Name="TotalStockBox" Grid.Column="1" Style="{StaticResource WpdvInput}"
+                                                     IsReadOnly="True" Background="#E8E8E0"/>
+                                        </Grid>
+                                        <Button x:Name="TransferFridgeBtn" Content="Transferir p/ Geladeira"
+                                                Margin="108,2,0,6" Padding="8,4" FontSize="11"
+                                                HorizontalAlignment="Left"
+                                                Visibility="Collapsed" Click="TransferFridge_Click"
+                                                ToolTip="Move do depósito para a geladeira (não altera o total)."/>
+                                        <Grid Style="{StaticResource FormFieldRow}">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="Auto" SharedSizeGroup="LblCol"/>
+                                                <ColumnDefinition Width="*"/>
+                                            </Grid.ColumnDefinitions>
+                                            <TextBlock Text="Itens/fardo" Style="{StaticResource FormColLabel}"
+                                                       ToolTip="Quantas unidades (latas) vêm em 1 CX/fardo. Ex.: 12"/>
+                                            <TextBox x:Name="FatorEmbalagemBox" Grid.Column="1" Style="{StaticResource WpdvInput}"
+                                                     LostFocus="FatorEmbalagemBox_LostFocus"
+                                                     ToolTip="Ex.: cigarro = 20. Compra maço R$ 13,35 → custo 0,67; estoque +20"/>
+                                        </Grid>
+                                        <Grid Style="{StaticResource FormFieldRow}">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="Auto" SharedSizeGroup="LblCol"/>
+                                                <ColumnDefinition Width="*"/>
+                                            </Grid.ColumnDefinitions>
+                                            <TextBlock Text="Barras fardo" Style="{StaticResource FormColLabel}"
+                                                       ToolTip="Só preencha se for DIFERENTE do código da unidade (caixa/display/maço)"/>
+                                            <TextBox x:Name="PackBarcodeBox" Grid.Column="1" Style="{StaticResource WpdvInput}"
+                                                     ToolTip="Deixe vazio se for o mesmo código da unidade"/>
+                                        </Grid>
+                                        <Grid Style="{StaticResource FormFieldRow}">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="Auto" SharedSizeGroup="LblCol"/>
+                                                <ColumnDefinition Width="*"/>
+                                            </Grid.ColumnDefinitions>
+                                            <TextBlock Text="Data Validade" Style="{StaticResource FormColLabel}"/>
+                                            <controls:BrDateBox x:Name="DataValidadeBox" Grid.Column="1"/>
+                                        </Grid>
+                                        <CheckBox x:Name="ControleValidadeBox" Content="Controle de validade (lote / FEFO)"
+                                                  FontSize="11" Margin="0,6,0,0"
+                                                  ToolTip="Quando marcado, a entrada via XML exige Data de Validade (impressa na caixa/fardo)."/>
+                                    </StackPanel>
+
+                                    <StackPanel Grid.Column="2">
+                                        <TextBlock Text="Extras" FontWeight="SemiBold" FontSize="11" Margin="0,0,0,6" Foreground="#1E3A5F"/>
+                                        <Grid Style="{StaticResource FormFieldRow}">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="Auto" SharedSizeGroup="LblCol"/>
+                                                <ColumnDefinition Width="*"/>
+                                            </Grid.ColumnDefinitions>
+                                            <TextBlock Text="Desconto (%)" Style="{StaticResource FormColLabel}"/>
+                                            <TextBox x:Name="DescontoBox" Grid.Column="1" Style="{StaticResource WpdvInput}"/>
+                                        </Grid>
+                                        <Grid Style="{StaticResource FormFieldRow}">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="Auto" SharedSizeGroup="LblCol"/>
+                                                <ColumnDefinition Width="*"/>
+                                            </Grid.ColumnDefinitions>
+                                            <TextBlock Text="Peso Bruto (kg)" Style="{StaticResource FormColLabel}"/>
+                                            <TextBox x:Name="PesoBrutoBox" Grid.Column="1" Style="{StaticResource WpdvInput}"/>
+                                        </Grid>
+                                        <Grid Style="{StaticResource FormFieldRow}">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="Auto" SharedSizeGroup="LblCol"/>
+                                                <ColumnDefinition Width="*"/>
+                                            </Grid.ColumnDefinitions>
+                                            <TextBlock Text="Peso Líquido (kg)" Style="{StaticResource FormColLabel}"/>
+                                            <TextBox x:Name="PesoLiquidoBox" Grid.Column="1" Style="{StaticResource WpdvInput}"/>
+                                        </Grid>
+                                        <Grid Style="{StaticResource FormFieldRow}">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="Auto" SharedSizeGroup="LblCol"/>
+                                                <ColumnDefinition Width="*"/>
+                                            </Grid.ColumnDefinitions>
+                                            <TextBlock Text="Validade Balança" Style="{StaticResource FormColLabel}"/>
+                                            <TextBox x:Name="ValidadeBalancaBox" Grid.Column="1" Style="{StaticResource WpdvInput}"/>
+                                        </Grid>
+                                    </StackPanel>
+                                </Grid>
+                            </Border>
+                        </Grid>
+
+                        <StackPanel x:Name="PanelComposicao" Visibility="Collapsed" Margin="4">
+                            <Border Background="#ECFDF5" BorderBrush="#34D399" BorderThickness="1" Padding="10" Margin="0,0,0,8">
+                                <StackPanel>
+                                    <TextBlock Text="Kit / Combo — baixa estoque dos itens" FontWeight="SemiBold" FontSize="12"/>
+                                    <TextBlock TextWrapping="Wrap" FontSize="11" Margin="0,6,0,0" Foreground="#065F46"
+                                               Text="1) Crie o produto do kit (ex.: KIT ENERGÉTICO + QUENTE + VODKA) com o preço de venda do combo.&#10;2) Marque «É Kit / Combo» e adicione os componentes abaixo com a quantidade de cada um.&#10;3) No PDV, venda o kit: o estoque de cada item é baixado separadamente (o kit em si não baixa estoque próprio).&#10;&#10;Exemplos: Cerveja + Copo + Gelo · Energético + Bebida quente + Vodka · Whisky + Energético + Gelo."/>
+                                </StackPanel>
+                            </Border>
+                            <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
+                                <Grid Width="280" Margin="0,0,8,0" Panel.ZIndex="2">
+                                    <TextBox x:Name="CompSearchBox" Height="28" Padding="6,0"
+                                             VerticalContentAlignment="Center"
+                                             CharacterCasing="Upper"
+                                             ToolTip="Busque o produto componente (ex.: RED BULL, VODKA, BEBIDA QUENTE)"
+                                             TextChanged="CompSearchBox_TextChanged"
+                                             PreviewKeyDown="CompSearchBox_PreviewKeyDown"
+                                             KeyDown="CompSearchBox_KeyDown"
+                                             LostFocus="CompSearchBox_LostFocus"/>
+                                    <Popup x:Name="CompSuggestPopup" PlacementTarget="{Binding ElementName=CompSearchBox}"
+                                           Placement="Bottom" StaysOpen="False" AllowsTransparency="True"
+                                           PopupAnimation="Fade">
+                                        <Border Background="White" BorderBrush="#CBD5E1" BorderThickness="1"
+                                                MinWidth="280" MaxHeight="220">
+                                            <ListBox x:Name="CompSuggestList" BorderThickness="0"
+                                                     FontSize="12" MaxHeight="218"
+                                                     PreviewMouseLeftButtonUp="CompSuggestList_PreviewMouseLeftButtonUp"
+                                                     KeyDown="CompSuggestList_KeyDown">
+                                                <ListBox.ItemTemplate>
+                                                    <DataTemplate>
+                                                        <StackPanel Margin="4,2">
+                                                            <TextBlock FontWeight="SemiBold" Text="{Binding Name}"/>
+                                                            <TextBlock FontSize="10" Foreground="#64748B">
+                                                                <Run Text="{Binding Code, Mode=OneWay}"/>
+                                                                <Run Text=" · "/>
+                                                                <Run Text="{Binding Unit, Mode=OneWay}"/>
+                                                                <Run Text=" · Est. "/>
+                                                                <Run Text="{Binding Stock, Mode=OneWay, StringFormat=N0}"/>
+                                                            </TextBlock>
+                                                        </StackPanel>
+                                                    </DataTemplate>
+                                                </ListBox.ItemTemplate>
+                                            </ListBox>
+                                        </Border>
+                                    </Popup>
+                                </Grid>
+                                <TextBox x:Name="CompQtyBox" Width="70" Height="28" Padding="6,0" Text="1"
+                                         VerticalContentAlignment="Center" TextAlignment="Right" Margin="0,0,8,0"
+                                         ToolTip="Qtd deste item por 1 kit vendido"/>
+                                <Button Content="Adicionar" Padding="10,4" Click="CompAdd_Click"
+                                        Style="{StaticResource SgdbPrimaryButtonStyle}" Margin="0,0,8,0"/>
+                                <Button Content="Somar custos → Preço custo" Padding="10,4" Click="CompApplyCost_Click"
+                                        Style="{StaticResource SgdbOutlineButtonStyle}"
+                                        ToolTip="Soma (custo × qtd) de cada componente e grava no Preço de Custo do kit"/>
+                            </StackPanel>
+                            <DataGrid x:Name="CompGrid" MinHeight="180" MaxHeight="320" AutoGenerateColumns="False" IsReadOnly="True"
+                                      HeadersVisibility="Column" CanUserAddRows="False" RowHeaderWidth="0"
+                                      FontSize="11" GridLinesVisibility="Horizontal">
+                                <DataGrid.Columns>
+                                    <DataGridTextColumn Header="Cód." Binding="{Binding Code}" Width="70"/>
+                                    <DataGridTextColumn Header="Componente" Binding="{Binding Name}" Width="*"/>
+                                    <DataGridTextColumn Header="Un" Binding="{Binding Unit}" Width="40"/>
+                                    <DataGridTextColumn Header="Qtd/kit" Binding="{Binding QtyDisplay}" Width="70"/>
+                                    <DataGridTextColumn Header="Custo un." Binding="{Binding CostDisplay}" Width="80"/>
+                                    <DataGridTemplateColumn Header="" Width="60">
+                                        <DataGridTemplateColumn.CellTemplate>
+                                            <DataTemplate>
+                                                <Button Content="Remover" Padding="4,2" Tag="{Binding}"
+                                                        Click="CompRemove_Click" FontSize="10"/>
+                                            </DataTemplate>
+                                        </DataGridTemplateColumn.CellTemplate>
+                                    </DataGridTemplateColumn>
+                                </DataGrid.Columns>
+                            </DataGrid>
+                            <TextBlock x:Name="CompSummaryText" Margin="0,8,0,0" FontSize="12"
+                                       FontWeight="SemiBold" Foreground="#065F46"/>
+                        </StackPanel>
+
+                        <StackPanel x:Name="PanelPromocao" Visibility="Collapsed" Margin="8">
+                            <TextBlock Text="Promoção (layout White PDV). Regras automáticas em breve." FontSize="11" Margin="0,0,0,12"/>
+                            <Grid Margin="0,4"><Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="200"/></Grid.ColumnDefinitions>
+                                <TextBlock Text="Preço Promocional" Style="{StaticResource FormColLabel}"/>
+                                <TextBox x:Name="PrecoPromoBox" Grid.Column="1" Style="{StaticResource WpdvInput}"/>
+                            </Grid>
+                            <Grid Margin="0,4"><Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="200"/></Grid.ColumnDefinitions>
+                                <TextBlock Text="Início" Style="{StaticResource FormColLabel}"/>
+                                <TextBox x:Name="PromoInicioBox" Grid.Column="1" Style="{StaticResource WpdvInput}"/>
+                            </Grid>
+                            <Grid Margin="0,4"><Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="200"/></Grid.ColumnDefinitions>
+                                <TextBlock Text="Fim" Style="{StaticResource FormColLabel}"/>
+                                <TextBox x:Name="PromoFimBox" Grid.Column="1" Style="{StaticResource WpdvInput}"/>
+                            </Grid>
+                        </StackPanel>
+
+                        <StackPanel x:Name="PanelImagem" Visibility="Collapsed" Margin="8">
+                            <TextBlock Text="Imagem do produto (layout White PDV). Upload em breve." FontSize="11"/>
+                        </StackPanel>
+                    </Grid>
+                </ScrollViewer>
+            </Border>
+
+            <Border Grid.Row="3" Style="{StaticResource WpdvFooterBar}">
+                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                    <Button Click="Save_Click" Style="{StaticResource WpdvFooterSave}" MinHeight="64" MinWidth="100">
+                        <StackPanel HorizontalAlignment="Center">
+                            <TextBlock Text="💾" FontSize="28" Foreground="{StaticResource WpdvAccentBrush}" HorizontalAlignment="Center"/>
+                            <TextBlock Text="F5 | Salvar" FontSize="11" FontWeight="SemiBold" Foreground="{StaticResource WpdvAccentBrush}" HorizontalAlignment="Center" Margin="0,2,0,0"/>
+                        </StackPanel>
+                    </Button>
+                    <Button Click="Cancel_Click" Style="{StaticResource WpdvFooterSave}" IsCancel="True" MinHeight="64" MinWidth="100">
+                        <StackPanel HorizontalAlignment="Center">
+                            <TextBlock Text="✕" FontSize="28" Foreground="{StaticResource WpdvAccentBrush}" HorizontalAlignment="Center"/>
+                            <TextBlock Text="Esc | Sair" FontSize="11" FontWeight="SemiBold" Foreground="{StaticResource WpdvAccentBrush}" HorizontalAlignment="Center" Margin="0,2,0,0"/>
+                        </StackPanel>
+                    </Button>
+                </StackPanel>
+            </Border>
+        </Grid>
+    </Border>
+</Window>

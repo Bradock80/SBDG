@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <RootNamespace>SGDB.Application</RootNamespace>
+    <AssemblyName>SGDB.Application</AssemblyName>
+    <Description>Casos de uso / orquestração do SGDB (sem UI, SQLite ou WPF)</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\SGDB.Domain\SGDB.Domain.csproj" />
+  </ItemGroup>
+
+</Project>

@@ -1,0 +1,20 @@
+<UserControl x:Class="SGDB.Controls.BrDateBox"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             Height="32" MinWidth="118" Focusable="True"
+             GotKeyboardFocus="BrDateBox_GotKeyboardFocus">
+    <Border x:Name="Chrome" Background="White" BorderBrush="#CBD5E1" BorderThickness="1"
+            CornerRadius="6" Padding="2,0,2,0">
+        <DatePicker x:Name="Picker"
+                    Background="Transparent"
+                    BorderThickness="0"
+                    Foreground="#1E293B"
+                    FontSize="13"
+                    Padding="4,0"
+                    VerticalContentAlignment="Center"
+                    SelectedDateFormat="Short"
+                    SelectedDateChanged="Picker_SelectedDateChanged"
+                    VerticalAlignment="Center"
+                    HorizontalAlignment="Stretch"/>
+    </Border>
+</UserControl>

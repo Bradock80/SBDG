@@ -1,0 +1,159 @@
+<UserControl x:Class="SGDB.Views.PriceTablesModuleView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             Background="#ECE9E4"
+             Focusable="True"
+             PreviewKeyDown="Root_PreviewKeyDown">
+    <Border BorderBrush="#C8C4BC" BorderThickness="1" Background="White">
+        <Grid>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="*"/>
+                <RowDefinition Height="Auto"/>
+            </Grid.RowDefinitions>
+
+            <Border Grid.Row="0" Padding="10,6" Background="#F0F0F0" BorderBrush="#C8C4BC" BorderThickness="0,0,0,1">
+                <Grid>
+                    <TextBlock Text="Tabela de Preço" FontWeight="SemiBold" FontSize="13" Foreground="#1E293B"/>
+                    <Button Style="{StaticResource ModuleTabCloseStyle}" HorizontalAlignment="Right" Click="Close_Click"/>
+                </Grid>
+            </Border>
+
+            <TextBlock Grid.Row="1" Margin="12,10,12,6" FontSize="12" Foreground="#475569" TextWrapping="Wrap"
+                       Text="Cadastre acréscimos por tabela e vincule ao produto. No PDV, o valor extra entra automaticamente nas formas de pagamento que você marcar à direita."/>
+
+            <Grid Grid.Row="2" Margin="10,0,10,8">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="360"/>
+                </Grid.ColumnDefinitions>
+
+                <DockPanel Grid.Column="0" Margin="0,0,10,0" LastChildFill="True">
+                    <Border DockPanel.Dock="Top" Padding="0,0,0,8">
+                        <StackPanel>
+                            <TextBlock Text="F3 | Localizar descrição" FontSize="11" FontWeight="SemiBold"
+                                       Foreground="#334155" Margin="0,0,0,4"/>
+                            <TextBox x:Name="SearchBox" Height="30" Padding="8,0" FontSize="13"
+                                     VerticalContentAlignment="Center"
+                                     CharacterCasing="Upper"
+                                     TextChanged="SearchBox_TextChanged"/>
+                        </StackPanel>
+                    </Border>
+
+                    <Border DockPanel.Dock="Bottom" Margin="0,10,0,0" BorderBrush="#2563EB" BorderThickness="1"
+                            Background="#F8FAFC" Padding="10" MinHeight="120">
+                        <DockPanel>
+                            <TextBlock DockPanel.Dock="Top" x:Name="ProductsTitle" Text="Produtos vinculados"
+                                       FontWeight="SemiBold" FontSize="12" Margin="0,0,0,6"/>
+                            <TextBlock x:Name="ProductsEmpty" Text="Clique em uma tabela acima para ver os produtos."
+                                       FontSize="11" Foreground="#64748B" TextWrapping="Wrap"/>
+                            <DataGrid x:Name="ProductsGrid" Visibility="Collapsed"
+                                      AutoGenerateColumns="False" IsReadOnly="True"
+                                      HeadersVisibility="Column" GridLinesVisibility="Horizontal"
+                                      BorderThickness="0" Background="Transparent" RowHeaderWidth="0"
+                                      RowHeight="24" FontSize="11" MaxHeight="160"
+                                      CanUserAddRows="False" CanUserDeleteRows="False">
+                                <DataGrid.Columns>
+                                    <DataGridTextColumn Header="Código" Binding="{Binding Code}" Width="80"/>
+                                    <DataGridTextColumn Header="Produto" Binding="{Binding Name}" Width="*"/>
+                                    <DataGridTextColumn Header="" Binding="{Binding Status}" Width="60"/>
+                                </DataGrid.Columns>
+                            </DataGrid>
+                        </DockPanel>
+                    </Border>
+
+                    <Border BorderBrush="#C8C4BC" BorderThickness="1">
+                        <DataGrid x:Name="TablesGrid"
+                                  AutoGenerateColumns="False" IsReadOnly="True"
+                                  SelectionMode="Single" SelectionUnit="FullRow"
+                                  HeadersVisibility="Column" GridLinesVisibility="Horizontal"
+                                  HorizontalGridLinesBrush="#E2E8F0" BorderThickness="0"
+                                  Background="White" RowHeaderWidth="0" RowHeight="28" FontSize="12"
+                                  CanUserAddRows="False" CanUserDeleteRows="False"
+                                  SelectionChanged="TablesGrid_SelectionChanged">
+                            <DataGrid.ColumnHeaderStyle>
+                                <Style TargetType="DataGridColumnHeader">
+                                    <Setter Property="Background" Value="#DDD8D0"/>
+                                    <Setter Property="FontWeight" Value="SemiBold"/>
+                                    <Setter Property="Padding" Value="8,6"/>
+                                </Style>
+                            </DataGrid.ColumnHeaderStyle>
+                            <DataGrid.RowStyle>
+                                <Style TargetType="DataGridRow">
+                                    <Style.Triggers>
+                                        <Trigger Property="IsSelected" Value="True">
+                                            <Setter Property="Background" Value="#DBEAFE"/>
+                                            <Setter Property="Foreground" Value="#0F172A"/>
+                                        </Trigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </DataGrid.RowStyle>
+                            <DataGrid.Columns>
+                                <DataGridTextColumn Header="Código" Binding="{Binding Id}" Width="70"/>
+                                <DataGridTextColumn Header="Descrição" Binding="{Binding Description}" Width="*"/>
+                                <DataGridTextColumn Header="Acréscimo (%)" Binding="{Binding PercentDisplay}" Width="100"/>
+                                <DataGridTextColumn Header="Acréscimo R$" Binding="{Binding FixedDisplay}" Width="100"/>
+                                <DataGridTextColumn Header="Produtos" Binding="{Binding ProductCount}" Width="80"/>
+                            </DataGrid.Columns>
+                        </DataGrid>
+                    </Border>
+                </DockPanel>
+
+                <Border Grid.Column="1" Background="#F8FAFC" BorderBrush="#C5D4E8" BorderThickness="1"
+                        CornerRadius="4" Padding="14">
+                    <ScrollViewer VerticalScrollBarVisibility="Auto">
+                        <StackPanel>
+                            <TextBlock x:Name="FormTitle" Text="Nova tabela" FontSize="14" FontWeight="SemiBold" Margin="0,0,0,12"/>
+
+                            <TextBlock Text="Descrição" FontSize="11" Foreground="#475569"/>
+                            <TextBox x:Name="DescBox" Height="28" Margin="0,3,0,10" CharacterCasing="Upper"/>
+
+                            <TextBlock Text="Acréscimo percentual (%)" FontSize="11" Foreground="#475569"/>
+                            <TextBlock FontSize="10" Foreground="#94A3B8" TextWrapping="Wrap" Margin="0,2,0,4"
+                                       Text="Deixe 0,00 se usar só o valor em R$ abaixo."/>
+                            <Grid Margin="0,0,0,10">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+                                <TextBox x:Name="PctBox" Height="28" TextChanged="Preview_Changed"/>
+                                <Button Grid.Column="1" Content="Só R$ fixo" Margin="6,0,0,0" Padding="8,4"
+                                        Style="{StaticResource SgdbOutlineButtonStyle}" Click="ZeroPct_Click"/>
+                            </Grid>
+
+                            <TextBlock Text="Acréscimo fixo (R$ por unidade)" FontSize="11" Foreground="#475569"/>
+                            <TextBox x:Name="FixedBox" Height="28" Margin="0,3,0,8" TextChanged="Preview_Changed"/>
+                            <TextBlock x:Name="PreviewText" FontSize="11" Foreground="#1D4ED8" Margin="0,0,0,12" TextWrapping="Wrap"/>
+
+                            <TextBlock Text="Aplicar acréscimo em:" FontSize="11" FontWeight="SemiBold" Foreground="#334155" Margin="0,0,0,6"/>
+                            <ItemsControl x:Name="MethodsPanel" Margin="0,0,0,12">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <CheckBox Content="{Binding Label}"
+                                                  IsChecked="{Binding IsSelected, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                                  Margin="0,0,0,4" FontSize="12"/>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+
+                            <CheckBox x:Name="ActiveBox" Content="Ativa" IsChecked="True"/>
+                        </StackPanel>
+                    </ScrollViewer>
+                </Border>
+            </Grid>
+
+            <Border Grid.Row="3" Padding="10,8" Background="#F0F0F0" BorderBrush="#C8C4BC" BorderThickness="0,1,0,0">
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+                    <Button Content="Novo (F2)" Margin="0,0,8,0" Padding="14,6"
+                            Style="{StaticResource SgdbOutlineButtonStyle}" Click="New_Click"/>
+                    <Button Content="Gravar (F5)" Margin="0,0,8,0" Padding="14,6"
+                            Style="{StaticResource SgdbPrimaryButtonStyle}" Click="Save_Click"/>
+                    <Button Content="Excluir (Del)" Padding="14,6"
+                            Style="{StaticResource SgdbOutlineButtonStyle}" Click="Delete_Click"
+                            Foreground="#C41E3A"/>
+                </StackPanel>
+            </Border>
+        </Grid>
+    </Border>
+</UserControl>

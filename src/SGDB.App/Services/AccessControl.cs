@@ -1,0 +1,93 @@
+using System.Windows;
+using SGDB.Models;
+
+namespace SGDB.Services;
+
+/// <summary>Checagem de permissões do usuário logado (users.permissions_json / perfil).</summary>
+public static class AccessControl
+{
+    public static UserPermissions Permissions =>
+        AppSession.Permissions;
+
+    public static bool Can(string key) => Permissions.Get(key);
+
+    public static bool CanAccessModule(string moduleId)
+    {
+        if (string.IsNullOrWhiteSpace(moduleId) || moduleId == "home")
+            return true;
+
+        var p = Permissions;
+        return moduleId switch
+        {
+            "pdv" or "decks" => p.PdvVenda,
+            "devolucao_venda" => p.PdvTrocaDevolucao,
+
+            "clientes" => p.ClientesConsultar,
+
+            "produtos" or "estoque_grupos" or "estoque_unidades" or "estoque_marcas"
+                => p.ProdutosConsultar,
+
+            "compras" or "estoque_importar_xml" or "estoque_inventario"
+                or "ajusta_estoque" or "ajusta_saldo" or "estoque_zera_negativo"
+                => p.EstoqueAjustar,
+
+            "ajusta_preco" or "tabela_preco" => p.ProdutosEditar,
+
+            "caixa" or "pagar" or "fiado" or "contas_bancarias"
+                or "vasilhame" or "tipos_vasilhame"
+                or "categorias_financeiras" or "depositos_caixa"
+                => p.FinanceiroAcesso,
+
+            "inicio" or "relatorio" or "relatorio_vendas" or "relatorio_mais_vendidos"
+                or "relatorio_fiado" or "relatorio_vendedores" or "relatorio_dre"
+                or "relatorio_estoque_io"
+                or "consultar_movimentacao" or "movimentacao_vendas" or "movimentacao_compras"
+                or "estoque_curva_abc" or "estoque_mais_vendidos" or "estoque_menos_vendidos"
+                or "estoque_mais_lucrativos" or "estoque_menos_lucrativos"
+                or "estoque_negativo" or "estoque_minimo" or "estoque_validade"
+                or "estoque_validade_lotes"
+                => p.RelatoriosAcesso,
+
+            "usuarios" or "auditoria" => p.SistemaUsuarios,
+            "backup" => p.SistemaBackup,
+
+            // Configurações da loja: admin/usuários OU gestor (relatórios)
+            "empresa" or "impressoras" or "perifericos"
+                or "vendedores" or "formas_pagamento"
+                => p.SistemaUsuarios || p.RelatoriosAcesso,
+
+            _ => AppSession.IsAdmin,
+        };
+    }
+
+    public static bool EnsureModule(string moduleId, Window? owner = null)
+    {
+        if (CanAccessModule(moduleId))
+            return true;
+
+        MessageBox.Show(
+            owner,
+            "Seu usuário não tem permissão para acessar este módulo.\nPeça ao administrador para liberar o acesso.",
+            "Acesso negado",
+            MessageBoxButton.OK,
+            MessageBoxImage.Warning);
+        return false;
+    }
+
+    public static bool Ensure(string key, string actionLabel, Window? owner = null)
+    {
+        if (Can(key))
+            return true;
+
+        MessageBox.Show(
+            owner,
+            $"Seu usuário não tem permissão para: {actionLabel}.\nPeça ao administrador para liberar.",
+            "Acesso negado",
+            MessageBoxButton.OK,
+            MessageBoxImage.Warning);
+        return false;
+    }
+
+    public static string DenyReason(string moduleId) =>
+        CanAccessModule(moduleId) ? "" : "Sem permissão";
+}

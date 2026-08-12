@@ -1,0 +1,146 @@
+<Window x:Class="SGDB.Views.PurchaseParcelasWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:sys="clr-namespace:System;assembly=mscorlib"
+        xmlns:controls="clr-namespace:SGDB.Controls"
+        Title="Contas a Pagar - Parcelas"
+        Width="720" MinWidth="640"
+        SizeToContent="Height"
+        MaxHeight="640"
+        WindowStartupLocation="CenterOwner"
+        ResizeMode="CanResize"
+        Background="{StaticResource SgdbBgBrush}"
+        FontFamily="Tahoma, Segoe UI"
+        PreviewKeyDown="Window_PreviewKeyDown">
+    <Window.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceDictionary Source="/Themes/SgdbTheme.xaml"/>
+                <ResourceDictionary Source="/Themes/ProductFormTheme.xaml"/>
+                <ResourceDictionary Source="/Themes/PurchaseFormTheme.xaml"/>
+                <ResourceDictionary Source="/Themes/PurchaseFormTheme.xaml"/>
+            </ResourceDictionary.MergedDictionaries>
+            <x:Array x:Key="TiposCobranca" Type="sys:String">
+                <sys:String>Boleto</sys:String>
+                <sys:String>Pix</sys:String>
+                <sys:String>Dinheiro</sys:String>
+                <sys:String>Cheque</sys:String>
+                <sys:String>Transferencia</sys:String>
+            </x:Array>
+        </ResourceDictionary>
+    </Window.Resources>
+
+    <Border Style="{StaticResource WpdvWindowBorder}" Margin="0">
+        <Grid>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+            </Grid.RowDefinitions>
+
+            <Border Grid.Row="0" Style="{StaticResource WpdvTitleBar}">
+                <TextBlock Text="Contas a Pagar - Parcelas" Style="{StaticResource WpdvTitleText}"/>
+            </Border>
+
+            <Border Grid.Row="1" Background="White" Padding="12,10">
+                <StackPanel>
+                    <Grid Margin="0,0,0,8">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="8"/>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="8"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                        </Grid.RowDefinitions>
+                        <StackPanel Grid.Row="0" Grid.Column="0" Margin="0,0,0,6">
+                            <TextBlock Text="Vlr. Total" Style="{StaticResource CompraTopLabel}"/>
+                            <TextBox x:Name="TotalBox" Style="{StaticResource CompraValBlue}" IsReadOnly="True" TabIndex="-1"/>
+                        </StackPanel>
+                        <StackPanel Grid.Row="0" Grid.Column="2" Margin="0,0,0,6">
+                            <TextBlock Text="Vlr. Entrada (Dinheiro)" Style="{StaticResource CompraTopLabel}"/>
+                            <TextBox x:Name="EntradaBox" Style="{StaticResource CompraField}" Text="0,00"
+                                     LostFocus="EntradaBox_LostFocus" KeyDown="Field_KeyDown"/>
+                        </StackPanel>
+                        <StackPanel Grid.Row="0" Grid.Column="4" Margin="0,0,0,6">
+                            <TextBlock Text="Total" Style="{StaticResource CompraTopLabel}"/>
+                            <TextBox x:Name="RestanteBox" Style="{StaticResource CompraValBlue}" IsReadOnly="True" TabIndex="-1"/>
+                        </StackPanel>
+                        <StackPanel Grid.Row="1" Grid.Column="0">
+                            <TextBlock Text="Parcelas" Style="{StaticResource CompraTopLabel}"/>
+                            <TextBox x:Name="QtdBox" Style="{StaticResource CompraField}" Text="1"
+                                     KeyDown="Field_KeyDown"/>
+                        </StackPanel>
+                        <StackPanel Grid.Row="1" Grid.Column="2">
+                            <TextBlock Text="1º Vencimento" Style="{StaticResource CompraTopLabel}"/>
+                            <controls:BrDateBox x:Name="PrimeiroVencBox" PreviewKeyDown="Field_KeyDown"/>
+                        </StackPanel>
+                        <StackPanel Grid.Row="1" Grid.Column="4">
+                            <TextBlock Text="Intervalo" Style="{StaticResource CompraTopLabel}"/>
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="8"/>
+                                    <ColumnDefinition Width="90"/>
+                                </Grid.ColumnDefinitions>
+                                <TextBox x:Name="IntervaloBox" Grid.Column="0" Style="{StaticResource CompraField}" Text="1"
+                                         KeyDown="Field_KeyDown"/>
+                                <ComboBox x:Name="IntervaloTipoBox" Grid.Column="2" Style="{StaticResource CompraCombo}"
+                                          SelectedIndex="0" SelectionChanged="IntervaloTipoBox_SelectionChanged">
+                                    <ComboBoxItem Content="Meses"/>
+                                    <ComboBoxItem Content="Dias"/>
+                                </ComboBox>
+                            </Grid>
+                        </StackPanel>
+                    </Grid>
+
+                    <DataGrid x:Name="ParcelasGrid" Height="180" AutoGenerateColumns="False"
+                              CanUserAddRows="False" HeadersVisibility="Column"
+                              GridLinesVisibility="All" FontSize="11" RowHeight="26"
+                              CellEditEnding="ParcelasGrid_CellEditEnding">
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Header="Vencimento" Binding="{Binding Vencimento, UpdateSourceTrigger=PropertyChanged}" Width="110"/>
+                            <DataGridComboBoxColumn Header="Tipo Cobrança"
+                                                  SelectedItemBinding="{Binding Tipo, UpdateSourceTrigger=PropertyChanged}"
+                                                  ItemsSource="{StaticResource TiposCobranca}" Width="*"/>
+                            <DataGridTextColumn Header="Valor" Binding="{Binding ValorDisplay, UpdateSourceTrigger=PropertyChanged}" Width="90"/>
+                        </DataGrid.Columns>
+                    </DataGrid>
+
+                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,8,0,0">
+                        <TextBlock Text="Total Parcelas:" VerticalAlignment="Center" Margin="0,0,8,0" FontSize="11"/>
+                        <TextBlock x:Name="ParcelasTotalText" FontWeight="Bold" FontSize="14"
+                                   Foreground="{StaticResource CompraValBlueBrush}" VerticalAlignment="Center"/>
+                    </StackPanel>
+                </StackPanel>
+            </Border>
+
+            <Border Grid.Row="2" Style="{StaticResource CompraFooterBar}">
+                <StackPanel Orientation="Horizontal">
+                    <Button Style="{StaticResource WpdvFooterButton}" Click="Cancel_Click">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="✕" FontSize="18" Foreground="#CC0000" Margin="0,0,6,0"/>
+                            <TextBlock Text="F11 | Cancelar" FontSize="12" Foreground="#CC0000"/>
+                        </StackPanel>
+                    </Button>
+                    <Button Style="{StaticResource WpdvFooterButton}" Click="Gerar_Click">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="📄" FontSize="18" Foreground="{StaticResource SgdbBlueBrush}" Margin="0,0,6,0"/>
+                            <TextBlock Text="Gerar parcelas" FontSize="12" Foreground="{StaticResource SgdbBlueBrush}"/>
+                        </StackPanel>
+                    </Button>
+                    <Button x:Name="BtnConcluir" Style="{StaticResource WpdvFooterButton}" Click="Concluir_Click">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="💾" FontSize="18" Foreground="{StaticResource SgdbBlueBrush}" Margin="0,0,6,0"/>
+                            <TextBlock Text="F12 | Concluir" FontSize="12" Foreground="{StaticResource SgdbBlueBrush}"/>
+                        </StackPanel>
+                    </Button>
+                </StackPanel>
+            </Border>
+        </Grid>
+    </Border>
+</Window>

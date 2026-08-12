@@ -1,0 +1,160 @@
+<UserControl x:Class="SGDB.Views.PeripheralsSettingsModuleView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             Background="#ECE9E4" Focusable="True" PreviewKeyDown="Root_PreviewKeyDown">
+    <Border BorderBrush="#C8C4BC" BorderThickness="1" Background="White">
+        <Grid>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="*"/>
+                <RowDefinition Height="Auto"/>
+            </Grid.RowDefinitions>
+
+            <Border Padding="10,6" Background="#F0F0F0" BorderBrush="#C8C4BC" BorderThickness="0,0,0,1">
+                <Grid>
+                    <TextBlock Text="Periféricos (Leitor, Gaveta e Balança)" FontWeight="SemiBold" FontSize="13"/>
+                    <Button Style="{StaticResource ModuleTabCloseStyle}" HorizontalAlignment="Right" Click="Close_Click"/>
+                </Grid>
+            </Border>
+
+            <ScrollViewer Grid.Row="1" Padding="12,10" VerticalScrollBarVisibility="Disabled"
+                          HorizontalScrollBarVisibility="Disabled">
+                <StackPanel MaxWidth="760" HorizontalAlignment="Stretch">
+
+                    <!-- CARD 1: Leitor -->
+                    <Border Background="#FAFBFC" BorderBrush="#E2E8F0" BorderThickness="1"
+                            CornerRadius="8" Padding="12" Margin="0,0,0,10">
+                        <StackPanel>
+                            <Grid Margin="0,0,0,8">
+                                <TextBlock VerticalAlignment="Center" FontWeight="SemiBold" FontSize="12" Foreground="#334155">
+                                    <Run Text="🏷️"/><Run Text=" LEITOR DE CÓDIGO DE BARRAS"/>
+                                </TextBlock>
+                                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
+                                    <Ellipse x:Name="ScannerStatusDot" Width="8" Height="8" Fill="#94A3B8" Margin="0,0,6,0"/>
+                                    <TextBlock x:Name="ScannerStatusText" Text="Pronto para leitura" FontSize="11" Foreground="#64748B"/>
+                                </StackPanel>
+                            </Grid>
+
+                            <TextBlock Text="Leitores USB em modo teclado (wedge) funcionam automaticamente no PDV — aponte e pressione Enter."
+                                       FontSize="12" Foreground="#64748B" TextWrapping="Wrap" Margin="0,0,0,8"/>
+
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+                                <Grid>
+                                    <TextBox x:Name="ScannerTestBox" Height="32" Padding="8,0"
+                                             FontFamily="Consolas, Courier New" FontSize="13"
+                                             VerticalContentAlignment="Center"
+                                             TextChanged="ScannerTestBox_TextChanged"
+                                             KeyDown="ScannerTestBox_KeyDown"/>
+                                    <TextBlock x:Name="ScannerPlaceholder"
+                                               Text="Clique aqui e bipe um código para testar…"
+                                               IsHitTestVisible="False" Foreground="#94A3B8" FontSize="12"
+                                               VerticalAlignment="Center" Margin="10,0,0,0"/>
+                                </Grid>
+                                <Button Grid.Column="1" Content="🏷️ Testar" Margin="8,0,0,0" Height="32"
+                                        Style="{StaticResource SgdbOutlineButtonStyle}" Padding="12,0"
+                                        Click="TestScanner_Click"/>
+                            </Grid>
+                            <TextBlock x:Name="ScannerResultText" FontSize="11" Margin="0,6,0,0"
+                                       Foreground="#64748B" TextWrapping="Wrap"/>
+                        </StackPanel>
+                    </Border>
+
+                    <!-- CARD 2: Gaveta -->
+                    <Border Background="#FAFBFC" BorderBrush="#E2E8F0" BorderThickness="1"
+                            CornerRadius="8" Padding="12" Margin="0,0,0,10">
+                        <StackPanel>
+                            <Grid Margin="0,0,0,8">
+                                <TextBlock VerticalAlignment="Center" FontWeight="SemiBold" FontSize="12" Foreground="#334155">
+                                    <Run Text="🔓"/><Run Text=" GAVETA DE DINHEIRO"/>
+                                </TextBlock>
+                                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
+                                    <Ellipse x:Name="DrawerStatusDot" Width="8" Height="8" Fill="#94A3B8" Margin="0,0,6,0"/>
+                                    <TextBlock x:Name="DrawerStatusText" Text="Desabilitado" FontSize="11" Foreground="#64748B"/>
+                                </StackPanel>
+                            </Grid>
+
+                            <TextBlock Text="Conectada à impressora térmica via cabo RJ11 — o acionamento é feito por comando ESC/POS."
+                                       FontSize="11" Foreground="#94A3B8" TextWrapping="Wrap" Margin="0,0,0,8"/>
+
+                            <CheckBox x:Name="DrawerEnabledBox" Content="Gaveta ligada à impressora térmica (ESC/POS)"
+                                      Margin="0,0,0,4" FontSize="12" Checked="DrawerSettings_Changed" Unchecked="DrawerSettings_Changed"/>
+                            <CheckBox x:Name="DrawerOnCashBox" Content="Abrir automaticamente em vendas com Dinheiro / troco"
+                                      Margin="0,0,0,8" FontSize="12"/>
+
+                            <Button Content="🔓 Testar abertura da gaveta" Style="{StaticResource SgdbOutlineButtonStyle}"
+                                    HorizontalAlignment="Left" Padding="12,6" Click="TestDrawer_Click"/>
+                            <TextBlock x:Name="DrawerFeedbackText" FontSize="11" Margin="0,6,0,0"
+                                       TextWrapping="Wrap" Visibility="Collapsed"/>
+                        </StackPanel>
+                    </Border>
+
+                    <!-- CARD 3: Balança -->
+                    <Border Background="#FAFBFC" BorderBrush="#E2E8F0" BorderThickness="1"
+                            CornerRadius="8" Padding="12">
+                        <StackPanel>
+                            <Grid Margin="0,0,0,8">
+                                <TextBlock VerticalAlignment="Center" FontWeight="SemiBold" FontSize="12" Foreground="#334155">
+                                    <Run Text="⚖️"/><Run Text=" BALANÇA TÉRMICA / SERIAL"/>
+                                </TextBlock>
+                                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
+                                    <Ellipse x:Name="ScaleStatusDot" Width="8" Height="8" Fill="#94A3B8" Margin="0,0,6,0"/>
+                                    <TextBlock x:Name="ScaleStatusText" Text="Inativo" FontSize="11" Foreground="#64748B"/>
+                                </StackPanel>
+                            </Grid>
+
+                            <CheckBox x:Name="ScaleEnabledBox" Content="Usar balança serial"
+                                      Margin="0,0,0,8" FontSize="12"
+                                      Checked="ScaleSettings_Changed" Unchecked="ScaleSettings_Changed"/>
+
+                            <Grid x:Name="ScaleFieldsPanel" IsEnabled="False" Opacity="0.55">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="10"/>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="10"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                <StackPanel>
+                                    <TextBlock Text="Modelo / Protocolo" Margin="0,0,0,4" FontSize="12"/>
+                                    <ComboBox x:Name="ScaleProtocolBox" Height="32"/>
+                                </StackPanel>
+                                <StackPanel Grid.Column="2">
+                                    <TextBlock Text="Porta COM" Margin="0,0,0,4" FontSize="12"/>
+                                    <ComboBox x:Name="ScalePortBox" Height="32" IsEditable="True"/>
+                                </StackPanel>
+                                <StackPanel Grid.Column="4">
+                                    <TextBlock Text="Baud rate" Margin="0,0,0,4" FontSize="12"/>
+                                    <ComboBox x:Name="ScaleBaudBox" Height="32"/>
+                                </StackPanel>
+                            </Grid>
+
+                            <StackPanel Orientation="Horizontal" Margin="0,10,0,0" VerticalAlignment="Center">
+                                <Button x:Name="ReadScaleBtn" Content="⚖️ Ler Peso Atual"
+                                        Style="{StaticResource SgdbOutlineButtonStyle}" Padding="12,6"
+                                        IsEnabled="False" Click="ReadScale_Click"/>
+                                <TextBlock x:Name="ScaleWeightText" Text="Peso lido: —"
+                                           FontSize="13" FontWeight="SemiBold" Foreground="#334155"
+                                           VerticalAlignment="Center" Margin="14,0,0,0"/>
+                            </StackPanel>
+                            <TextBlock x:Name="ScaleFeedbackText" FontSize="11" Margin="0,6,0,0"
+                                       Foreground="#64748B" TextWrapping="Wrap"/>
+                        </StackPanel>
+                    </Border>
+                </StackPanel>
+            </ScrollViewer>
+
+            <Border Grid.Row="2" Padding="10,8" Background="#F5F3EE" BorderBrush="#E2E8F0" BorderThickness="0,1,0,0">
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                    <Button Content="Cancelar" Style="{StaticResource SgdbOutlineButtonStyle}"
+                            Padding="14,8" Margin="0,0,8,0" Click="Close_Click"/>
+                    <Button Content="Salvar (F9)" Style="{StaticResource SgdbPrimaryButtonStyle}"
+                            Padding="16,8" Click="Save_Click"/>
+                </StackPanel>
+            </Border>
+        </Grid>
+    </Border>
+</UserControl>

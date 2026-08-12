@@ -1,0 +1,93 @@
+<Window x:Class="SGDB.Views.NfeLotValidityWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Validade e Lote da NF-e"
+        Height="560" Width="900"
+        MinHeight="440" MinWidth="760"
+        WindowStartupLocation="CenterOwner"
+        Background="{StaticResource SgdbBgBrush}"
+        FontFamily="Segoe UI, Tahoma"
+        PreviewKeyDown="Window_PreviewKeyDown"
+        Loaded="Window_Loaded">
+    <Grid Margin="14">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <StackPanel Grid.Row="0" Margin="0,0,0,8">
+            <TextBlock Text="Informe a validade impressa na caixa/fardo"
+                       FontSize="15" FontWeight="SemiBold" Foreground="#1E293B"/>
+            <TextBlock x:Name="HintText"
+                       FontSize="12" Foreground="#64748B" TextWrapping="Wrap" Margin="0,4,0,0"
+                       Text="Digite a validade (dd/MM/aaaa). Tab / Enter avança para o próximo item obrigatório. Lote é opcional."/>
+        </StackPanel>
+
+        <Border Grid.Row="1" Padding="10,8" Margin="0,0,0,8" Background="#F8FAFC"
+                BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="4">
+            <DockPanel LastChildFill="False">
+                <TextBlock DockPanel.Dock="Left" Text="Mesma validade p/ todos:"
+                           VerticalAlignment="Center" FontSize="12.5" Margin="0,0,10,0" Foreground="#334155"/>
+                <TextBox x:Name="BulkExpiryBox" DockPanel.Dock="Left" Width="120" Height="28"
+                         VerticalContentAlignment="Center" Padding="6,0" FontSize="13"
+                         ToolTip="dd/MM/aaaa — aplica em todos os itens com controle de validade"
+                         KeyDown="BulkExpiryBox_KeyDown"/>
+                <Button DockPanel.Dock="Left" Content="Aplicar a todos" Margin="8,0,0,0" Padding="12,5"
+                        Style="{StaticResource SgdbPrimaryButtonStyle}" Click="ApplyBulk_Click"
+                        ToolTip="Preenche a mesma validade em todos os itens da nota"/>
+                <TextBlock x:Name="BulkMetaText" DockPanel.Dock="Right" VerticalAlignment="Center"
+                           FontSize="11.5" Foreground="#64748B"/>
+            </DockPanel>
+        </Border>
+
+        <DataGrid x:Name="Grid" Grid.Row="2"
+                  AutoGenerateColumns="False" CanUserAddRows="False" CanUserDeleteRows="False"
+                  HeadersVisibility="Column" GridLinesVisibility="Horizontal"
+                  HorizontalGridLinesBrush="#E2E8F0" BorderBrush="#E2E8F0" BorderThickness="1"
+                  Background="White" RowHeaderWidth="0" RowHeight="34" FontSize="12.5"
+                  AlternatingRowBackground="#F8FAFC"
+                  SelectionUnit="Cell" SelectionMode="Single"
+                  BeginningEdit="Grid_BeginningEdit"
+                  CellEditEnding="Grid_CellEditEnding"
+                  PreparingCellForEdit="Grid_PreparingCellForEdit"
+                  PreviewKeyDown="Grid_PreviewKeyDown">
+            <DataGrid.Resources>
+                <Style TargetType="DataGridCell">
+                    <Setter Property="Padding" Value="4,0"/>
+                    <Setter Property="VerticalAlignment" Value="Center"/>
+                </Style>
+            </DataGrid.Resources>
+            <DataGrid.Columns>
+                <DataGridTextColumn Header="Produto" Binding="{Binding Name}" Width="*" IsReadOnly="True"/>
+                <DataGridTextColumn Header="Qtd" Binding="{Binding QtyDisplay}" Width="70" IsReadOnly="True"/>
+                <DataGridTextColumn Header="Controle" Binding="{Binding ControlBadge}" Width="88" IsReadOnly="True"/>
+                <DataGridTextColumn x:Name="ExpiryCol" Header="Validade *"
+                                    Binding="{Binding ExpiryEdit, UpdateSourceTrigger=PropertyChanged}"
+                                    Width="120">
+                    <DataGridTextColumn.EditingElementStyle>
+                        <Style TargetType="TextBox">
+                            <Setter Property="Padding" Value="4,2"/>
+                            <Setter Property="FontSize" Value="13"/>
+                            <Setter Property="VerticalContentAlignment" Value="Center"/>
+                        </Style>
+                    </DataGridTextColumn.EditingElementStyle>
+                </DataGridTextColumn>
+                <DataGridTextColumn Header="Lote (opc.)"
+                                    Binding="{Binding LotNumber, UpdateSourceTrigger=PropertyChanged}"
+                                    Width="110"/>
+            </DataGrid.Columns>
+        </DataGrid>
+
+        <DockPanel Grid.Row="3" Margin="0,12,0,0" LastChildFill="False">
+            <TextBlock x:Name="FooterHint" DockPanel.Dock="Left" VerticalAlignment="Center" FontSize="11.5"
+                       Foreground="#64748B" TextWrapping="Wrap" MaxWidth="520"
+                       Text="* Obrigatório só com «Controle de validade» no cadastro. Tab = próxima validade."/>
+            <Button DockPanel.Dock="Right" Content="Confirmar (F9)" Padding="16,8"
+                    Style="{StaticResource SgdbPrimaryButtonStyle}" Click="Ok_Click" IsDefault="True"/>
+            <Button DockPanel.Dock="Right" Content="Cancelar" Padding="14,8" Margin="0,0,8,0"
+                    Style="{StaticResource SgdbOutlineButtonStyle}" Click="Cancel_Click" IsCancel="True"/>
+        </DockPanel>
+    </Grid>
+</Window>

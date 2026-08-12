@@ -1,0 +1,154 @@
+<UserControl x:Class="SGDB.Views.ProductsModuleView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:controls="clr-namespace:SGDB.Controls"
+             Background="{StaticResource SgdbBgBrush}"
+             Focusable="True"
+             PreviewKeyDown="ProductsModuleView_PreviewKeyDown">
+    <Border BorderBrush="#B8C4D4" BorderThickness="1" Background="White">
+        <Grid>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="*"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+            </Grid.RowDefinitions>
+
+            <Border Grid.Row="0" Padding="10,6" Background="{StaticResource TitleBarGradientBrush}"
+                    BorderBrush="{StaticResource SgdbGoldBrush}" BorderThickness="0,0,0,1">
+                <Grid>
+                    <TextBlock Text="Produtos" Foreground="White" FontWeight="SemiBold" FontSize="13"/>
+                    <Button x:Name="CloseTabButton" Style="{StaticResource ModuleTabCloseStyle}"
+                            HorizontalAlignment="Right" Click="CloseTabButton_Click"/>
+                </Grid>
+            </Border>
+
+            <Border Grid.Row="1" Padding="12,10" Background="#FAF8F4"
+                    BorderBrush="#E2E8F0" BorderThickness="0,0,0,1">
+                <StackPanel>
+                    <TextBlock Text="F6 | Localizar &lt;&lt;Referência | Cód. Barras | Descrição&gt;&gt;"
+                               FontSize="11" FontWeight="SemiBold" Foreground="#334155" Margin="0,0,0,6"/>
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="140"/>
+                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+                        <TextBox x:Name="SearchBox" Grid.Column="0" Height="30" Padding="8,0"
+                                 FontSize="13" VerticalContentAlignment="Center"
+                                 CharacterCasing="Upper"
+                                 TextChanged="SearchBox_TextChanged"/>
+                        <TextBlock Grid.Column="1" Text="Grupo" VerticalAlignment="Center"
+                                   Margin="12,0,6,0" FontSize="11"/>
+                        <ComboBox x:Name="GroupFilterBox" Grid.Column="2" Height="30"
+                                  SelectionChanged="Filter_Changed"/>
+                        <Button Grid.Column="3" Content="Filtrar" Margin="8,0,0,0"
+                                Style="{StaticResource SgdbPrimaryButtonStyle}" Click="Refresh_Click"/>
+                        <Button Grid.Column="4" Content="Limpar" Margin="6,0,0,0"
+                                Style="{StaticResource SgdbOutlineButtonStyle}" Click="ClearFilter_Click"/>
+                    </Grid>
+                    <Grid Margin="0,8,0,0">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Grid.Column="0" Text="Período" VerticalAlignment="Center"
+                                   Margin="0,0,8,0" FontSize="11"/>
+                        <ComboBox x:Name="DateModeBox" Grid.Column="1" Width="100" Height="28"
+                                  Margin="0,0,8,0" SelectionChanged="Filter_Changed">
+                            <ComboBoxItem Content="Cadastro" IsSelected="True" Tag="created"/>
+                            <ComboBoxItem Content="Entrada" Tag="entry"/>
+                        </ComboBox>
+                        <controls:BrDateBox x:Name="DateFromBox" Grid.Column="2" Width="158"/>
+                        <TextBlock Grid.Column="3" Text="até" VerticalAlignment="Center" Margin="8,0" FontSize="11"/>
+                        <controls:BrDateBox x:Name="DateToBox" Grid.Column="4" Width="158"/>
+                    </Grid>
+                </StackPanel>
+            </Border>
+
+            <DataGrid x:Name="ProductsGrid" Grid.Row="2" Margin="0"
+                      AutoGenerateColumns="False" IsReadOnly="True"
+                      SelectionMode="Single" SelectionUnit="FullRow"
+                      HeadersVisibility="Column" GridLinesVisibility="Horizontal"
+                      HorizontalGridLinesBrush="{StaticResource SgdbGridLineBrush}"
+                      VerticalGridLinesBrush="{StaticResource SgdbGridLineBrush}"
+                      BorderThickness="0" Background="White"
+                      RowHeight="28" FontSize="12"
+                      MouseDoubleClick="ProductsGrid_MouseDoubleClick"
+                      SelectionChanged="ProductsGrid_SelectionChanged">
+                <DataGrid.Columns>
+                    <DataGridTextColumn Header="Código" Binding="{Binding Id}" Width="70"/>
+                    <DataGridTextColumn Header="Referência" Binding="{Binding Code}" Width="100"/>
+                    <DataGridTextColumn Header="Cód. Barras" Binding="{Binding BarcodeDisplay}" Width="110"/>
+                    <DataGridTextColumn Header="&gt;&gt;Descrição" Binding="{Binding Name}" Width="*"/>
+                    <DataGridTextColumn Header="Preço" Binding="{Binding SalePriceDisplay}" Width="90"/>
+                    <DataGridTextColumn Header="Estoque" Binding="{Binding StockDisplay}" Width="150" MinWidth="110"/>
+                    <DataGridTextColumn Header="Última entrada" Binding="{Binding LastEntryDisplay}" Width="130"/>
+                    <DataGridTextColumn Header="Grupo" Binding="{Binding GroupDisplay}" Width="120"/>
+                </DataGrid.Columns>
+            </DataGrid>
+
+            <StackPanel Grid.Row="3" Orientation="Horizontal" Margin="12,8">
+                <RadioButton x:Name="FilterAtivos" Content="Ativos" GroupName="ativo" Margin="0,0,12,0"
+                             IsChecked="True" Checked="Filter_Changed"/>
+                <RadioButton x:Name="FilterInativos" Content="Inativos" GroupName="ativo" Margin="0,0,12,0"
+                             Checked="Filter_Changed"/>
+                <RadioButton x:Name="FilterTodos" Content="Todos" GroupName="ativo"
+                             Checked="Filter_Changed"/>
+            </StackPanel>
+
+            <Border Grid.Row="4" Background="#F5F3EE" BorderBrush="#E2E8F0" BorderThickness="0,1,0,0" Padding="10,8">
+                <WrapPanel>
+                    <Button x:Name="BtnNovo" Style="{StaticResource ModuleActionButtonStyle}" Click="NewProduct_Click">
+                        <StackPanel>
+                            <TextBlock Text="📄+" Style="{StaticResource ModuleActionIconStyle}"/>
+                            <TextBlock Text="F2 | Novo" Style="{StaticResource ModuleActionLabelStyle}"/>
+                        </StackPanel>
+                    </Button>
+                    <Button x:Name="BtnAlterar" Style="{StaticResource ModuleActionButtonStyle}" Click="EditProduct_Click">
+                        <StackPanel>
+                            <TextBlock Text="✎" Style="{StaticResource ModuleActionIconStyle}"/>
+                            <TextBlock Text="F3 | Alterar" Style="{StaticResource ModuleActionLabelStyle}"/>
+                        </StackPanel>
+                    </Button>
+                    <Button x:Name="BtnDuplicar" Style="{StaticResource ModuleActionButtonStyle}" Click="DuplicateProduct_Click">
+                        <StackPanel>
+                            <TextBlock Text="📋" Style="{StaticResource ModuleActionIconStyle}"/>
+                            <TextBlock Text="F8 | Duplicar" Style="{StaticResource ModuleActionLabelStyle}"/>
+                        </StackPanel>
+                    </Button>
+                    <Button x:Name="BtnUnificar" Style="{StaticResource ModuleActionButtonStyle}" Click="MergeProduct_Click">
+                        <StackPanel>
+                            <TextBlock Text="⇄" Style="{StaticResource ModuleActionIconStyle}"/>
+                            <TextBlock Text="F4 | Unificar" Style="{StaticResource ModuleActionLabelStyle}"/>
+                        </StackPanel>
+                    </Button>
+                    <Button Style="{StaticResource ModuleActionButtonStyle}" Click="Refresh_Click">
+                        <StackPanel>
+                            <TextBlock Text="↻" Style="{StaticResource ModuleActionIconStyle}"/>
+                            <TextBlock Text="F5 | Atualizar" Style="{StaticResource ModuleActionLabelStyle}"/>
+                        </StackPanel>
+                    </Button>
+                    <Button x:Name="BtnExcluir" Style="{StaticResource ModuleActionButtonStyle}" Click="DeleteProduct_Click">
+                        <StackPanel>
+                            <TextBlock Text="✕" Style="{StaticResource ModuleActionIconStyle}"/>
+                            <TextBlock Text="F7 | Excluir" Style="{StaticResource ModuleActionLabelStyle}"/>
+                        </StackPanel>
+                    </Button>
+                    <Button Style="{StaticResource ModuleActionButtonStyle}" Click="Export_Click">
+                        <StackPanel>
+                            <TextBlock Text="📤" Style="{StaticResource ModuleActionIconStyle}"/>
+                            <TextBlock Text="F9 | Exportar" Style="{StaticResource ModuleActionLabelStyle}"/>
+                        </StackPanel>
+                    </Button>
+                </WrapPanel>
+            </Border>
+        </Grid>
+    </Border>
+</UserControl>

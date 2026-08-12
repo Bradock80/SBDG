@@ -1,0 +1,71 @@
+<Window x:Class="SGDB.Views.PdvTrocarProdutoWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Trocar produto do item"
+        Width="720" Height="580" MinWidth="640" MinHeight="500"
+        WindowStartupLocation="CenterOwner"
+        Background="#ECE9D8"
+        FontFamily="Segoe UI, Tahoma"
+        PreviewKeyDown="Window_PreviewKeyDown">
+    <Window.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceDictionary Source="/Themes/PdvTheme.xaml"/>
+            </ResourceDictionary.MergedDictionaries>
+        </ResourceDictionary>
+    </Window.Resources>
+    <Border Background="#ECE9D8" BorderBrush="#666666" BorderThickness="2" Margin="6">
+        <Grid Margin="12">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="*"/>
+                <RowDefinition Height="Auto"/>
+            </Grid.RowDefinitions>
+
+            <TextBlock x:Name="DeText" FontSize="13" FontWeight="SemiBold" TextWrapping="Wrap" Margin="0,0,0,10"/>
+
+            <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="0,0,0,8">
+                <TextBlock Text="Buscar produto" VerticalAlignment="Center" Margin="0,0,8,0" FontSize="12"/>
+                <TextBox x:Name="BuscaBox" Width="300" FontSize="14" Padding="6,4"
+                         TextChanged="BuscaBox_TextChanged"/>
+                <TextBlock Text="Qtd nova" VerticalAlignment="Center" Margin="16,0,8,0" FontSize="12" FontWeight="SemiBold"/>
+                <TextBox x:Name="QtdBox" Width="90" FontSize="16" FontWeight="Bold" Padding="6,4"
+                         TextChanged="QtdBox_TextChanged"/>
+            </StackPanel>
+
+            <TextBlock x:Name="PrecoPreviewText" Grid.Row="2" FontSize="12" Foreground="#333" Margin="0,0,0,6"
+                       TextWrapping="Wrap"/>
+
+            <CheckBox x:Name="ManterPrecoCheck" Grid.Row="3" Margin="0,0,0,8"
+                      Content="Manter o preço unitário antigo da linha"
+                      Checked="ManterPreco_Changed" Unchecked="ManterPreco_Changed"/>
+
+            <TextBlock Grid.Row="4" FontSize="11" Foreground="#555" Margin="0,0,0,6"
+                       Text="Ex.: 1 galão → busque Antarctica e digite Qtd 4. Enter confirma."/>
+
+            <DataGrid x:Name="ProdutosGrid" Grid.Row="5"
+                      Style="{StaticResource PdvConsultaDataGrid}"
+                      IsReadOnly="True" AutoGenerateColumns="False"
+                      SelectionChanged="ProdutosGrid_SelectionChanged"
+                      MouseDoubleClick="ProdutosGrid_MouseDoubleClick">
+                <DataGrid.Columns>
+                    <DataGridTextColumn Header="Cód." Binding="{Binding Code}" Width="90"/>
+                    <DataGridTextColumn Header="Produto" Binding="{Binding Name}" Width="*"/>
+                    <DataGridTextColumn Header="Preço" Binding="{Binding SalePriceDisplay}" Width="72"/>
+                    <DataGridTextColumn Header="Estoque" Binding="{Binding StockDisplay}" Width="90"/>
+                </DataGrid.Columns>
+            </DataGrid>
+
+            <StackPanel Grid.Row="6" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,12,0,0">
+                <Button Content="Confirmar troca (Enter)" Style="{StaticResource PdvConsultaBtnPrimary}"
+                        Click="Confirm_Click" Padding="16,8"/>
+                <Button Content="Esc — Cancelar" Style="{StaticResource PdvConsultaBtn}"
+                        Click="Cancel_Click" IsCancel="True"/>
+            </StackPanel>
+        </Grid>
+    </Border>
+</Window>

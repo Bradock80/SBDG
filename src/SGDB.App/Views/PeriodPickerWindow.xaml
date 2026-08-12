@@ -1,0 +1,136 @@
+<Window x:Class="SGDB.Views.PeriodPickerWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:controls="clr-namespace:SGDB.Controls"
+        Title="Selecionar período"
+        Width="560" SizeToContent="Height"
+        WindowStartupLocation="CenterOwner"
+        ResizeMode="NoResize"
+        Background="#1A1F2E"
+        FontFamily="Segoe UI, Tahoma"
+        PreviewKeyDown="Window_PreviewKeyDown">
+    <Window.Resources>
+        <Style x:Key="PeriodQuickBtn" TargetType="Button">
+            <Setter Property="Height" Value="34"/>
+            <Setter Property="MinWidth" Value="110"/>
+            <Setter Property="Margin" Value="0,0,8,8"/>
+            <Setter Property="Padding" Value="12,0"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Background" Value="#2A3142"/>
+            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="BorderBrush" Value="#5B6578"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="Bd"
+                                Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="4"
+                                Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"
+                                              TextElement.Foreground="{TemplateBinding Foreground}"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Bd" Property="Background" Value="#3A4255"/>
+                                <Setter TargetName="Bd" Property="BorderBrush" Value="#94A3B8"/>
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="Bd" Property="Background" Value="#1E3A5F"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+        <Style x:Key="PeriodAplicarBtn" TargetType="Button">
+            <Setter Property="Height" Value="34"/>
+            <Setter Property="MinWidth" Value="88"/>
+            <Setter Property="Padding" Value="16,0"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Background" Value="#1E3A5F"/>
+            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="Bd" Background="{TemplateBinding Background}"
+                                BorderBrush="#C9A227" BorderThickness="1.5"
+                                CornerRadius="4" Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"
+                                              TextElement.Foreground="{TemplateBinding Foreground}"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Bd" Property="Background" Value="#254A75"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+        <Style x:Key="PeriodVoltarBtn" TargetType="Button">
+            <Setter Property="Height" Value="34"/>
+            <Setter Property="MinWidth" Value="88"/>
+            <Setter Property="Padding" Value="16,0"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Background" Value="#2A3142"/>
+            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="Bd" Background="{TemplateBinding Background}"
+                                BorderBrush="#5B6578" BorderThickness="1"
+                                CornerRadius="4" Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"
+                                              TextElement.Foreground="{TemplateBinding Foreground}"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Bd" Property="Background" Value="#3A4255"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+    </Window.Resources>
+
+    <Border Padding="20" BorderBrush="#C9A227" BorderThickness="0,0,0,0">
+        <StackPanel>
+            <TextBlock Text="Selecionar período" FontSize="16" FontWeight="SemiBold"
+                       Foreground="White" Margin="0,0,0,14"/>
+
+            <WrapPanel Margin="0,0,0,8">
+                <Button Content="Ontem" Style="{StaticResource PeriodQuickBtn}" Click="Quick_Click" Tag="ontem"/>
+                <Button Content="Hoje" Style="{StaticResource PeriodQuickBtn}" Click="Quick_Click" Tag="hoje"/>
+                <Button Content="Mês Anterior" Style="{StaticResource PeriodQuickBtn}" Click="Quick_Click" Tag="mes_ant"/>
+                <Button Content="Mês Atual" Style="{StaticResource PeriodQuickBtn}" Click="Quick_Click" Tag="mes"/>
+                <Button Content="Últimos 7 Dias" Style="{StaticResource PeriodQuickBtn}" Click="Quick_Click" Tag="7"/>
+                <Button Content="Últimos 30 Dias" Style="{StaticResource PeriodQuickBtn}" Click="Quick_Click" Tag="30"/>
+                <Button Content="Últimos 90 Dias" Style="{StaticResource PeriodQuickBtn}" Click="Quick_Click" Tag="90"/>
+            </WrapPanel>
+
+            <Border Height="1" Background="#3A4255" Margin="0,4,0,14"/>
+
+            <TextBlock Text="Período personalizado" FontSize="14" FontWeight="SemiBold"
+                       Foreground="White" Margin="0,0,0,12"/>
+
+            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                <TextBlock Text="De:" Foreground="#CBD5E1" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                <controls:BrDateBox x:Name="DateFromBox" Width="140" Margin="0,0,16,0"/>
+                <TextBlock Text="Até:" Foreground="#CBD5E1" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                <controls:BrDateBox x:Name="DateToBox" Width="140" Margin="0,0,16,0"/>
+                <Button Content="Aplicar" Style="{StaticResource PeriodAplicarBtn}" Click="Aplicar_Click"/>
+            </StackPanel>
+
+            <Button Content="Voltar" Style="{StaticResource PeriodVoltarBtn}"
+                    HorizontalAlignment="Left" Margin="0,20,0,0" Click="Voltar_Click"/>
+        </StackPanel>
+    </Border>
+</Window>

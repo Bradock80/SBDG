@@ -1,0 +1,49 @@
+<Window x:Class="SGDB.Views.CatalogQuickWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Cadastro"
+        Height="420" Width="420"
+        WindowStartupLocation="CenterOwner"
+        ResizeMode="NoResize"
+        Background="{StaticResource SgdbBgBrush}"
+        PreviewKeyDown="Window_PreviewKeyDown">
+    <Window.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceDictionary Source="/Themes/SgdbTheme.xaml"/>
+                <ResourceDictionary Source="/Themes/ProductFormTheme.xaml"/>
+            </ResourceDictionary.MergedDictionaries>
+        </ResourceDictionary>
+    </Window.Resources>
+    <Border Margin="0" Style="{StaticResource WpdvWindowBorder}">
+        <Grid>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="*"/>
+                <RowDefinition Height="Auto"/>
+            </Grid.RowDefinitions>
+            <Border Style="{StaticResource WpdvTitleBar}">
+                <TextBlock x:Name="TitleText" Style="{StaticResource WpdvTitleText}"/>
+            </Border>
+            <StackPanel Grid.Row="1" Margin="8">
+                <Grid Margin="0,0,0,8">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+                    <TextBlock x:Name="NameLabel" Style="{StaticResource WpdvLabel}"/>
+                    <TextBox x:Name="NameBox" Grid.Column="1" Style="{StaticResource WpdvInput}"
+                             MaxLength="80" CharacterCasing="Upper"/>
+                </Grid>
+                <TextBlock Text="Cadastrados — clique para selecionar" FontSize="11" Margin="0,0,0,4"/>
+                <ListBox x:Name="ItemsList" Height="220" FontSize="11"
+                         SelectionChanged="ItemsList_SelectionChanged"/>
+                <TextBlock x:Name="ErrorText" Foreground="#B91C1C" FontSize="11" Margin="0,6,0,0"/>
+            </StackPanel>
+            <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right" Margin="8">
+                <Button Content="F5 | Salvar" Style="{StaticResource WpdvFooterSave}" Click="Save_Click"/>
+                <Button Content="Esc | Sair" Style="{StaticResource WpdvFooterSave}" Click="Cancel_Click" IsCancel="True"/>
+            </StackPanel>
+        </Grid>
+    </Border>
+</Window>

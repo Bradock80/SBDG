@@ -1,0 +1,69 @@
+<Window x:Class="SGDB.Views.CashDepositConfirmWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title=""
+        Width="440" SizeToContent="Height"
+        WindowStartupLocation="CenterOwner"
+        ResizeMode="NoResize"
+        WindowStyle="None"
+        AllowsTransparency="True"
+        Background="Transparent"
+        FontFamily="Tahoma, Segoe UI"
+        PreviewKeyDown="Window_PreviewKeyDown">
+    <Window.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceDictionary Source="/Themes/CashModalTheme.xaml"/>
+            </ResourceDictionary.MergedDictionaries>
+        </ResourceDictionary>
+    </Window.Resources>
+    <Border Style="{StaticResource GestaoModalShell}">
+        <Grid>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+            </Grid.RowDefinitions>
+            <Border Grid.Row="0" Style="{StaticResource GestaoModalTitleBar}">
+                <TextBlock x:Name="TitleText" Text="Conferir depósito" Style="{StaticResource GestaoModalTitleText}"/>
+            </Border>
+            <Border Grid.Row="1" Style="{StaticResource GestaoModalBody}">
+                <StackPanel>
+                    <Border Background="#F8FAFC" BorderBrush="#E2E8F0" BorderThickness="1"
+                            Padding="10,8" Margin="0,0,0,12">
+                        <TextBlock x:Name="ResumoText" TextWrapping="Wrap" FontSize="12" LineHeight="18"
+                                   Foreground="#333333"/>
+                    </Border>
+
+                    <StackPanel Style="{StaticResource GestaoCompraF}">
+                        <TextBlock Text="Valor depositado no banco" Style="{StaticResource GestaoFieldLabel}"/>
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+                            <Border Grid.Column="0" Style="{StaticResource GestaoMoedaPrefix}">
+                                <TextBlock Text="R$" Style="{StaticResource GestaoMoedaPrefixText}"/>
+                            </Border>
+                            <TextBox x:Name="ValorBox" Grid.Column="1" Style="{StaticResource GestaoMoedaInput}"
+                                     BorderThickness="1"/>
+                        </Grid>
+                        <TextBlock Text="Informe o valor depositado. Se bater com o aguardando, fica Depositado; senão, Divergente."
+                                   FontSize="11" Foreground="#64748B" TextWrapping="Wrap" Margin="0,6,0,0"/>
+                    </StackPanel>
+
+                    <StackPanel Style="{StaticResource GestaoCompraF}">
+                        <TextBlock Text="Observação" Style="{StaticResource GestaoFieldLabel}"/>
+                        <TextBox x:Name="ObsBox" Style="{StaticResource GestaoFieldInput}" MaxLength="300"/>
+                    </StackPanel>
+
+                    <StackPanel Style="{StaticResource GestaoModalActions}">
+                        <Button Content="Confirmar" Style="{StaticResource GestaoModalBtnPrimary}"
+                                Margin="0,0,8,0" IsDefault="True" Click="Confirm_Click"/>
+                        <Button Content="Cancelar" Style="{StaticResource GestaoModalBtn}" IsCancel="True"
+                                Click="Cancel_Click"/>
+                    </StackPanel>
+                </StackPanel>
+            </Border>
+        </Grid>
+    </Border>
+</Window>

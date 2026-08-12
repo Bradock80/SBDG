@@ -1,0 +1,81 @@
+<Window x:Class="SGDB.Views.PayableNovoWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:controls="clr-namespace:SGDB.Controls"
+        Title="Novo título — Contas a Pagar"
+        Width="520" SizeToContent="Height"
+        WindowStartupLocation="CenterOwner"
+        ResizeMode="NoResize"
+        Background="#F3F4F6"
+        FontFamily="Segoe UI, Tahoma"
+        PreviewKeyDown="Window_PreviewKeyDown">
+    <Border Margin="16" Background="White" BorderBrush="#E5E7EB" BorderThickness="1" Padding="20">
+        <StackPanel>
+            <TextBlock Text="Novo título — Contas a Pagar" FontSize="15" FontWeight="SemiBold"
+                       Foreground="#111827" Margin="0,0,0,16"/>
+
+            <Grid Margin="0,0,0,10">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="130"/>
+                    <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+                <TextBlock Text="Fornecedor" VerticalAlignment="Center"/>
+                <ComboBox x:Name="SupplierBox" Grid.Column="1" Height="28" DisplayMemberPath="Name"/>
+            </Grid>
+
+            <Grid Margin="0,0,0,10">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="130"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="12"/>
+                    <ColumnDefinition Width="100"/>
+                    <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+                <TextBlock Text="Número / Doc" VerticalAlignment="Center"/>
+                <TextBox x:Name="NumeroBox" Grid.Column="1" Height="28" MaxLength="30" Padding="6,0"
+                         VerticalContentAlignment="Center"/>
+                <TextBlock Grid.Column="3" Text="Emissão" VerticalAlignment="Center"/>
+                <controls:BrDateBox x:Name="EmissaoBox" Grid.Column="4"/>
+            </Grid>
+
+            <Grid Margin="0,0,0,10">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="130"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="12"/>
+                    <ColumnDefinition Width="100"/>
+                    <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+                <TextBlock Text="1º Vencimento" VerticalAlignment="Center"/>
+                <controls:BrDateBox x:Name="VencimentoBox" Grid.Column="1"/>
+                <TextBlock Grid.Column="3" Text="Valor" VerticalAlignment="Center"/>
+                <TextBox x:Name="ValorBox" Grid.Column="4" Height="28" Padding="6,0"
+                         VerticalContentAlignment="Center" HorizontalContentAlignment="Right"
+                         LostFocus="Money_LostFocus"/>
+            </Grid>
+
+            <Grid Margin="0,0,0,10">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="130"/>
+                    <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+                <TextBlock Text="Tipo Cobrança" VerticalAlignment="Center"/>
+                <ComboBox x:Name="TipoBox" Grid.Column="1" Height="28"/>
+            </Grid>
+
+            <Grid Margin="0,0,0,18">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="130"/>
+                    <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+                <TextBlock Text="Categoria" VerticalAlignment="Center"/>
+                <ComboBox x:Name="CategoriaBox" Grid.Column="1" Height="28" IsEditable="False"/>
+            </Grid>
+
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                <Button Content="Salvar" Width="100" Height="30" Margin="0,0,8,0" IsDefault="True" Click="Salvar_Click"/>
+                <Button Content="Cancelar" Width="100" Height="30" IsCancel="True" Click="Cancelar_Click"/>
+            </StackPanel>
+        </StackPanel>
+    </Border>
+</Window>

@@ -1,0 +1,570 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <LinearGradientBrush x:Key="PdvTitleBarGradient" StartPoint="0,0" EndPoint="0,1">
+        <GradientStop Color="#FEFEFE" Offset="0"/>
+        <GradientStop Color="#E8E8E8" Offset="1"/>
+    </LinearGradientBrush>
+
+    <SolidColorBrush x:Key="PdvBgBrush" Color="#C8C8C8"/>
+    <SolidColorBrush x:Key="PdvSearchBarBrush" Color="#E8B4A8"/>
+    <SolidColorBrush x:Key="PdvSearchBorderBrush" Color="#B08070"/>
+
+    <Style x:Key="PdvTitleBar" TargetType="Border">
+        <Setter Property="Background" Value="{StaticResource PdvTitleBarGradient}"/>
+        <Setter Property="BorderBrush" Value="#888888"/>
+        <Setter Property="BorderThickness" Value="0,0,0,1"/>
+        <Setter Property="Padding" Value="12,4,8,4"/>
+        <Setter Property="MinHeight" Value="32"/>
+    </Style>
+
+    <Style x:Key="PdvTitleText" TargetType="TextBlock">
+        <Setter Property="FontSize" Value="13"/>
+        <Setter Property="FontWeight" Value="SemiBold"/>
+        <Setter Property="Foreground" Value="#222222"/>
+        <Setter Property="VerticalAlignment" Value="Center"/>
+    </Style>
+
+    <Style x:Key="PdvCloseButton" TargetType="Button">
+        <Setter Property="Width" Value="28"/>
+        <Setter Property="Height" Value="24"/>
+        <Setter Property="BorderBrush" Value="#888888"/>
+        <Setter Property="Background" Value="#ECECEC"/>
+        <Setter Property="FontSize" Value="16"/>
+        <Setter Property="Padding" Value="0"/>
+        <Setter Property="Cursor" Value="Hand"/>
+        <Setter Property="VerticalAlignment" Value="Center"/>
+    </Style>
+
+    <Style x:Key="PdvMenuBar" TargetType="Border">
+        <Setter Property="Background" Value="#F0F0F0"/>
+        <Setter Property="BorderBrush" Value="#AAAAAA"/>
+        <Setter Property="BorderThickness" Value="0,0,0,1"/>
+        <Setter Property="Padding" Value="6,2"/>
+    </Style>
+
+    <Style x:Key="PdvMenuTab" TargetType="TextBlock">
+        <Setter Property="FontSize" Value="12"/>
+        <Setter Property="Padding" Value="10,2"/>
+        <Setter Property="Foreground" Value="#333333"/>
+    </Style>
+
+    <Style x:Key="PdvMenuTabActive" TargetType="Border">
+        <Setter Property="Background" Value="White"/>
+        <Setter Property="BorderBrush" Value="#888888"/>
+        <Setter Property="BorderThickness" Value="1,1,1,0"/>
+        <Setter Property="Margin" Value="0,0,4,0"/>
+    </Style>
+
+    <Style x:Key="PdvSearchInput" TargetType="TextBox">
+        <Setter Property="FontSize" Value="26"/>
+        <Setter Property="FontWeight" Value="Bold"/>
+        <Setter Property="Height" Value="42"/>
+        <Setter Property="Padding" Value="10,6"/>
+        <Setter Property="Background" Value="White"/>
+        <Setter Property="BorderBrush" Value="#B08070"/>
+        <Setter Property="CharacterCasing" Value="Upper"/>
+    </Style>
+
+    <Style x:Key="PdvFooterBar" TargetType="Border">
+        <Setter Property="Background" Value="#ECECEC"/>
+        <Setter Property="BorderBrush" Value="#888888"/>
+        <Setter Property="BorderThickness" Value="1,1,0,0"/>
+        <Setter Property="Padding" Value="0"/>
+    </Style>
+
+    <Style x:Key="PdvBtnFinalizar" TargetType="Button">
+        <Setter Property="Background" Value="#2E6B31"/>
+        <Setter Property="Foreground" Value="White"/>
+        <Setter Property="FontWeight" Value="Bold"/>
+        <Setter Property="FontSize" Value="18"/>
+        <Setter Property="Padding" Value="28,12"/>
+        <Setter Property="BorderBrush" Value="#1F4D22"/>
+        <Setter Property="BorderThickness" Value="1"/>
+        <Setter Property="Cursor" Value="Hand"/>
+        <Setter Property="MinWidth" Value="160"/>
+    </Style>
+
+    <Style x:Key="PdvBtnConsulta" TargetType="Button">
+        <Setter Property="Background" Value="#D4E4F7"/>
+        <Setter Property="Foreground" Value="#1A3A5C"/>
+        <Setter Property="FontWeight" Value="SemiBold"/>
+        <Setter Property="FontSize" Value="14"/>
+        <Setter Property="Padding" Value="18,10"/>
+        <Setter Property="BorderBrush" Value="#6A8AB0"/>
+        <Setter Property="BorderThickness" Value="1"/>
+        <Setter Property="Margin" Value="0,0,8,0"/>
+        <Setter Property="Cursor" Value="Hand"/>
+    </Style>
+
+    <Style x:Key="PdvBtnSecondary" TargetType="Button">
+        <Setter Property="Background" Value="#F5F5F5"/>
+        <Setter Property="Foreground" Value="#333333"/>
+        <Setter Property="FontSize" Value="11"/>
+        <Setter Property="Padding" Value="10,6"/>
+        <Setter Property="BorderBrush" Value="#999999"/>
+        <Setter Property="BorderThickness" Value="1"/>
+        <Setter Property="Margin" Value="0,0,6,0"/>
+        <Setter Property="Cursor" Value="Hand"/>
+    </Style>
+
+    <Style x:Key="PdvMetricLabel" TargetType="TextBlock">
+        <Setter Property="FontSize" Value="11"/>
+        <Setter Property="Foreground" Value="#444444"/>
+    </Style>
+
+    <Style x:Key="PdvMetricValue" TargetType="TextBlock">
+        <Setter Property="FontSize" Value="28"/>
+        <Setter Property="FontWeight" Value="Bold"/>
+        <Setter Property="Foreground" Value="#111111"/>
+    </Style>
+
+    <Style x:Key="PdvGrandTotal" TargetType="TextBlock">
+        <Setter Property="FontSize" Value="42"/>
+        <Setter Property="FontWeight" Value="Bold"/>
+        <Setter Property="Foreground" Value="#000000"/>
+    </Style>
+
+    <Style x:Key="PdvQtyInput" TargetType="TextBox">
+        <Setter Property="FontSize" Value="28"/>
+        <Setter Property="FontWeight" Value="Bold"/>
+        <Setter Property="Height" Value="48"/>
+        <Setter Property="Width" Value="120"/>
+        <Setter Property="Padding" Value="10,6"/>
+        <Setter Property="BorderBrush" Value="#888888"/>
+        <Setter Property="Background" Value="White"/>
+        <Setter Property="HorizontalContentAlignment" Value="Right"/>
+    </Style>
+
+    <Style x:Key="PdvDataGridColumnHeader" TargetType="DataGridColumnHeader">
+        <Setter Property="Background" Value="#E8B4A8"/>
+        <Setter Property="Foreground" Value="#222222"/>
+        <Setter Property="BorderBrush" Value="#B08070"/>
+        <Setter Property="BorderThickness" Value="0,0,1,1"/>
+        <Setter Property="Padding" Value="8,5"/>
+        <Setter Property="FontSize" Value="13"/>
+        <Setter Property="FontWeight" Value="SemiBold"/>
+        <Setter Property="HorizontalContentAlignment" Value="Left"/>
+    </Style>
+
+    <Style x:Key="PdvLookupColumnHeader" TargetType="DataGridColumnHeader" BasedOn="{StaticResource PdvDataGridColumnHeader}">
+        <Setter Property="Background" Value="#D0D0D0"/>
+        <Setter Property="BorderBrush" Value="#AAAAAA"/>
+        <Setter Property="FontSize" Value="14"/>
+    </Style>
+
+    <Style x:Key="PdvDataGridCell" TargetType="DataGridCell">
+        <Setter Property="Padding" Value="10,6"/>
+        <Setter Property="BorderBrush" Value="#BBBBBB"/>
+        <Setter Property="BorderThickness" Value="0,0,1,1"/>
+        <Setter Property="Foreground" Value="#111111"/>
+        <Setter Property="FocusVisualStyle" Value="{x:Null}"/>
+        <Style.Triggers>
+            <Trigger Property="IsSelected" Value="True">
+                <Setter Property="Background" Value="#D4E8FF"/>
+                <Setter Property="Foreground" Value="#111111"/>
+            </Trigger>
+        </Style.Triggers>
+    </Style>
+
+    <Style x:Key="PdvLookupCell" TargetType="DataGridCell" BasedOn="{StaticResource PdvDataGridCell}">
+        <Style.Triggers>
+            <Trigger Property="IsSelected" Value="True">
+                <Setter Property="Background" Value="#B8D4F0"/>
+                <Setter Property="Foreground" Value="#111111"/>
+            </Trigger>
+        </Style.Triggers>
+    </Style>
+
+    <Style x:Key="PdvCartRow" TargetType="DataGridRow">
+        <Setter Property="MinHeight" Value="40"/>
+        <Setter Property="FontSize" Value="16"/>
+        <Setter Property="Background" Value="White"/>
+        <Style.Triggers>
+            <Trigger Property="IsSelected" Value="True">
+                <Setter Property="FontSize" Value="20"/>
+                <Setter Property="FontWeight" Value="SemiBold"/>
+                <Setter Property="MinHeight" Value="50"/>
+                <Setter Property="Background" Value="#D4E8FF"/>
+            </Trigger>
+        </Style.Triggers>
+    </Style>
+
+    <Style x:Key="PdvLookupRow" TargetType="DataGridRow">
+        <Setter Property="MinHeight" Value="38"/>
+        <Setter Property="FontSize" Value="16"/>
+        <Setter Property="Background" Value="White"/>
+        <Setter Property="Cursor" Value="Hand"/>
+        <Style.Triggers>
+            <Trigger Property="IsMouseOver" Value="True">
+                <Setter Property="Background" Value="#E8F2FC"/>
+            </Trigger>
+            <Trigger Property="IsSelected" Value="True">
+                <Setter Property="FontSize" Value="22"/>
+                <Setter Property="FontWeight" Value="Bold"/>
+                <Setter Property="MinHeight" Value="52"/>
+                <Setter Property="Background" Value="#B8D4F0"/>
+            </Trigger>
+        </Style.Triggers>
+    </Style>
+
+    <Style x:Key="PdvCartDataGrid" TargetType="DataGrid">
+        <Setter Property="AutoGenerateColumns" Value="False"/>
+        <Setter Property="IsReadOnly" Value="True"/>
+        <Setter Property="SelectionMode" Value="Single"/>
+        <Setter Property="SelectionUnit" Value="FullRow"/>
+        <Setter Property="HeadersVisibility" Value="Column"/>
+        <Setter Property="GridLinesVisibility" Value="All"/>
+        <Setter Property="HorizontalGridLinesBrush" Value="#BBBBBB"/>
+        <Setter Property="VerticalGridLinesBrush" Value="#BBBBBB"/>
+        <Setter Property="RowHeaderWidth" Value="0"/>
+        <Setter Property="CanUserAddRows" Value="False"/>
+        <Setter Property="CanUserDeleteRows" Value="False"/>
+        <Setter Property="CanUserResizeRows" Value="False"/>
+        <Setter Property="Background" Value="White"/>
+        <Setter Property="BorderThickness" Value="0"/>
+        <Setter Property="FontSize" Value="16"/>
+        <Setter Property="ColumnHeaderStyle" Value="{StaticResource PdvDataGridColumnHeader}"/>
+        <Setter Property="CellStyle" Value="{StaticResource PdvDataGridCell}"/>
+        <Setter Property="RowStyle" Value="{StaticResource PdvCartRow}"/>
+    </Style>
+
+    <Style x:Key="PdvLookupDataGrid" TargetType="DataGrid" BasedOn="{StaticResource PdvCartDataGrid}">
+        <Setter Property="ColumnHeaderStyle" Value="{StaticResource PdvLookupColumnHeader}"/>
+        <Setter Property="CellStyle" Value="{StaticResource PdvLookupCell}"/>
+        <Setter Property="RowStyle" Value="{StaticResource PdvLookupRow}"/>
+    </Style>
+
+    <!-- Payment window -->
+    <Style x:Key="PdvPayTitleBar" TargetType="Border" BasedOn="{StaticResource PdvTitleBar}">
+        <Setter Property="MinHeight" Value="28"/>
+    </Style>
+    <Style x:Key="PdvPayTitleText" TargetType="TextBlock" BasedOn="{StaticResource PdvTitleText}">
+        <Setter Property="FontSize" Value="14"/>
+        <Setter Property="FontWeight" Value="SemiBold"/>
+    </Style>
+    <Style x:Key="PdvPaySidePanel" TargetType="Border">
+        <Setter Property="Background" Value="#ECECEC"/>
+        <Setter Property="BorderBrush" Value="#AAAAAA"/>
+        <Setter Property="BorderThickness" Value="1"/>
+        <Setter Property="Padding" Value="10,12"/>
+    </Style>
+    <Style x:Key="PdvPaySideLabel" TargetType="TextBlock">
+        <Setter Property="FontSize" Value="15"/>
+        <Setter Property="FontWeight" Value="SemiBold"/>
+        <Setter Property="Foreground" Value="#222222"/>
+        <Setter Property="VerticalAlignment" Value="Center"/>
+    </Style>
+    <Style x:Key="PdvPaySideUnit" TargetType="TextBlock">
+        <Setter Property="FontSize" Value="16"/>
+        <Setter Property="FontWeight" Value="Bold"/>
+        <Setter Property="VerticalAlignment" Value="Center"/>
+    </Style>
+    <Style x:Key="PdvPaySideInput" TargetType="TextBox">
+        <Setter Property="FontSize" Value="22"/>
+        <Setter Property="FontWeight" Value="SemiBold"/>
+        <Setter Property="Padding" Value="10,8"/>
+        <Setter Property="BorderBrush" Value="#888888"/>
+        <Setter Property="Background" Value="White"/>
+        <Setter Property="HorizontalContentAlignment" Value="Right"/>
+        <Setter Property="MinHeight" Value="44"/>
+    </Style>
+    <Style x:Key="PdvPayTotalValue" TargetType="TextBlock">
+        <Setter Property="FontSize" Value="44"/>
+        <Setter Property="FontWeight" Value="Bold"/>
+        <Setter Property="Foreground" Value="#111111"/>
+    </Style>
+    <Style x:Key="PdvPaySellerCombo" TargetType="ComboBox">
+        <Setter Property="FontSize" Value="13"/>
+        <Setter Property="FontWeight" Value="SemiBold"/>
+        <Setter Property="Padding" Value="6,8"/>
+    </Style>
+    <Style x:Key="PdvPayClienteWrap" TargetType="Border">
+        <Setter Property="Background" Value="#EEF5FC"/>
+        <Setter Property="BorderBrush" Value="#2A6FB3"/>
+        <Setter Property="BorderThickness" Value="2"/>
+    </Style>
+    <Style x:Key="PdvPayClienteHint" TargetType="TextBlock">
+        <Setter Property="FontSize" Value="14"/>
+        <Setter Property="FontWeight" Value="Bold"/>
+        <Setter Property="VerticalAlignment" Value="Center"/>
+    </Style>
+    <Style x:Key="PdvPayClienteBusca" TargetType="TextBox">
+        <Setter Property="FontSize" Value="16"/>
+        <Setter Property="FontWeight" Value="SemiBold"/>
+        <Setter Property="Padding" Value="8,10"/>
+        <Setter Property="BorderBrush" Value="#888888"/>
+    </Style>
+    <Style x:Key="PdvPayClienteNome" TargetType="TextBlock">
+        <Setter Property="FontSize" Value="16"/>
+        <Setter Property="FontWeight" Value="Bold"/>
+        <Setter Property="HorizontalAlignment" Value="Right"/>
+        <Setter Property="VerticalAlignment" Value="Center"/>
+        <Setter Property="TextTrimming" Value="CharacterEllipsis"/>
+    </Style>
+    <Style x:Key="PdvPayMethodsWrap" TargetType="Border">
+        <Setter Property="Background" Value="White"/>
+        <Setter Property="BorderBrush" Value="#888888"/>
+        <Setter Property="BorderThickness" Value="1"/>
+    </Style>
+    <Style x:Key="PdvPayMethodRow" TargetType="DataGridRow">
+        <Setter Property="Height" Value="48"/>
+        <Setter Property="MinHeight" Value="48"/>
+        <Setter Property="FontSize" Value="20"/>
+        <Setter Property="Background" Value="White"/>
+        <Style.Triggers>
+            <Trigger Property="IsSelected" Value="True">
+                <Setter Property="Height" Value="52"/>
+                <Setter Property="MinHeight" Value="52"/>
+                <Setter Property="FontSize" Value="22"/>
+                <Setter Property="FontWeight" Value="SemiBold"/>
+                <Setter Property="Background" Value="#B8D4F0"/>
+            </Trigger>
+        </Style.Triggers>
+    </Style>
+    <Style x:Key="PdvPayMethodCell" TargetType="DataGridCell" BasedOn="{StaticResource PdvDataGridCell}">
+        <Setter Property="Padding" Value="10,6"/>
+        <Setter Property="FontSize" Value="20"/>
+        <Style.Triggers>
+            <Trigger Property="IsSelected" Value="True">
+                <Setter Property="Background" Value="#B8D4F0"/>
+                <Setter Property="Foreground" Value="#111111"/>
+            </Trigger>
+        </Style.Triggers>
+    </Style>
+    <Style x:Key="PdvPayMethodsGrid" TargetType="DataGrid" BasedOn="{StaticResource PdvCartDataGrid}">
+        <Setter Property="FontSize" Value="20"/>
+        <Setter Property="Height" Value="260"/>
+        <Setter Property="MinHeight" Value="200"/>
+        <Setter Property="MaxHeight" Value="300"/>
+        <Setter Property="IsReadOnly" Value="False"/>
+        <Setter Property="VerticalScrollBarVisibility" Value="Visible"/>
+        <Setter Property="ScrollViewer.VerticalScrollBarVisibility" Value="Visible"/>
+        <Setter Property="ColumnHeaderStyle" Value="{StaticResource PdvLookupColumnHeader}"/>
+        <Setter Property="RowStyle" Value="{StaticResource PdvPayMethodRow}"/>
+        <Setter Property="CellStyle" Value="{StaticResource PdvPayMethodCell}"/>
+    </Style>
+    <Style x:Key="PdvPayMixedHint" TargetType="TextBlock">
+        <Setter Property="FontSize" Value="11"/>
+        <Setter Property="Foreground" Value="#444444"/>
+    </Style>
+    <Style x:Key="PdvPayTabsBar" TargetType="Border">
+        <Setter Property="BorderBrush" Value="#AAAAAA"/>
+        <Setter Property="BorderThickness" Value="0,1,0,0"/>
+        <Setter Property="Padding" Value="0,6,0,0"/>
+    </Style>
+    <Style x:Key="PdvPayTabActive" TargetType="TextBlock">
+        <Setter Property="FontSize" Value="12"/>
+        <Setter Property="FontWeight" Value="SemiBold"/>
+        <Setter Property="Padding" Value="12,4"/>
+        <Setter Property="Background" Value="White"/>
+    </Style>
+    <Style x:Key="PdvPayTabInactive" TargetType="TextBlock">
+        <Setter Property="FontSize" Value="12"/>
+        <Setter Property="Foreground" Value="#666666"/>
+        <Setter Property="Padding" Value="12,4"/>
+    </Style>
+    <Style x:Key="PdvPayFooterBar" TargetType="Border">
+        <Setter Property="Background" Value="#ECECEC"/>
+        <Setter Property="BorderBrush" Value="#AAAAAA"/>
+        <Setter Property="BorderThickness" Value="0,1,0,0"/>
+        <Setter Property="Padding" Value="12,8"/>
+    </Style>
+    <Style x:Key="PdvPayFooterLabel" TargetType="TextBlock">
+        <Setter Property="FontSize" Value="16"/>
+        <Setter Property="FontWeight" Value="Bold"/>
+        <Setter Property="Foreground" Value="#444444"/>
+    </Style>
+    <Style x:Key="PdvPayRestanteValue" TargetType="TextBlock">
+        <Setter Property="FontSize" Value="32"/>
+        <Setter Property="FontWeight" Value="Bold"/>
+        <Setter Property="Foreground" Value="#111111"/>
+    </Style>
+    <Style x:Key="PdvPayTrocoBox" TargetType="Border">
+        <Setter Property="BorderBrush" Value="#15803D"/>
+        <Setter Property="BorderThickness" Value="2"/>
+        <Setter Property="Padding" Value="14,8"/>
+        <Setter Property="MinWidth" Value="180"/>
+        <Setter Property="Background" Value="#F0FFF4"/>
+    </Style>
+    <Style x:Key="PdvPayTrocoValue" TargetType="TextBlock">
+        <Setter Property="FontSize" Value="36"/>
+        <Setter Property="FontWeight" Value="Bold"/>
+        <Setter Property="Foreground" Value="#15803D"/>
+    </Style>
+    <Style x:Key="PdvPayActionBtn" TargetType="Button">
+        <Setter Property="Width" Value="62"/>
+        <Setter Property="Height" Value="62"/>
+        <Setter Property="Padding" Value="4"/>
+        <Setter Property="Background" Value="#F5F5F5"/>
+        <Setter Property="BorderBrush" Value="#888888"/>
+        <Setter Property="BorderThickness" Value="1"/>
+        <Setter Property="Cursor" Value="Hand"/>
+    </Style>
+
+    <Style x:Key="PdvModalWindow" TargetType="Window">
+        <Setter Property="FontFamily" Value="Segoe UI, Tahoma"/>
+        <Setter Property="Background" Value="#ECE9D8"/>
+    </Style>
+
+    <!-- Consulta de vendas (paridade White PDV) -->
+    <Style x:Key="PdvConsultaTitleBar" TargetType="Border">
+        <Setter Property="Background" Value="{StaticResource PdvTitleBarGradient}"/>
+        <Setter Property="BorderBrush" Value="#888888"/>
+        <Setter Property="BorderThickness" Value="0,0,0,1"/>
+        <Setter Property="Padding" Value="10,6"/>
+    </Style>
+    <Style x:Key="PdvConsultaTitleText" TargetType="TextBlock">
+        <Setter Property="FontSize" Value="14"/>
+        <Setter Property="FontWeight" Value="Bold"/>
+        <Setter Property="Foreground" Value="#222222"/>
+        <Setter Property="VerticalAlignment" Value="Center"/>
+    </Style>
+    <Style x:Key="PdvConsultaPanel" TargetType="Border">
+        <Setter Property="Background" Value="White"/>
+        <Setter Property="BorderBrush" Value="#AAAAAA"/>
+        <Setter Property="BorderThickness" Value="1"/>
+    </Style>
+    <Style x:Key="PdvConsultaSideHeader" TargetType="Border">
+        <Setter Property="Background" Value="#F5F5F5"/>
+        <Setter Property="BorderBrush" Value="#CCCCCC"/>
+        <Setter Property="BorderThickness" Value="0,0,0,1"/>
+        <Setter Property="Padding" Value="10,8"/>
+    </Style>
+    <Style x:Key="PdvConsultaMeta" TargetType="TextBlock">
+        <Setter Property="FontSize" Value="12"/>
+        <Setter Property="Foreground" Value="#444444"/>
+        <Setter Property="Margin" Value="8,6"/>
+    </Style>
+    <Style x:Key="PdvConsultaResumoWrap" TargetType="WrapPanel">
+        <Setter Property="Margin" Value="10,8"/>
+    </Style>
+    <Style x:Key="PdvConsultaChip" TargetType="StackPanel">
+        <Setter Property="Margin" Value="0,0,20,6"/>
+    </Style>
+    <Style x:Key="PdvConsultaChipLabel" TargetType="TextBlock">
+        <Setter Property="FontSize" Value="11"/>
+        <Setter Property="Foreground" Value="#666666"/>
+    </Style>
+    <Style x:Key="PdvConsultaChipValue" TargetType="TextBlock">
+        <Setter Property="FontSize" Value="13"/>
+        <Setter Property="FontWeight" Value="SemiBold"/>
+        <Setter Property="Foreground" Value="#111111"/>
+    </Style>
+    <Style x:Key="PdvConsultaDinheiroPanel" TargetType="Border">
+        <Setter Property="Margin" Value="10,0,10,10"/>
+        <Setter Property="Padding" Value="12,12"/>
+        <Setter Property="BorderBrush" Value="#93C5FD"/>
+        <Setter Property="BorderThickness" Value="1"/>
+        <Setter Property="CornerRadius" Value="8"/>
+        <Setter Property="Background">
+            <Setter.Value>
+                <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
+                    <GradientStop Color="#EFF6FF" Offset="0"/>
+                    <GradientStop Color="#DBEAFE" Offset="1"/>
+                </LinearGradientBrush>
+            </Setter.Value>
+        </Setter>
+    </Style>
+    <Style x:Key="PdvConsultaDinheiroTitle" TargetType="TextBlock">
+        <Setter Property="FontSize" Value="12"/>
+        <Setter Property="FontWeight" Value="Bold"/>
+        <Setter Property="Foreground" Value="#1E40AF"/>
+        <Setter Property="Margin" Value="0,0,0,10"/>
+    </Style>
+    <Style x:Key="PdvConsultaDinheiroValue" TargetType="TextBlock">
+        <Setter Property="FontSize" Value="16"/>
+        <Setter Property="FontWeight" Value="Bold"/>
+        <Setter Property="Foreground" Value="#0F172A"/>
+    </Style>
+    <Style x:Key="PdvConsultaDinheiroTroco" TargetType="TextBlock">
+        <Setter Property="FontSize" Value="18"/>
+        <Setter Property="FontWeight" Value="Bold"/>
+        <Setter Property="Foreground" Value="#1D4ED8"/>
+    </Style>
+    <Style x:Key="PdvConsultaFooter" TargetType="Border">
+        <Setter Property="Background" Value="#E8E8E8"/>
+        <Setter Property="BorderBrush" Value="#888888"/>
+        <Setter Property="BorderThickness" Value="0,1,0,0"/>
+        <Setter Property="Padding" Value="12,8"/>
+    </Style>
+    <Style x:Key="PdvConsultaHint" TargetType="TextBlock">
+        <Setter Property="FontSize" Value="12"/>
+        <Setter Property="Foreground" Value="#333333"/>
+        <Setter Property="Margin" Value="0,0,14,0"/>
+    </Style>
+    <Style x:Key="PdvConsultaBtn" TargetType="Button">
+        <Setter Property="FontSize" Value="11"/>
+        <Setter Property="Padding" Value="12,8"/>
+        <Setter Property="Margin" Value="0,0,8,0"/>
+        <Setter Property="Background" Value="#F5F5F5"/>
+        <Setter Property="BorderBrush" Value="#999999"/>
+        <Setter Property="BorderThickness" Value="1"/>
+        <Setter Property="Cursor" Value="Hand"/>
+    </Style>
+    <Style x:Key="PdvConsultaBtnPrimary" TargetType="Button" BasedOn="{StaticResource PdvConsultaBtn}">
+        <Setter Property="Background" Value="#C41E3A"/>
+        <Setter Property="Foreground" Value="White"/>
+        <Setter Property="BorderBrush" Value="#9A1830"/>
+        <Setter Property="FontWeight" Value="SemiBold"/>
+    </Style>
+    <Style x:Key="PdvConsultaBtnDanger" TargetType="Button" BasedOn="{StaticResource PdvConsultaBtn}">
+        <Setter Property="Background" Value="#991B1B"/>
+        <Setter Property="Foreground" Value="White"/>
+        <Setter Property="BorderBrush" Value="#7F1D1D"/>
+        <Setter Property="FontWeight" Value="SemiBold"/>
+    </Style>
+    <Style x:Key="PdvConsultaDataGrid" TargetType="DataGrid" BasedOn="{StaticResource PdvCartDataGrid}">
+        <Setter Property="FontSize" Value="12"/>
+        <Setter Property="BorderThickness" Value="0"/>
+        <Setter Property="RowHeight" Value="26"/>
+        <Setter Property="MinRowHeight" Value="26"/>
+        <Setter Property="CanUserResizeColumns" Value="True"/>
+        <Setter Property="CanUserSortColumns" Value="False"/>
+        <Setter Property="HorizontalScrollBarVisibility" Value="Disabled"/>
+        <Setter Property="VerticalScrollBarVisibility" Value="Auto"/>
+        <Setter Property="ScrollViewer.CanContentScroll" Value="False"/>
+        <Setter Property="ScrollViewer.VerticalScrollBarVisibility" Value="Auto"/>
+        <Setter Property="ColumnHeaderStyle" Value="{StaticResource PdvConsultaColumnHeader}"/>
+        <Setter Property="CellStyle" Value="{StaticResource PdvConsultaCell}"/>
+        <Setter Property="RowStyle" Value="{StaticResource PdvConsultaRow}"/>
+    </Style>
+    <Style x:Key="PdvConsultaColumnHeader" TargetType="DataGridColumnHeader">
+        <Setter Property="Background" Value="#DDD8D0"/>
+        <Setter Property="Foreground" Value="#222222"/>
+        <Setter Property="FontSize" Value="11"/>
+        <Setter Property="FontWeight" Value="SemiBold"/>
+        <Setter Property="Padding" Value="8,5"/>
+        <Setter Property="BorderBrush" Value="#BBBBBB"/>
+        <Setter Property="BorderThickness" Value="0,0,1,1"/>
+        <Setter Property="HorizontalContentAlignment" Value="Left"/>
+    </Style>
+    <Style x:Key="PdvConsultaCell" TargetType="DataGridCell">
+        <Setter Property="Padding" Value="8,3"/>
+        <Setter Property="BorderBrush" Value="#DDDDDD"/>
+        <Setter Property="BorderThickness" Value="0,0,1,1"/>
+        <Setter Property="Foreground" Value="#111111"/>
+        <Setter Property="FocusVisualStyle" Value="{x:Null}"/>
+        <Style.Triggers>
+            <Trigger Property="IsSelected" Value="True">
+                <Setter Property="Background" Value="#CCE5FF"/>
+                <Setter Property="Foreground" Value="#111111"/>
+            </Trigger>
+        </Style.Triggers>
+    </Style>
+    <Style x:Key="PdvConsultaRow" TargetType="DataGridRow">
+        <Setter Property="MinHeight" Value="26"/>
+        <Setter Property="FontSize" Value="12"/>
+        <Setter Property="Background" Value="White"/>
+        <Style.Triggers>
+            <Trigger Property="IsSelected" Value="True">
+                <Setter Property="Background" Value="#CCE5FF"/>
+                <Setter Property="FontWeight" Value="SemiBold"/>
+            </Trigger>
+            <Trigger Property="IsMouseOver" Value="True">
+                <Setter Property="Background" Value="#FFF8E6"/>
+            </Trigger>
+        </Style.Triggers>
+    </Style>
+
+</ResourceDictionary>

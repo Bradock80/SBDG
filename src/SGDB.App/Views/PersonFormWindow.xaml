@@ -1,0 +1,310 @@
+<Window x:Class="SGDB.Views.PersonFormWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Cadastro de Pessoas"
+        Width="920" MinWidth="920" MaxWidth="920"
+        Height="680" MinHeight="560" MaxHeight="760"
+        WindowStartupLocation="CenterOwner"
+        ResizeMode="CanResize"
+        Background="{StaticResource SgdbBgBrush}"
+        FontFamily="Segoe UI, Tahoma"
+        PreviewKeyDown="Window_PreviewKeyDown">
+    <Window.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceDictionary Source="/Themes/SgdbTheme.xaml"/>
+                <ResourceDictionary Source="/Themes/PersonFormTheme.xaml"/>
+            </ResourceDictionary.MergedDictionaries>
+        </ResourceDictionary>
+    </Window.Resources>
+
+    <Border Margin="0" Style="{StaticResource CadastroWindowBorder}">
+        <Grid>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="*"/>
+                <RowDefinition Height="Auto"/>
+            </Grid.RowDefinitions>
+
+            <Border Grid.Row="0" Style="{StaticResource CadastroTitleBar}">
+                <Grid>
+                    <TextBlock x:Name="TitleText" Text="Cadastro de Pessoas" Style="{StaticResource CadastroTitleText}"/>
+                    <Button Style="{StaticResource CadastroCloseButton}" HorizontalAlignment="Right"
+                            Click="Cancel_Click" ToolTip="Fechar"/>
+                </Grid>
+            </Border>
+
+            <Border Grid.Row="1" Background="{StaticResource MenuBarGradientBrush}" BorderBrush="{StaticResource SgdbGoldBrush}" BorderThickness="0,0,0,1" Padding="8,4,8,0">
+                <StackPanel Orientation="Horizontal">
+                    <ToggleButton x:Name="TabDados" Content="Dados Básicos" Style="{StaticResource CadastroTabButton}"
+                                  IsChecked="True" Click="Tab_Click" Tag="dados"/>
+                    <ToggleButton x:Name="TabAdicionais" Content="Adicionais" Style="{StaticResource CadastroTabButton}"
+                                  Click="Tab_Click" Tag="adicionais"/>
+                    <ToggleButton x:Name="TabContatos" Content="Contatos" Style="{StaticResource CadastroTabButton}"
+                                  Click="Tab_Click" Tag="contatos"/>
+                </StackPanel>
+            </Border>
+
+            <Border Grid.Row="2" Background="White" Padding="10">
+                <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                <Grid>
+                    <StackPanel x:Name="PanelDados">
+                        <TextBlock x:Name="StatusText" FontSize="11" Margin="0,0,0,8" MinHeight="18" TextWrapping="Wrap"/>
+                        <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="200"/>
+                        </Grid.ColumnDefinitions>
+
+                    <Grid Grid.Column="0" Margin="0,0,12,0">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="12"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                        </Grid.RowDefinitions>
+
+                        <StackPanel Grid.Row="0" Grid.Column="0" Margin="0,0,0,6">
+                            <TextBlock Text="Código" Style="{StaticResource CadastroLabel}"/>
+                            <TextBox x:Name="IdBox" Style="{StaticResource CadastroReadOnly}" Tag="(automático)"/>
+                        </StackPanel>
+
+                        <StackPanel Grid.Row="0" Grid.Column="2" Margin="0,0,0,6">
+                            <TextBlock Style="{StaticResource CadastroLabel}">
+                                <Run Text="CPF/CNPJ"/>
+                                <Run Text=" — digite 14 números e clique na lupa" FontSize="10" Foreground="#666"/>
+                            </TextBlock>
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+                                <TextBox x:Name="DocBox" Style="{StaticResource CadastroInput}" MaxLength="18"/>
+                                <Button x:Name="BtnLookupCnpj" Grid.Column="1" Style="{StaticResource CadastroIconButton}" Margin="4,0,0,0"
+                                        ToolTip="Buscar CNPJ" Click="LookupCnpj_Click"/>
+                            </Grid>
+                        </StackPanel>
+
+                        <StackPanel Grid.Row="1" Grid.Column="0" Margin="0,0,0,6">
+                            <TextBlock Text="RG/IE" Style="{StaticResource CadastroLabel}"/>
+                            <TextBox x:Name="RgBox" Style="{StaticResource CadastroInput}" MaxLength="20"/>
+                        </StackPanel>
+
+                        <StackPanel Grid.Row="1" Grid.Column="2" Margin="0,0,0,6">
+                            <TextBlock Text="Pessoa" Style="{StaticResource CadastroLabel}"/>
+                            <ComboBox x:Name="KindBox" Style="{StaticResource CadastroCombo}"/>
+                        </StackPanel>
+
+                        <StackPanel Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="3" Margin="0,0,0,6">
+                            <TextBlock Text="Nome" Style="{StaticResource CadastroLabel}"/>
+                            <TextBox x:Name="NameBox" Style="{StaticResource CadastroInput}" MaxLength="200" CharacterCasing="Upper"/>
+                        </StackPanel>
+
+                        <StackPanel Grid.Row="3" Grid.Column="0" Grid.ColumnSpan="3" Margin="0,0,0,6">
+                            <TextBlock Text="Apelido" Style="{StaticResource CadastroLabel}"/>
+                            <TextBox x:Name="TradeBox" Style="{StaticResource CadastroInput}" MaxLength="160" CharacterCasing="Upper"/>
+                        </StackPanel>
+
+                        <StackPanel Grid.Row="4" Grid.Column="0" Margin="0,0,0,6">
+                            <TextBlock Style="{StaticResource CadastroLabel}">
+                                <Run Text="CEP"/>
+                                <Run Text=" — 8 números, depois clique na lupa" FontSize="10" Foreground="#666"/>
+                            </TextBlock>
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+                                <TextBox x:Name="CepBox" Style="{StaticResource CadastroInput}" MaxLength="9"/>
+                                <Button x:Name="BtnLookupCep" Grid.Column="1" Style="{StaticResource CadastroIconButton}" Margin="4,0,0,0"
+                                        ToolTip="Buscar CEP" Click="LookupCep_Click"/>
+                            </Grid>
+                        </StackPanel>
+
+                        <StackPanel Grid.Row="5" Grid.Column="0" Grid.ColumnSpan="3" Margin="0,0,0,6">
+                            <TextBlock Text="Endereço" Style="{StaticResource CadastroLabel}"/>
+                            <TextBox x:Name="AddressBox" Style="{StaticResource CadastroInput}" MaxLength="200" CharacterCasing="Upper"/>
+                        </StackPanel>
+
+                        <StackPanel Grid.Row="6" Grid.Column="0" Margin="0,0,0,6">
+                            <TextBlock Text="Número" Style="{StaticResource CadastroLabel}"/>
+                            <TextBox x:Name="NumberBox" Style="{StaticResource CadastroInput}" MaxLength="20"/>
+                        </StackPanel>
+
+                        <StackPanel Grid.Row="6" Grid.Column="2" Margin="0,0,0,6">
+                            <TextBlock Text="Complemento" Style="{StaticResource CadastroLabel}"/>
+                            <TextBox x:Name="ComplementBox" Style="{StaticResource CadastroInput}" MaxLength="80" CharacterCasing="Upper"/>
+                        </StackPanel>
+
+                        <StackPanel Grid.Row="7" Grid.Column="0" Margin="0,0,0,6">
+                            <TextBlock Text="Bairro" Style="{StaticResource CadastroLabel}"/>
+                            <TextBox x:Name="NeighborhoodBox" Style="{StaticResource CadastroInput}" MaxLength="80" CharacterCasing="Upper"/>
+                        </StackPanel>
+
+                        <Grid Grid.Row="7" Grid.Column="2" Margin="0,0,0,6">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="72"/>
+                            </Grid.ColumnDefinitions>
+                            <StackPanel Grid.Column="0" Margin="0,0,10,0">
+                                <TextBlock Text="Cidade" Style="{StaticResource CadastroLabel}"/>
+                                <TextBox x:Name="CityBox" Style="{StaticResource CadastroInput}" MaxLength="120" CharacterCasing="Upper"/>
+                            </StackPanel>
+                            <StackPanel Grid.Column="1">
+                                <TextBlock Text="UF" Style="{StaticResource CadastroLabel}"/>
+                                <TextBox x:Name="StateBox" Style="{StaticResource CadastroInput}" MaxLength="2"
+                                         CharacterCasing="Upper" TextAlignment="Center"/>
+                            </StackPanel>
+                        </Grid>
+
+                        <StackPanel Grid.Row="8" Grid.Column="0" Grid.ColumnSpan="3" Margin="0,0,0,6">
+                            <TextBlock Text="E-mail" Style="{StaticResource CadastroLabel}"/>
+                            <TextBox x:Name="EmailBox" Style="{StaticResource CadastroInput}" MaxLength="120"/>
+                        </StackPanel>
+
+                        <StackPanel Grid.Row="9" Grid.Column="0" Margin="0,0,0,6">
+                            <TextBlock Style="{StaticResource CadastroLabel}">
+                                <Run Text="Fone 1"/>
+                                <Run Text=" (00) 0000-0000" FontSize="10" Foreground="#666"/>
+                            </TextBlock>
+                            <TextBox x:Name="PhoneBox" Style="{StaticResource CadastroInput}" MaxLength="16"/>
+                        </StackPanel>
+
+                        <StackPanel Grid.Row="9" Grid.Column="2" Margin="0,0,0,6">
+                            <TextBlock Style="{StaticResource CadastroLabel}">
+                                <Run Text="Celular 1"/>
+                                <Run Text=" (00) 00000-0000" FontSize="10" Foreground="#666"/>
+                            </TextBlock>
+                            <TextBox x:Name="Cell1Box" Style="{StaticResource CadastroInput}" MaxLength="16"/>
+                        </StackPanel>
+
+                        <StackPanel Grid.Row="10" Grid.Column="0" Margin="0,0,0,6">
+                            <TextBlock Style="{StaticResource CadastroLabel}">
+                                <Run Text="WhatsApp"/>
+                                <Run Text=" (00) 00000-0000" FontSize="10" Foreground="#666"/>
+                            </TextBlock>
+                            <TextBox x:Name="WhatsappBox" Style="{StaticResource CadastroInput}" MaxLength="16"/>
+                        </StackPanel>
+
+                        <StackPanel Grid.Row="10" Grid.Column="2" Margin="0,0,0,6">
+                            <TextBlock Style="{StaticResource CadastroLabel}">
+                                <Run Text="Fone 2"/>
+                                <Run Text=" (00) 0000-0000" FontSize="10" Foreground="#666"/>
+                            </TextBlock>
+                            <TextBox x:Name="Phone2Box" Style="{StaticResource CadastroInput}" MaxLength="16"/>
+                        </StackPanel>
+
+                        <StackPanel Grid.Row="11" Grid.Column="0" Margin="0,0,0,6">
+                            <TextBlock Style="{StaticResource CadastroLabel}">
+                                <Run Text="Celular 2"/>
+                                <Run Text=" (00) 00000-0000" FontSize="10" Foreground="#666"/>
+                            </TextBlock>
+                            <TextBox x:Name="Cell2Box" Style="{StaticResource CadastroInput}" MaxLength="16"/>
+                        </StackPanel>
+
+                        <StackPanel Grid.Row="11" Grid.Column="2" Margin="0,0,0,6">
+                            <TextBlock Text="Tipo de Recebimento" Style="{StaticResource CadastroLabel}"/>
+                            <ComboBox x:Name="ReceiptBox" Style="{StaticResource CadastroCombo}"/>
+                        </StackPanel>
+                    </Grid>
+
+                    <Border Grid.Column="1" Style="{StaticResource CadastroParamsBox}" VerticalAlignment="Top">
+                        <StackPanel>
+                            <Border BorderBrush="#DDDDDD" BorderThickness="0,0,0,1" Margin="0,0,0,8" Padding="0,0,0,4">
+                                <TextBlock Text="Parâmetros" FontWeight="SemiBold" FontSize="12"/>
+                            </Border>
+                            <CheckBox x:Name="RoleAtivoBox" Content="Ativo" IsChecked="True" FontSize="11" Margin="0,5"/>
+                            <CheckBox x:Name="RoleClientesBox" IsChecked="True" FontSize="11" Margin="0,5">
+                                <TextBlock TextWrapping="Wrap">
+                                    <Run Text="Clientes"/>
+                                    <Run Text=" (obrigatório para vender fiado no PDV)" FontSize="10" Foreground="#666"/>
+                                </TextBlock>
+                            </CheckBox>
+                            <CheckBox x:Name="RoleFornecedoresBox" FontSize="11" Margin="0,5">
+                                <TextBlock TextWrapping="Wrap">
+                                    <Run Text="Fornecedores"/>
+                                    <Run Text=" (marque para aparecer em Compras)" FontSize="10" Foreground="#666"/>
+                                </TextBlock>
+                            </CheckBox>
+                            <CheckBox x:Name="RoleFuncionariosBox" Content="Funcionários" FontSize="11" Margin="0,5"/>
+                            <CheckBox x:Name="RoleCredenciadorasBox" Content="Credenciadoras" FontSize="11" Margin="0,5"/>
+                            <CheckBox x:Name="RoleParceirosBox" Content="Parceiros" FontSize="11" Margin="0,5"/>
+                            <CheckBox x:Name="RoleCcfBox" Content="CCF/SPC" FontSize="11" Margin="0,5"/>
+                            <CheckBox x:Name="RoleEstrangeiroBox" Content="Estrangeiro" FontSize="11" Margin="0,5"/>
+                            <CheckBox x:Name="RoleMarketplacesBox" Content="Marketplaces/Deliveries" FontSize="11" Margin="0,5"/>
+
+                            <Border BorderBrush="#DDDDDD" BorderThickness="0,1,0,0" Margin="0,10,0,0" Padding="0,10,0,0">
+                                <StackPanel>
+                                    <CheckBox x:Name="FiadoUnitSurchargeBox" FontSize="11" Margin="0,0,0,6"
+                                              Checked="FiadoUnitSurchargeBox_Changed"
+                                              Unchecked="FiadoUnitSurchargeBox_Changed">
+                                        <TextBlock TextWrapping="Wrap">
+                                            <Run Text="Acréscimo por unidade no fiado"/>
+                                            <Run Text=" (ex.: R$ 0,50 em cada item)" FontSize="10" Foreground="#666"/>
+                                        </TextBlock>
+                                    </CheckBox>
+                                    <StackPanel x:Name="FiadoUnitSurchargePanel" Visibility="Collapsed" Margin="18,0,0,0">
+                                        <TextBlock Text="Valor por unidade (R$)" FontSize="10" Foreground="#555" Margin="0,0,0,2"/>
+                                        <TextBox x:Name="FiadoUnitSurchargeValBox" Style="{StaticResource CadastroInput}"
+                                                 Width="90" HorizontalAlignment="Left" Text="0,50"
+                                                 LostFocus="FiadoUnitSurchargeVal_LostFocus"/>
+                                    </StackPanel>
+                                </StackPanel>
+                            </Border>
+                        </StackPanel>
+                    </Border>
+                        </Grid>
+                    </StackPanel>
+
+                    <StackPanel x:Name="PanelAdicionais" Visibility="Collapsed">
+                    <TextBlock Text="Observações" Style="{StaticResource CadastroLabel}"/>
+                    <TextBox x:Name="NotesBox" Style="{StaticResource CadastroInput}" Height="140"
+                             TextWrapping="Wrap" AcceptsReturn="True" VerticalScrollBarVisibility="Auto"
+                             VerticalContentAlignment="Top" MaxLength="2000" CharacterCasing="Upper"/>
+                </StackPanel>
+
+                <StackPanel x:Name="PanelContatos" Visibility="Collapsed">
+                    <TextBlock Text="Telefones e e-mail também podem ser editados na aba Dados Básicos."
+                               FontSize="11" Foreground="#666" TextWrapping="Wrap"/>
+                    </StackPanel>
+                </Grid>
+                </ScrollViewer>
+            </Border>
+
+            <Border Grid.Row="3" Style="{StaticResource CadastroFooterBar}">
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Left">
+                    <Button Click="Save_Click" Style="{StaticResource CadastroFooterButton}">
+                        <StackPanel HorizontalAlignment="Center">
+                            <TextBlock Text="💾" FontSize="32" Foreground="{StaticResource CadastroFooterAccent}" HorizontalAlignment="Center"/>
+                            <TextBlock Text="F5 | Salvar" FontSize="11" FontWeight="SemiBold" Foreground="{StaticResource CadastroFooterAccent}" HorizontalAlignment="Center"/>
+                        </StackPanel>
+                    </Button>
+                    <Button Click="Cancel_Click" Style="{StaticResource CadastroFooterButton}" IsCancel="True">
+                        <StackPanel HorizontalAlignment="Center">
+                            <TextBlock Text="✕" FontSize="32" Foreground="{StaticResource CadastroFooterAccent}" HorizontalAlignment="Center"/>
+                            <TextBlock Text="Esc | Sair" FontSize="11" FontWeight="SemiBold" Foreground="{StaticResource CadastroFooterAccent}" HorizontalAlignment="Center"/>
+                        </StackPanel>
+                    </Button>
+                </StackPanel>
+            </Border>
+        </Grid>
+    </Border>
+</Window>

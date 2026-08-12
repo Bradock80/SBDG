@@ -1,0 +1,203 @@
+<Window x:Class="SGDB.Views.SaleExchangeWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Troca / Devolução de Venda"
+        Width="920" Height="640"
+        WindowStartupLocation="CenterOwner"
+        Background="#F8FAFC"
+        FontFamily="Segoe UI, Tahoma"
+        PreviewKeyDown="Window_PreviewKeyDown">
+    <Grid Margin="14">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <DockPanel Margin="0,0,0,10">
+            <TextBlock Text="Troca / Devolução" FontSize="18" FontWeight="SemiBold"
+                       Foreground="#0F172A" VerticalAlignment="Center"/>
+            <TextBlock x:Name="SaleHeaderText" DockPanel.Dock="Right"
+                       FontSize="12" Foreground="#64748B" VerticalAlignment="Center"/>
+        </DockPanel>
+
+        <Grid Grid.Row="1">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="280"/>
+                <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
+
+            <!-- Busca venda -->
+            <Border Grid.Column="0" Background="White" BorderBrush="#E2E8F0" BorderThickness="1"
+                    CornerRadius="8" Padding="10" Margin="0,0,10,0">
+                <DockPanel LastChildFill="True">
+                    <StackPanel DockPanel.Dock="Top">
+                        <TextBlock Text="1. Buscar venda" FontWeight="SemiBold" Margin="0,0,0,8"/>
+                        <TextBox x:Name="SearchBox" Height="32" Padding="8,0"
+                                 VerticalContentAlignment="Center"
+                                 TextChanged="SearchBox_TextChanged"
+                                 ToolTip="Nº da venda ou nome do cliente"/>
+                        <TextBlock Text="Digite o nº ou nome e dê Enter / duplo clique para abrir"
+                                   FontSize="11" Foreground="#94A3B8" Margin="0,6,0,8" TextWrapping="Wrap"/>
+                    </StackPanel>
+                    <DataGrid x:Name="SalesGrid" AutoGenerateColumns="False" IsReadOnly="True"
+                              HeadersVisibility="Column" GridLinesVisibility="Horizontal"
+                              SelectionMode="Single" CanUserAddRows="False"
+                              MouseDoubleClick="SalesGrid_MouseDoubleClick"
+                              BorderThickness="0" RowHeight="28" FontSize="12">
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Header="#" Binding="{Binding Id}" Width="50"/>
+                            <DataGridTextColumn Header="Quando" Binding="{Binding CreatedAtBr}" Width="90"/>
+                            <DataGridTextColumn Header="Cliente" Binding="{Binding CustomerName}" Width="*"/>
+                            <DataGridTextColumn Header="Total" Binding="{Binding TotalDisplay}" Width="70"/>
+                        </DataGrid.Columns>
+                    </DataGrid>
+                </DockPanel>
+            </Border>
+
+            <Grid Grid.Column="1">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="*" MinHeight="140"/>
+                    <RowDefinition Height="*" MinHeight="120"/>
+                </Grid.RowDefinitions>
+
+                <Border Background="White" BorderBrush="#E2E8F0" BorderThickness="1"
+                        CornerRadius="8" Padding="10" Margin="0,0,0,8">
+                    <DockPanel LastChildFill="True">
+                        <DockPanel DockPanel.Dock="Top" Margin="0,0,0,8">
+                            <TextBlock Text="2. Itens a devolver" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                            <Button DockPanel.Dock="Right" Content="Devolver tudo disponível"
+                                    Padding="10,4" Cursor="Hand" Click="ReturnAll_Click"/>
+                        </DockPanel>
+                        <DataGrid x:Name="ReturnGrid" AutoGenerateColumns="False"
+                                  HeadersVisibility="Column" CanUserAddRows="False"
+                                  BorderThickness="0" RowHeight="32" FontSize="12"
+                                  CellEditEnding="ReturnGrid_CellEditEnding">
+                            <DataGrid.Columns>
+                                <DataGridTextColumn Header="Produto" Binding="{Binding ProductName}" Width="*" IsReadOnly="True"/>
+                                <DataGridTextColumn Header="Vend." Binding="{Binding SoldQtyDisplay}" Width="50" IsReadOnly="True"/>
+                                <DataGridTextColumn Header="Disp." Binding="{Binding AvailableQtyDisplay}" Width="50" IsReadOnly="True"/>
+                                <DataGridTextColumn Header="Preço" Binding="{Binding UnitPriceDisplay}" Width="70" IsReadOnly="True"/>
+                                <DataGridTextColumn Header="Devolver" Binding="{Binding ReturnQty, UpdateSourceTrigger=PropertyChanged}" Width="70"/>
+                                <DataGridTextColumn Header="Valor" Binding="{Binding ReturnAmountDisplay}" Width="80" IsReadOnly="True"/>
+                            </DataGrid.Columns>
+                        </DataGrid>
+                    </DockPanel>
+                </Border>
+
+                <Border Grid.Row="1" Background="White" BorderBrush="#E2E8F0" BorderThickness="1"
+                        CornerRadius="8" Padding="10">
+                    <DockPanel LastChildFill="True">
+                        <StackPanel DockPanel.Dock="Top" Margin="0,0,0,8">
+                            <TextBlock Text="3. Itens novos (opcional — deixe vazio para só devolver o dinheiro)"
+                                       FontWeight="SemiBold" Margin="0,0,0,8" TextWrapping="Wrap"/>
+                            <DockPanel>
+                                <Button DockPanel.Dock="Right" Content="Adicionar" Margin="8,0,0,0"
+                                        Padding="12,4" Click="AddProduct_Click"/>
+                                <Grid>
+                                    <TextBox x:Name="ProductSearchBox" Height="32" Padding="8,0"
+                                             VerticalContentAlignment="Center"
+                                             TextChanged="ProductSearchBox_TextChanged"
+                                             PreviewKeyDown="ProductSearchBox_PreviewKeyDown"
+                                             KeyDown="ProductSearchBox_KeyDown"
+                                             LostKeyboardFocus="ProductSearchBox_LostFocus"
+                                             ToolTip="Digite o nome ou código — as opções aparecem na lista"/>
+                                    <Popup x:Name="ProductSuggestPopup"
+                                           PlacementTarget="{Binding ElementName=ProductSearchBox}"
+                                           Placement="Bottom" StaysOpen="True" AllowsTransparency="True"
+                                           PopupAnimation="Fade">
+                                        <Border Background="White" BorderBrush="#CBD5E1" BorderThickness="1"
+                                                MinWidth="{Binding ActualWidth, ElementName=ProductSearchBox}"
+                                                MaxHeight="220" CornerRadius="6">
+                                            <ListBox x:Name="ProductSuggestList" BorderThickness="0"
+                                                     FontSize="12" MaxHeight="218"
+                                                     PreviewMouseLeftButtonUp="ProductSuggestList_Click"
+                                                     KeyDown="ProductSuggestList_KeyDown">
+                                                <ListBox.ItemTemplate>
+                                                    <DataTemplate>
+                                                        <StackPanel Margin="6,4">
+                                                            <TextBlock FontWeight="SemiBold" Text="{Binding Name}"/>
+                                                            <TextBlock FontSize="11" Foreground="#64748B">
+                                                                <Run Text="{Binding Code, Mode=OneWay}"/>
+                                                                <Run Text=" · "/>
+                                                                <Run Text="{Binding SalePriceDisplay, Mode=OneWay}"/>
+                                                                <Run Text=" · Est. "/>
+                                                                <Run Text="{Binding Stock, Mode=OneWay, StringFormat=0.###}"/>
+                                                            </TextBlock>
+                                                        </StackPanel>
+                                                    </DataTemplate>
+                                                </ListBox.ItemTemplate>
+                                            </ListBox>
+                                        </Border>
+                                    </Popup>
+                                </Grid>
+                            </DockPanel>
+                        </StackPanel>
+                        <DataGrid x:Name="NewGrid" AutoGenerateColumns="False"
+                                  HeadersVisibility="Column" CanUserAddRows="False"
+                                  BorderThickness="0" RowHeight="32" FontSize="12"
+                                  CellEditEnding="NewGrid_CellEditEnding">
+                            <DataGrid.Columns>
+                                <DataGridTextColumn Header="Produto" Binding="{Binding ProductName}" Width="*" IsReadOnly="True"/>
+                                <DataGridTextColumn Header="Qtd" Binding="{Binding Qty, UpdateSourceTrigger=PropertyChanged}" Width="60"/>
+                                <DataGridTextColumn Header="Preço" Binding="{Binding UnitPrice, UpdateSourceTrigger=PropertyChanged}" Width="80"/>
+                                <DataGridTextColumn Header="Total" Binding="{Binding AmountDisplay}" Width="80" IsReadOnly="True"/>
+                                <DataGridTemplateColumn Header="" Width="56">
+                                    <DataGridTemplateColumn.CellTemplate>
+                                        <DataTemplate>
+                                            <Button Content="Remover" Padding="6,2" Click="RemoveNew_Click" Tag="{Binding}"/>
+                                        </DataTemplate>
+                                    </DataGridTemplateColumn.CellTemplate>
+                                </DataGridTemplateColumn>
+                            </DataGrid.Columns>
+                        </DataGrid>
+                    </DockPanel>
+                </Border>
+            </Grid>
+        </Grid>
+
+        <!-- Resumo -->
+        <Border Grid.Row="2" Background="#EEF2FF" BorderBrush="#C7D2FE" BorderThickness="1"
+                CornerRadius="8" Padding="12" Margin="0,10,0,0">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="1.2*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+                <StackPanel>
+                    <TextBlock Text="Total devolvido" FontSize="11" Foreground="#4338CA"/>
+                    <TextBlock x:Name="ReturnTotalText" Text="R$ 0,00" FontSize="18" FontWeight="Bold" Foreground="#312E81"/>
+                </StackPanel>
+                <StackPanel Grid.Column="1">
+                    <TextBlock Text="Total novos" FontSize="11" Foreground="#4338CA"/>
+                    <TextBlock x:Name="NewTotalText" Text="R$ 0,00" FontSize="18" FontWeight="Bold" Foreground="#312E81"/>
+                </StackPanel>
+                <StackPanel Grid.Column="2">
+                    <TextBlock x:Name="DiffLabelText" Text="Diferença" FontSize="11" Foreground="#4338CA"/>
+                    <TextBlock x:Name="DiffValueText" Text="R$ 0,00" FontSize="18" FontWeight="Bold" Foreground="#312E81"/>
+                </StackPanel>
+                <StackPanel Grid.Column="3" MinWidth="180">
+                    <TextBlock x:Name="PayLabelText" Text="Forma (diferença)" FontSize="11" Foreground="#4338CA" Margin="0,0,0,4"/>
+                    <ComboBox x:Name="PayBox" Height="32" DisplayMemberPath="ApiLabel"/>
+                </StackPanel>
+            </Grid>
+        </Border>
+
+        <DockPanel Grid.Row="3" Margin="0,12,0,0">
+            <TextBox x:Name="NotesBox" DockPanel.Dock="Left" Width="360" Height="36"
+                     VerticalContentAlignment="Center" Padding="8,0"
+                     ToolTip="Observação (opcional)"/>
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                <Button Content="Cancelar" Width="110" Height="36" Margin="0,0,8,0"
+                        IsCancel="True" Click="Cancel_Click"/>
+                <Button x:Name="ConfirmBtn" Content="Confirmar troca / devolução"
+                        Width="220" Height="36" FontWeight="SemiBold"
+                        Background="#C41E3A" Foreground="White" BorderThickness="0"
+                        Click="Confirm_Click"/>
+            </StackPanel>
+        </DockPanel>
+    </Grid>
+</Window>

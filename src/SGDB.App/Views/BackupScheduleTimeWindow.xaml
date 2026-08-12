@@ -1,0 +1,24 @@
+<Window x:Class="SGDB.Views.BackupScheduleTimeWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Adicionar horário"
+        Width="320" SizeToContent="Height"
+        WindowStartupLocation="CenterOwner"
+        ResizeMode="NoResize"
+        Background="#F8FAFC"
+        FontFamily="Segoe UI, Tahoma">
+    <Border Margin="16" Background="White" BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="6" Padding="16">
+        <StackPanel>
+            <TextBlock Text="Horário do backup automático" FontWeight="SemiBold" FontSize="13" Foreground="#0F172A"/>
+            <TextBlock Text="Formato 24h (ex: 12:00, 22:30)" FontSize="11" Foreground="#64748B" Margin="0,4,0,10"/>
+            <TextBox x:Name="TimeBox" Style="{StaticResource ModernInput}" Height="32"
+                     VerticalContentAlignment="Center" FontFamily="Consolas, Courier New"/>
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,14,0,0">
+                <Button Content="Cancelar" Style="{StaticResource SgdbOutlineButtonStyle}" Padding="12,6" Margin="0,0,8,0"
+                        Click="Cancel_Click"/>
+                <Button Content="Adicionar" Style="{StaticResource SgdbPrimaryButtonStyle}" Padding="12,6"
+                        Click="Ok_Click"/>
+            </StackPanel>
+        </StackPanel>
+    </Border>
+</Window>

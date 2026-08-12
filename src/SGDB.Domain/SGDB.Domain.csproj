@@ -1,0 +1,12 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <RootNamespace>SGDB.Domain</RootNamespace>
+    <AssemblyName>SGDB.Domain</AssemblyName>
+    <Description>Regras de negócio puras do SGDB (sem UI, SQLite ou rede)</Description>
+  </PropertyGroup>
+
+</Project>

@@ -1,0 +1,190 @@
+<Window x:Class="SGDB.Views.CashLancamentoWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Adicionar Entrada / Saída no Caixa"
+        Width="560" SizeToContent="Height"
+        MinHeight="420"
+        WindowStartupLocation="CenterOwner"
+        ResizeMode="NoResize"
+        Background="#F3F4F6"
+        FontFamily="Segoe UI, Tahoma"
+        PreviewKeyDown="Window_PreviewKeyDown">
+    <Window.Resources>
+        <Style x:Key="FormLabel" TargetType="TextBlock">
+            <Setter Property="Width" Value="128"/>
+            <Setter Property="TextAlignment" Value="Right"/>
+            <Setter Property="VerticalAlignment" Value="Top"/>
+            <Setter Property="Margin" Value="0,4,12,0"/>
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="Foreground" Value="#374151"/>
+        </Style>
+        <Style x:Key="FormRow" TargetType="Grid">
+            <Setter Property="Margin" Value="0,0,0,14"/>
+        </Style>
+        <Style x:Key="FormInput" TargetType="TextBox">
+            <Setter Property="Height" Value="28"/>
+            <Setter Property="Padding" Value="8,4"/>
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="BorderBrush" Value="#D1D5DB"/>
+            <Setter Property="Background" Value="White"/>
+        </Style>
+        <Style x:Key="FormCombo" TargetType="ComboBox">
+            <Setter Property="Height" Value="28"/>
+            <Setter Property="Padding" Value="6,2"/>
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="BorderBrush" Value="#D1D5DB"/>
+            <Setter Property="Background" Value="White"/>
+        </Style>
+        <Style x:Key="OpRadio" TargetType="RadioButton">
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="Foreground" Value="#111827"/>
+            <Setter Property="Margin" Value="0,0,0,2"/>
+        </Style>
+        <Style x:Key="OpHint" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="10"/>
+            <Setter Property="FontStyle" Value="Italic"/>
+            <Setter Property="Foreground" Value="#9CA3AF"/>
+            <Setter Property="Margin" Value="22,0,0,10"/>
+        </Style>
+        <Style x:Key="FooterLinkBtn" TargetType="Button">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Padding" Value="8,6"/>
+            <Setter Property="Foreground" Value="#2563EB"/>
+            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border Background="{TemplateBinding Background}" Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter Property="Foreground" Value="#1D4ED8"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+    </Window.Resources>
+
+    <Border Margin="16" Background="White" BorderBrush="#E5E7EB" BorderThickness="1" Padding="24,20">
+        <Grid>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+            </Grid.RowDefinitions>
+
+            <TextBlock Grid.Row="0" Text="Adicionar Entrada / Saída no Caixa"
+                       FontSize="15" FontWeight="SemiBold" Foreground="#111827"
+                       Margin="0,0,0,20"/>
+
+            <StackPanel Grid.Row="1">
+                <!-- Forma de Pagto -->
+                <Grid Style="{StaticResource FormRow}">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Grid.Column="0" Text="Forma de Pagto:" Style="{StaticResource FormLabel}"/>
+                    <StackPanel Grid.Column="1" Orientation="Horizontal" Margin="0,2,0,0">
+                        <RadioButton x:Name="PayDinheiro" Content="Dinheiro" GroupName="pay"
+                                     IsChecked="True" Margin="0,0,20,0" FontSize="12"/>
+                        <RadioButton x:Name="PayCheque" Content="Cheque" GroupName="pay" FontSize="12"/>
+                    </StackPanel>
+                </Grid>
+
+                <!-- Tipo da operação -->
+                <Grid Style="{StaticResource FormRow}">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Grid.Column="0" Text="Tipo da operação:" Style="{StaticResource FormLabel}"/>
+                    <Border Grid.Column="1" BorderBrush="#D1D5DB" BorderThickness="1" Padding="12,10" Background="#FAFAFA">
+                        <StackPanel>
+                            <RadioButton x:Name="OpDespesa" GroupName="op" Style="{StaticResource OpRadio}"
+                                         IsChecked="True" Checked="OperationType_Changed">
+                                <TextBlock Text="Saída - Lançamento de Despesa"/>
+                            </RadioButton>
+                            <TextBlock Text="Registra lançamento automático no contas a pagar" Style="{StaticResource OpHint}"/>
+
+                            <RadioButton x:Name="OpSangria" GroupName="op" Style="{StaticResource OpRadio}"
+                                         Checked="OperationType_Changed">
+                                <TextBlock Text="Saída - Sangria"/>
+                            </RadioButton>
+                            <TextBlock Text="Não registra lançamento no contas a pagar" Style="{StaticResource OpHint}"/>
+
+                            <RadioButton x:Name="OpAcrescimo" GroupName="op" Style="{StaticResource OpRadio}"
+                                         Margin="0,0,0,0" Checked="OperationType_Changed">
+                                <TextBlock Text="Entrada - Acréscimo"/>
+                            </RadioButton>
+                            <TextBlock Text="Não registra lançamento no contas a receber" Style="{StaticResource OpHint}" Margin="22,0,0,0"/>
+                        </StackPanel>
+                    </Border>
+                </Grid>
+
+                <!-- Valor -->
+                <Grid Style="{StaticResource FormRow}">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="160"/>
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Grid.Column="0" Text="Valor:" Style="{StaticResource FormLabel}"/>
+                    <TextBox x:Name="ValorBox" Grid.Column="1" Style="{StaticResource FormInput}" Text="0,00"
+                             HorizontalContentAlignment="Right" LostFocus="ValorBox_LostFocus"/>
+                </Grid>
+
+                <!-- Categoria -->
+                <Grid x:Name="CategoriaRow" Style="{StaticResource FormRow}">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Grid.Column="0" Text="Categoria:" Style="{StaticResource FormLabel}"/>
+                    <ComboBox x:Name="CategoriaBox" Grid.Column="1" Style="{StaticResource FormCombo}"
+                              IsEditable="False"/>
+                </Grid>
+
+                <!-- Fornecedor -->
+                <Grid x:Name="FornecedorRow" Style="{StaticResource FormRow}">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Grid.Column="0" Text="Fornecedor:" Style="{StaticResource FormLabel}"/>
+                    <ComboBox x:Name="FornecedorBox" Grid.Column="1" Style="{StaticResource FormCombo}"
+                              DisplayMemberPath="Name" IsEditable="False"/>
+                </Grid>
+
+                <!-- Observação -->
+                <Grid Style="{StaticResource FormRow}">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Grid.Column="0" Text="Observação:" Style="{StaticResource FormLabel}"/>
+                    <TextBox x:Name="ObsBox" Grid.Column="1" Style="{StaticResource FormInput}" MaxLength="200"/>
+                </Grid>
+            </StackPanel>
+
+            <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,8,0,0">
+                <Button Style="{StaticResource FooterLinkBtn}" Click="Voltar_Click" IsCancel="True">
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="‹" FontSize="18" FontWeight="Bold" Margin="0,-2,6,0"/>
+                        <TextBlock Text="Voltar" VerticalAlignment="Center"/>
+                    </StackPanel>
+                </Button>
+                <Button Style="{StaticResource FooterLinkBtn}" Click="Salvar_Click" IsDefault="True">
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="✓" FontSize="14" FontWeight="Bold" Margin="0,0,6,0"/>
+                        <TextBlock Text="Salvar" VerticalAlignment="Center"/>
+                    </StackPanel>
+                </Button>
+            </StackPanel>
+        </Grid>
+    </Border>
+</Window>

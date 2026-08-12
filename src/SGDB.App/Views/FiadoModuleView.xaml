@@ -1,0 +1,302 @@
+<UserControl x:Class="SGDB.Views.FiadoModuleView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             Background="{StaticResource SgdbBgBrush}"
+             Focusable="True"
+             VerticalAlignment="Stretch"
+             HorizontalAlignment="Stretch"
+             PreviewKeyDown="FiadoModuleView_PreviewKeyDown">
+    <UserControl.Resources>
+        <Style x:Key="FiadoCellLeft" TargetType="TextBlock">
+            <Setter Property="TextAlignment" Value="Left"/>
+            <Setter Property="HorizontalAlignment" Value="Stretch"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+            <Setter Property="Padding" Value="12,8,8,8"/>
+            <Setter Property="Foreground" Value="#1E293B"/>
+            <Setter Property="TextTrimming" Value="CharacterEllipsis"/>
+        </Style>
+        <Style x:Key="FiadoCellRight" TargetType="TextBlock">
+            <Setter Property="TextAlignment" Value="Right"/>
+            <Setter Property="HorizontalAlignment" Value="Stretch"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+            <Setter Property="Padding" Value="8,8,12,8"/>
+            <Setter Property="Foreground" Value="#1E293B"/>
+        </Style>
+        <Style x:Key="FiadoSaldoCell" TargetType="TextBlock" BasedOn="{StaticResource FiadoCellRight}">
+            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding HasDebt}" Value="True">
+                    <Setter Property="Foreground" Value="#B91C1C"/>
+                    <Setter Property="FontWeight" Value="Bold"/>
+                    <Setter Property="FontSize" Value="14"/>
+                </DataTrigger>
+                <DataTrigger Binding="{Binding HasDebt}" Value="False">
+                    <Setter Property="Foreground" Value="#64748B"/>
+                </DataTrigger>
+            </Style.Triggers>
+        </Style>
+        <Style x:Key="FiadoHeaderLeft" TargetType="DataGridColumnHeader">
+            <Setter Property="Background" Value="#F1F5F9"/>
+            <Setter Property="Foreground" Value="#1E293B"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="Padding" Value="12,10"/>
+            <Setter Property="BorderBrush" Value="#E2E8F0"/>
+            <Setter Property="BorderThickness" Value="0,0,0,1"/>
+            <Setter Property="HorizontalContentAlignment" Value="Left"/>
+        </Style>
+        <Style x:Key="FiadoHeaderRight" TargetType="DataGridColumnHeader" BasedOn="{StaticResource FiadoHeaderLeft}">
+            <Setter Property="HorizontalContentAlignment" Value="Right"/>
+            <Setter Property="Padding" Value="8,10,12,10"/>
+        </Style>
+        <Style x:Key="FiadoFooterButton" TargetType="Button">
+            <Setter Property="MinWidth" Value="118"/>
+            <Setter Property="Height" Value="36"/>
+            <Setter Property="Margin" Value="0,0,8,0"/>
+            <Setter Property="Padding" Value="12,0"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Background" Value="White"/>
+            <Setter Property="Foreground" Value="#1E293B"/>
+            <Setter Property="BorderBrush" Value="#D1D5DB"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="Bd"
+                                Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="8"
+                                Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"
+                                              TextElement.Foreground="{TemplateBinding Foreground}"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Bd" Property="Background" Value="#F8FAFC"/>
+                                <Setter TargetName="Bd" Property="BorderBrush" Value="#94A3B8"/>
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="Bd" Property="Background" Value="#EEF2FF"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+    </UserControl.Resources>
+
+    <Border BorderBrush="#B8C4D4" BorderThickness="1" Background="White"
+            VerticalAlignment="Stretch" HorizontalAlignment="Stretch">
+        <Grid VerticalAlignment="Stretch">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="*" MinHeight="180"/>
+                <RowDefinition Height="Auto"/>
+            </Grid.RowDefinitions>
+
+            <Border x:Name="TitleBar" Grid.Row="0" Padding="16,10"
+                    Background="{StaticResource TitleBarGradientBrush}"
+                    BorderBrush="{StaticResource SgdbGoldBrush}" BorderThickness="0,0,0,1">
+                <Grid>
+                    <TextBlock x:Name="TitleText" Text="Fiado — contas a receber dos clientes"
+                               Foreground="White" FontWeight="SemiBold" FontSize="13"/>
+                    <Button x:Name="CloseTabButton" Style="{StaticResource ModuleTabCloseStyle}"
+                            HorizontalAlignment="Right" Click="CloseTabButton_Click"/>
+                </Grid>
+            </Border>
+
+            <Border Grid.Row="1" Padding="14,10" Background="#FAF8F4"
+                    BorderBrush="#E2E8F0" BorderThickness="0,0,0,1">
+                <StackPanel>
+                    <TextBlock Text="Saldo de vendas fiado por cliente. Duplo clique = detalhe · F7 receber · Del excluir."
+                               FontSize="11" Foreground="#64748B" Margin="0,0,0,8" TextWrapping="Wrap"/>
+
+                    <Border x:Name="CashBanner" Padding="8,5" CornerRadius="6" Margin="0,0,0,8"
+                            BorderThickness="1" HorizontalAlignment="Stretch">
+                        <TextBlock x:Name="CashBannerText" FontSize="12" FontWeight="SemiBold"
+                                   TextAlignment="Center" HorizontalAlignment="Center"
+                                   VerticalAlignment="Center" TextWrapping="Wrap"/>
+                    </Border>
+
+                    <Grid VerticalAlignment="Center">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+                        <Grid Grid.Column="0" Height="32">
+                            <TextBox x:Name="SearchBox" Style="{StaticResource SgdbFilterTextBoxStyle}"
+                                     Height="32" TextChanged="SearchBox_TextChanged"
+                                     ToolTip="Nome ou telefone"/>
+                            <TextBlock x:Name="SearchPlaceholder"
+                                       Text="Nome do cliente ou telefone..."
+                                       IsHitTestVisible="False"
+                                       Foreground="#94A3B8" FontSize="13"
+                                       VerticalAlignment="Center" Margin="14,0,0,0"
+                                       Opacity="0.9"/>
+                        </Grid>
+                        <Button Grid.Column="1" Content="Atualizar" Margin="8,0,0,0"
+                                Style="{StaticResource SgdbOutlineButtonStyle}" Click="Refresh_Click"/>
+                        <Button Grid.Column="2" Content="Limpar" Margin="6,0,0,0"
+                                Style="{StaticResource SgdbOutlineButtonStyle}" Click="Clear_Click"/>
+                    </Grid>
+
+                    <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
+                        <RadioButton x:Name="SomenteSaldo" Content="Somente com saldo em aberto"
+                                     GroupName="saldo" IsChecked="True" Margin="0,0,18,0"
+                                     Checked="Filter_Changed"/>
+                        <RadioButton x:Name="TodosSaldo" Content="Todos (inclui quitados)"
+                                     GroupName="saldo" Checked="Filter_Changed"/>
+                    </StackPanel>
+
+                    <Border x:Name="OrphanWrap" Margin="0,8,0,0" Padding="10,8" Background="#FFF7ED"
+                            BorderBrush="#FDBA74" BorderThickness="1" CornerRadius="6" Visibility="Collapsed">
+                        <StackPanel>
+                            <TextBlock FontSize="12" TextWrapping="Wrap" Margin="0,0,0,8">
+                                <Run FontWeight="SemiBold" Text="Atenção: "/>
+                                <Run Text="há vendas fiado feitas no PDV sem escolher o cliente. Você pode atribuir a um cadastro OU cancelar (não lança para ninguém e some da lista de fiado)."/>
+                            </TextBlock>
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="220"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Grid.Column="0" Text="Se for de um cliente conhecido:"
+                                           VerticalAlignment="Center" FontSize="12" Margin="0,0,12,0"/>
+                                <ComboBox x:Name="OrphanPersonBox" Grid.Column="1" Height="30"
+                                          DisplayMemberPath="Name"/>
+                                <Button Grid.Column="2" Content="Vincular ao cliente"
+                                        Margin="10,0,0,0" Style="{StaticResource SgdbPrimaryButtonStyle}"
+                                        Click="VincularOrfaos_Click"/>
+                                <Button Grid.Column="3" Content="Cancelar (sem cliente)"
+                                        Margin="8,0,0,0" Padding="12,6" Cursor="Hand"
+                                        Background="#FEF2F2" Foreground="#991B1B" BorderBrush="#FECACA"
+                                        Click="DescartarOrfaos_Click"
+                                        ToolTip="Não atribui a nenhum cliente — remove essas vendas do fiado"/>
+                            </Grid>
+                        </StackPanel>
+                    </Border>
+                </StackPanel>
+            </Border>
+
+            <!-- Tabela: ocupa todo o espaço vertical restante; scroll só no corpo -->
+            <Border Grid.Row="2" Margin="14,10,14,0" BorderBrush="#E2E8F0" BorderThickness="1"
+                    Background="White" CornerRadius="4" ClipToBounds="True"
+                    VerticalAlignment="Stretch" HorizontalAlignment="Stretch">
+                <DataGrid x:Name="FiadoGrid"
+                          AutoGenerateColumns="False" IsReadOnly="True"
+                          SelectionMode="Single" SelectionUnit="FullRow"
+                          HeadersVisibility="Column" GridLinesVisibility="Horizontal"
+                          HorizontalGridLinesBrush="#E2E8F0"
+                          BorderThickness="0" Background="White"
+                          RowHeaderWidth="0" RowHeight="40" FontSize="12"
+                          MinHeight="180"
+                          VerticalAlignment="Stretch"
+                          HorizontalAlignment="Stretch"
+                          CanUserAddRows="False" CanUserDeleteRows="False"
+                          CanUserResizeRows="False"
+                          ScrollViewer.VerticalScrollBarVisibility="Auto"
+                          ScrollViewer.HorizontalScrollBarVisibility="Auto"
+                          ScrollViewer.CanContentScroll="True"
+                          MouseDoubleClick="FiadoGrid_MouseDoubleClick"
+                          SelectionChanged="FiadoGrid_SelectionChanged">
+                    <DataGrid.Resources>
+                        <SolidColorBrush x:Key="{x:Static SystemColors.HighlightBrushKey}" Color="#E2E8F0"/>
+                        <SolidColorBrush x:Key="{x:Static SystemColors.HighlightTextBrushKey}" Color="#0F172A"/>
+                        <SolidColorBrush x:Key="{x:Static SystemColors.InactiveSelectionHighlightBrushKey}" Color="#E2E8F0"/>
+                        <SolidColorBrush x:Key="{x:Static SystemColors.InactiveSelectionHighlightTextBrushKey}" Color="#0F172A"/>
+                    </DataGrid.Resources>
+                    <DataGrid.RowStyle>
+                        <Style TargetType="DataGridRow">
+                            <Setter Property="MinHeight" Value="40"/>
+                            <Setter Property="ToolTip" Value="{Binding SummaryTooltip}"/>
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding HasDebt}" Value="True">
+                                    <Setter Property="Background" Value="#FEF2F2"/>
+                                </DataTrigger>
+                                <DataTrigger Binding="{Binding Orphan}" Value="True">
+                                    <Setter Property="Background" Value="#FFF7ED"/>
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </DataGrid.RowStyle>
+                    <DataGrid.Columns>
+                        <DataGridTextColumn Header="Cliente" Binding="{Binding CustomerName}" Width="*"
+                                            MinWidth="200"
+                                            ElementStyle="{StaticResource FiadoCellLeft}"
+                                            HeaderStyle="{StaticResource FiadoHeaderLeft}"/>
+                        <DataGridTextColumn Header="Telefone" Binding="{Binding Phone}" Width="130"
+                                            ElementStyle="{StaticResource FiadoCellLeft}"
+                                            HeaderStyle="{StaticResource FiadoHeaderLeft}"/>
+                        <DataGridTextColumn Header="Vendas (Qtd)" Binding="{Binding SalesCount}" Width="96"
+                                            ElementStyle="{StaticResource FiadoCellRight}"
+                                            HeaderStyle="{StaticResource FiadoHeaderRight}"/>
+                        <DataGridTextColumn Header="Última venda" Binding="{Binding LastSaleBr}" Width="140"
+                                            ElementStyle="{StaticResource FiadoCellLeft}"
+                                            HeaderStyle="{StaticResource FiadoHeaderLeft}"/>
+                        <DataGridTextColumn Header="Saldo Devedor (R$)" Binding="{Binding BalanceDisplay}"
+                                            Width="150" MinWidth="130"
+                                            ElementStyle="{StaticResource FiadoSaldoCell}"
+                                            HeaderStyle="{StaticResource FiadoHeaderRight}"/>
+                    </DataGrid.Columns>
+                </DataGrid>
+            </Border>
+
+            <!-- Totais + ações compactos -->
+            <Border Grid.Row="3" Margin="0,8,0,0" Background="#F5F3EE" BorderBrush="#E2E8F0"
+                    BorderThickness="0,1,0,0" Padding="14,8">
+                <StackPanel>
+                    <Border x:Name="SelectedSummaryCard" Margin="0,0,0,8" Padding="10,7"
+                            Background="#FFF7ED" BorderBrush="#FDBA74" BorderThickness="1"
+                            CornerRadius="6" Visibility="Collapsed">
+                        <TextBlock x:Name="SelectedSummaryText" FontSize="12" FontWeight="SemiBold"
+                                   Foreground="#9A3412" TextWrapping="Wrap"/>
+                    </Border>
+                    <DockPanel LastChildFill="True">
+                        <StackPanel DockPanel.Dock="Left" Orientation="Horizontal" VerticalAlignment="Center"
+                                    Margin="0,0,16,0">
+                            <Button Style="{StaticResource FiadoFooterButton}" Click="Detalhe_Click"
+                                    ToolTip="Abrir detalhe do cliente (F2)">
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock Text="👁" FontSize="14" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                                    <TextBlock Text="F2 | Detalhe" VerticalAlignment="Center"/>
+                                </StackPanel>
+                            </Button>
+                            <Button Style="{StaticResource FiadoFooterButton}" Click="Receber_Click"
+                                    ToolTip="Receber / baixar saldo (F7)">
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock Text="✓" FontSize="14" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                                    <TextBlock Text="F7 | Receber" VerticalAlignment="Center"/>
+                                </StackPanel>
+                            </Button>
+                            <Button Style="{StaticResource FiadoFooterButton}" Click="ExcluirFiado_Click"
+                                    ToolTip="Excluir fiado do cliente (Del)">
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock Text="🗑" FontSize="14" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                                    <TextBlock Text="Del | Excluir" VerticalAlignment="Center"/>
+                                </StackPanel>
+                            </Button>
+                            <Button Style="{StaticResource FiadoFooterButton}" Margin="0" Click="Refresh_Click"
+                                    ToolTip="Atualizar lista (F5)">
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock Text="↻" FontSize="14" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                                    <TextBlock Text="F5 | Atualizar" VerticalAlignment="Center"/>
+                                </StackPanel>
+                            </Button>
+                        </StackPanel>
+                        <TextBlock x:Name="MetaText" FontSize="12" Foreground="#334155"
+                                   VerticalAlignment="Center" HorizontalAlignment="Right"
+                                   TextAlignment="Right" TextWrapping="Wrap"/>
+                    </DockPanel>
+                </StackPanel>
+            </Border>
+        </Grid>
+    </Border>
+</UserControl>

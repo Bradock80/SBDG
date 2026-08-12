@@ -1,0 +1,41 @@
+﻿SGDB NATIVO — Codigo-fonte para editar em outro PC
+==================================================
+Copiado: 11/08/2026 23:44
+
+O QUE E ISTO
+------------
+Esta pasta tem o CODIGO COMPLETO do SGDB para voce abrir no Visual Studio /
+Cursor / VS Code e fazer alteracoes, depois compilar.
+
+COMO USAR NO OUTRO PC
+---------------------
+1. Copie a pasta INTEIRA "SGDB_Codigo_Fonte" do pendrive para
+   Documentos (ou onde preferir). Exemplo:
+     C:\Users\SEU_USUARIO\Documents\SGDB_Codigo_Fonte
+
+2. Instale o .NET 8 SDK (so na primeira vez):
+   - Rode: INSTALAR_DOTNET.bat
+   - Ou baixe: https://dotnet.microsoft.com/download/dotnet/8.0
+     (escolha ".NET 8 SDK")
+
+3. Para compilar e abrir o programa:
+   - Rode: COMPILAR_E_ABRIR.bat
+
+4. Para editar o codigo:
+   - Abra a pasta no Cursor / Visual Studio / VS Code
+   - Ou abra o arquivo: SGDB.sln no Visual Studio
+
+ARQUIVOS IMPORTANTES
+--------------------
+  SGDB.sln                 -> solucao do Visual Studio
+  src\SGDB.App\            -> interface (telas WPF)
+  src\SGDB.Application\    -> regras de negocio
+  src\SGDB.Domain\         -> dominio / entidades
+  COMPILAR_E_ABRIR.bat     -> compila e abre
+  INSTALAR_DOTNET.bat      -> instala .NET 8
+  ATUALIZAR_PACOTE_PENDRIVE.bat -> gera o pacote pronto (SGDB_Para_Outro_PC)
+
+PROGRAMA PRONTO (sem codigo)
+----------------------------
+No pendrive tambem pode existir a pasta SGDB_Para_Outro_PC
+(apenas o .exe para rodar, sem editar codigo).

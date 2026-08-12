@@ -1,0 +1,176 @@
+<UserControl x:Class="SGDB.Views.StockIoReportModuleView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:controls="clr-namespace:SGDB.Controls"
+             Background="{StaticResource SgdbBgBrush}"
+             Focusable="True"
+             PreviewKeyDown="Root_PreviewKeyDown">
+    <Border BorderBrush="#C8C4BC" BorderThickness="1" Background="White">
+        <Grid>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="*"/>
+                <RowDefinition Height="Auto"/>
+            </Grid.RowDefinitions>
+
+            <Border Grid.Row="0" Padding="10,6" Background="#F0F0F0"
+                    BorderBrush="#C8C4BC" BorderThickness="0,0,0,1">
+                <Grid>
+                    <TextBlock Text="Entradas e Saídas do Estoque"
+                               FontWeight="SemiBold" FontSize="13"
+                               Foreground="#1E293B" VerticalAlignment="Center"/>
+                    <Button Style="{StaticResource ModuleTabCloseStyle}"
+                            HorizontalAlignment="Right" Click="Close_Click"/>
+                </Grid>
+            </Border>
+
+            <!-- Filtros -->
+            <Border Grid.Row="1" Padding="12,10" Background="#F8FAFC"
+                    BorderBrush="#E2E8F0" BorderThickness="0,0,0,1">
+                <StackPanel>
+                    <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
+                        <TextBlock Text="De" VerticalAlignment="Center" FontSize="12"
+                                   Foreground="#64748B" Margin="0,0,6,0"/>
+                        <controls:BrDateBox x:Name="DateFrom" Width="130" Margin="0,0,10,0"/>
+                        <TextBlock Text="até" VerticalAlignment="Center" FontSize="12"
+                                   Foreground="#64748B" Margin="0,0,6,0"/>
+                        <controls:BrDateBox x:Name="DateTo" Width="130" Margin="0,0,12,0"/>
+                        <Button Content="Hoje" Style="{StaticResource SgdbOutlineButtonStyle}"
+                                Margin="0,0,6,0" Click="Hoje_Click"/>
+                        <Button Content="Últimos 7 dias" Style="{StaticResource SgdbOutlineButtonStyle}"
+                                Margin="0,0,6,0" Click="Ultimos7_Click"/>
+                        <Button Content="Este Mês" Style="{StaticResource SgdbOutlineButtonStyle}"
+                                Margin="0,0,6,0" Click="EsteMes_Click"/>
+                        <Button Content="Mês Anterior" Style="{StaticResource SgdbOutlineButtonStyle}"
+                                Margin="0,0,12,0" Click="MesAnterior_Click"/>
+                        <Button Content="Pesquisar" Style="{StaticResource SgdbPrimaryButtonStyle}"
+                                Click="Pesquisar_Click"/>
+                    </StackPanel>
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="Tipo" VerticalAlignment="Center" FontSize="12"
+                                   Foreground="#64748B" Margin="0,0,8,0"/>
+                        <ComboBox x:Name="DirectionBox" Width="150" Height="30"
+                                  SelectedIndex="0" Margin="0,0,16,0"
+                                  SelectionChanged="FilterChanged">
+                            <ComboBoxItem Content="Todas"/>
+                            <ComboBoxItem Content="Apenas Entradas"/>
+                            <ComboBoxItem Content="Apenas Saídas"/>
+                        </ComboBox>
+                        <TextBlock Text="Produto / código" VerticalAlignment="Center" FontSize="12"
+                                   Foreground="#64748B" Margin="0,0,8,0"/>
+                        <TextBox x:Name="SearchBox" Width="280" Height="30" FontSize="13"
+                                 VerticalContentAlignment="Center" Padding="8,0"
+                                 KeyDown="SearchBox_KeyDown"/>
+                    </StackPanel>
+                </StackPanel>
+            </Border>
+
+            <DataGrid x:Name="Grid" Grid.Row="2" Margin="10"
+                      AutoGenerateColumns="False" IsReadOnly="True"
+                      CanUserAddRows="False" CanUserDeleteRows="False"
+                      HeadersVisibility="Column" GridLinesVisibility="Horizontal"
+                      HorizontalGridLinesBrush="#E2E8F0" BorderBrush="#C8C4BC"
+                      BorderThickness="1" Background="White" RowHeaderWidth="0"
+                      RowHeight="32" FontSize="12.5" SelectionMode="Single"
+                      AlternatingRowBackground="#F8FAFC">
+                <DataGrid.ColumnHeaderStyle>
+                    <Style TargetType="DataGridColumnHeader">
+                        <Setter Property="Padding" Value="8,6"/>
+                        <Setter Property="Background" Value="#F1F5F9"/>
+                        <Setter Property="FontWeight" Value="SemiBold"/>
+                        <Setter Property="BorderBrush" Value="#E2E8F0"/>
+                        <Setter Property="BorderThickness" Value="0,0,0,1"/>
+                    </Style>
+                </DataGrid.ColumnHeaderStyle>
+                <DataGrid.Columns>
+                    <DataGridTextColumn Header="Produto" Binding="{Binding ProductName}" Width="*" MinWidth="160"/>
+                    <DataGridTextColumn Header="Un. Med." Binding="{Binding UnitDisplay}" Width="70"/>
+                    <DataGridTextColumn Header="Operação" Binding="{Binding Operation}" Width="140"/>
+                    <DataGridTextColumn Header="Es. Anterior" Binding="{Binding StockBeforeDisplay}" Width="90">
+                        <DataGridTextColumn.ElementStyle>
+                            <Style TargetType="TextBlock">
+                                <Setter Property="HorizontalAlignment" Value="Right"/>
+                                <Setter Property="Padding" Value="6,0"/>
+                            </Style>
+                        </DataGridTextColumn.ElementStyle>
+                    </DataGridTextColumn>
+                    <DataGridTextColumn Header="Qtd" Binding="{Binding QtyDisplay}" Width="80">
+                        <DataGridTextColumn.ElementStyle>
+                            <Style TargetType="TextBlock">
+                                <Setter Property="HorizontalAlignment" Value="Right"/>
+                                <Setter Property="Padding" Value="6,0"/>
+                                <Setter Property="FontWeight" Value="SemiBold"/>
+                            </Style>
+                        </DataGridTextColumn.ElementStyle>
+                    </DataGridTextColumn>
+                    <DataGridTemplateColumn Header="E/S" Width="48">
+                        <DataGridTemplateColumn.CellTemplate>
+                            <DataTemplate>
+                                <Border CornerRadius="8" Padding="8,2" HorizontalAlignment="Center" Margin="2,0">
+                                    <Border.Style>
+                                        <Style TargetType="Border">
+                                            <Setter Property="Background" Value="#FEE2E2"/>
+                                            <Setter Property="BorderBrush" Value="#FECACA"/>
+                                            <Setter Property="BorderThickness" Value="1"/>
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding EsTone}" Value="entrada">
+                                                    <Setter Property="Background" Value="#DCFCE7"/>
+                                                    <Setter Property="BorderBrush" Value="#86EFAC"/>
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </Border.Style>
+                                    <TextBlock Text="{Binding EsLabel}" FontWeight="Bold" FontSize="12"
+                                               HorizontalAlignment="Center">
+                                        <TextBlock.Style>
+                                            <Style TargetType="TextBlock">
+                                                <Setter Property="Foreground" Value="#B91C1C"/>
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding EsTone}" Value="entrada">
+                                                        <Setter Property="Foreground" Value="#166534"/>
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </TextBlock.Style>
+                                    </TextBlock>
+                                </Border>
+                            </DataTemplate>
+                        </DataGridTemplateColumn.CellTemplate>
+                    </DataGridTemplateColumn>
+                    <DataGridTextColumn Header="Est. Final" Binding="{Binding StockAfterDisplay}" Width="90">
+                        <DataGridTextColumn.ElementStyle>
+                            <Style TargetType="TextBlock">
+                                <Setter Property="HorizontalAlignment" Value="Right"/>
+                                <Setter Property="Padding" Value="6,0"/>
+                            </Style>
+                        </DataGridTextColumn.ElementStyle>
+                    </DataGridTextColumn>
+                    <DataGridTextColumn Header="Usuário" Binding="{Binding UserDisplay}" Width="120"/>
+                    <DataGridTextColumn Header="Data/Hora" Binding="{Binding DateTimeDisplay}" Width="120"/>
+                    <DataGridTextColumn Header="Observação" Binding="{Binding NotesDisplay}" Width="180"/>
+                </DataGrid.Columns>
+            </DataGrid>
+
+            <Border Grid.Row="3" Padding="12,10" Background="#F8FAFC"
+                    BorderBrush="#C8C4BC" BorderThickness="0,1,0,0">
+                <DockPanel LastChildFill="True">
+                    <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
+                        <Border Background="#DCFCE7" BorderBrush="#86EFAC" BorderThickness="1"
+                                CornerRadius="8" Padding="12,6" Margin="0,0,8,0">
+                            <TextBlock x:Name="TotalEntradasText" FontWeight="SemiBold" FontSize="12.5"
+                                       Foreground="#166534" Text="Entradas: 0"/>
+                        </Border>
+                        <Border Background="#FEE2E2" BorderBrush="#FECACA" BorderThickness="1"
+                                CornerRadius="8" Padding="12,6">
+                            <TextBlock x:Name="TotalSaidasText" FontWeight="SemiBold" FontSize="12.5"
+                                       Foreground="#B91C1C" Text="Saídas: 0"/>
+                        </Border>
+                    </StackPanel>
+                    <TextBlock x:Name="MetaText" FontSize="12" Foreground="#475569"
+                               VerticalAlignment="Center" TextWrapping="Wrap"/>
+                </DockPanel>
+            </Border>
+        </Grid>
+    </Border>
+</UserControl>

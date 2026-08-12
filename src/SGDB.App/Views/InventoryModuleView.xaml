@@ -1,0 +1,153 @@
+<UserControl x:Class="SGDB.Views.InventoryModuleView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             Background="#ECE9E4" Focusable="True" PreviewKeyDown="Root_PreviewKeyDown">
+    <UserControl.Resources>
+        <Style x:Key="NumColText" TargetType="TextBlock">
+            <Setter Property="TextAlignment" Value="Right"/>
+            <Setter Property="Padding" Value="8,0"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+        </Style>
+        <Style x:Key="NumHeader" TargetType="DataGridColumnHeader">
+            <Setter Property="Background" Value="#F1F5F9"/>
+            <Setter Property="Foreground" Value="#334155"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="FontSize" Value="11"/>
+            <Setter Property="Padding" Value="8,8"/>
+            <Setter Property="HorizontalContentAlignment" Value="Right"/>
+            <Setter Property="BorderBrush" Value="#E2E8F0"/>
+            <Setter Property="BorderThickness" Value="0,0,0,1"/>
+        </Style>
+        <Style x:Key="TextHeader" TargetType="DataGridColumnHeader">
+            <Setter Property="Background" Value="#F1F5F9"/>
+            <Setter Property="Foreground" Value="#334155"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="FontSize" Value="11"/>
+            <Setter Property="Padding" Value="10,8"/>
+            <Setter Property="HorizontalContentAlignment" Value="Left"/>
+            <Setter Property="BorderBrush" Value="#E2E8F0"/>
+            <Setter Property="BorderThickness" Value="0,0,0,1"/>
+        </Style>
+        <Style x:Key="InvGapBtn" TargetType="Button">
+            <Setter Property="Margin" Value="0,0,10,0"/>
+            <Setter Property="Height" Value="32"/>
+            <Setter Property="Padding" Value="12,6"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+        </Style>
+    </UserControl.Resources>
+
+    <Border BorderBrush="#C8C4BC" BorderThickness="1" Background="White">
+        <Grid>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="*"/>
+                <RowDefinition Height="Auto"/>
+            </Grid.RowDefinitions>
+
+            <Border Grid.Row="0" Padding="10,6" Background="#F0F0F0" BorderBrush="#C8C4BC" BorderThickness="0,0,0,1">
+                <Grid>
+                    <TextBlock Text="Inventário / Auditoria de Estoque" FontWeight="SemiBold" FontSize="13"/>
+                    <Button Style="{StaticResource ModuleTabCloseStyle}" HorizontalAlignment="Right" Click="Close_Click"/>
+                </Grid>
+            </Border>
+
+            <!-- Linha 1: controle do inventário -->
+            <Border Grid.Row="1" Padding="12,10" Background="#FAF8F4" BorderBrush="#C8C4BC" BorderThickness="0,0,0,1">
+                <StackPanel>
+                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                        <TextBlock Text="Grupo" VerticalAlignment="Center" Margin="0,0,8,0" FontSize="12" Foreground="#64748B"/>
+                        <ComboBox x:Name="GroupBox" Width="180" Height="32" IsEditable="True" Margin="0,0,10,0"
+                                  VerticalAlignment="Center"/>
+                        <Button Content="Abrir inventário" Style="{StaticResource SgdbPrimaryButtonStyle}"
+                                Margin="0,0,10,0" Height="32" Padding="12,6" Click="Open_Click"/>
+                        <Button Content="Divergências" Style="{StaticResource SgdbOutlineButtonStyle}"
+                                Margin="0,0,10,0" Height="32" Padding="12,6" Click="Divergences_Click"
+                                BorderBrush="#2563EB" Foreground="#1D4ED8"/>
+                        <Button Content="Consolidar (F9)" Style="{StaticResource SgdbPrimaryButtonStyle}"
+                                Margin="0,0,10,0" Height="32" Padding="12,6" Click="Consolidate_Click"/>
+                        <Button Content="Cancelar inventário" Style="{StaticResource SgdbOutlineButtonStyle}"
+                                Height="32" Padding="12,6" Click="Cancel_Click" Foreground="#C41E3A"/>
+                    </StackPanel>
+                    <TextBlock x:Name="SessionText" Margin="0,8,0,0" FontSize="12" Foreground="#334155"/>
+                </StackPanel>
+            </Border>
+
+            <!-- Linha 2: ação de contar / bipar -->
+            <Border Grid.Row="2" Padding="12,10" Background="#EEF2F7" BorderBrush="#C8C4BC" BorderThickness="0,0,0,1">
+                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                    <TextBlock Text="F6 | Buscar / bipar" VerticalAlignment="Center" Margin="0,0,10,0"
+                               FontSize="12" FontWeight="SemiBold" Foreground="#334155"/>
+                    <TextBox x:Name="SearchBox" Width="280" Height="32" Padding="8,0"
+                             VerticalContentAlignment="Center" Margin="0,0,10,0"
+                             CharacterCasing="Upper"
+                             ToolTip="Bipe o código de barras (13 dígitos) — conta +1 automaticamente"
+                             TextChanged="SearchBox_TextChanged" KeyDown="SearchBox_KeyDown"/>
+                    <TextBlock Text="Qtd contada" VerticalAlignment="Center" Margin="0,0,10,0" FontSize="12" Foreground="#64748B"/>
+                    <TextBox x:Name="CountBox" Width="90" Height="32" Padding="8,0" Text="1"
+                             VerticalContentAlignment="Center" TextAlignment="Right" Margin="0,0,10,0"
+                             KeyDown="CountBox_KeyDown"/>
+                    <Button Content="Registrar (Enter)" Style="{StaticResource SgdbOutlineButtonStyle}"
+                            Height="32" Padding="12,6" Click="Register_Click"/>
+                </StackPanel>
+            </Border>
+
+            <DataGrid Grid.Row="3" x:Name="ItemsGrid" Margin="12,8,12,0"
+                      AutoGenerateColumns="False" IsReadOnly="True" SelectionMode="Single"
+                      HeadersVisibility="Column" GridLinesVisibility="Horizontal"
+                      HorizontalGridLinesBrush="#EEF2F7"
+                      RowHeaderWidth="0" RowHeight="36" FontSize="12" BorderBrush="#C8C4BC"
+                      AlternatingRowBackground="#FAFBFC"
+                      SelectionChanged="ItemsGrid_SelectionChanged">
+                <DataGrid.Columns>
+                    <DataGridTextColumn Header="Cód." Binding="{Binding ProductCode}" Width="80"
+                                        HeaderStyle="{StaticResource TextHeader}"/>
+                    <DataGridTextColumn Header="Barras" Binding="{Binding ProductBarcode}" Width="120"
+                                        HeaderStyle="{StaticResource TextHeader}"/>
+                    <DataGridTextColumn Header="Produto" Binding="{Binding ProductName}" Width="*"
+                                        HeaderStyle="{StaticResource TextHeader}"/>
+                    <DataGridTextColumn Header="Un" Binding="{Binding Unit}" Width="45"
+                                        HeaderStyle="{StaticResource TextHeader}"/>
+                    <DataGridTextColumn Header="Teórico" Binding="{Binding TheoreticalDisplay}" Width="90"
+                                        HeaderStyle="{StaticResource NumHeader}"
+                                        ElementStyle="{StaticResource NumColText}"/>
+                    <DataGridTextColumn Header="Contado" Binding="{Binding CountedDisplay}" Width="90"
+                                        HeaderStyle="{StaticResource NumHeader}"
+                                        ElementStyle="{StaticResource NumColText}"/>
+                    <DataGridTemplateColumn Header="Dif." Width="90" HeaderStyle="{StaticResource NumHeader}">
+                        <DataGridTemplateColumn.CellTemplate>
+                            <DataTemplate>
+                                <TextBlock Text="{Binding DifferenceDisplay}" TextAlignment="Right"
+                                           Padding="8,0" VerticalAlignment="Center" FontWeight="SemiBold">
+                                    <TextBlock.Style>
+                                        <Style TargetType="TextBlock">
+                                            <Setter Property="Foreground" Value="#94A3B8"/>
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding DiffKind}" Value="zero">
+                                                    <Setter Property="Foreground" Value="#94A3B8"/>
+                                                </DataTrigger>
+                                                <DataTrigger Binding="{Binding DiffKind}" Value="neg">
+                                                    <Setter Property="Foreground" Value="#DC2626"/>
+                                                </DataTrigger>
+                                                <DataTrigger Binding="{Binding DiffKind}" Value="pos">
+                                                    <Setter Property="Foreground" Value="#2563EB"/>
+                                                </DataTrigger>
+                                                <DataTrigger Binding="{Binding DiffKind}" Value="none">
+                                                    <Setter Property="Foreground" Value="#CBD5E1"/>
+                                                    <Setter Property="FontWeight" Value="Normal"/>
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </TextBlock.Style>
+                                </TextBlock>
+                            </DataTemplate>
+                        </DataGridTemplateColumn.CellTemplate>
+                    </DataGridTemplateColumn>
+                </DataGrid.Columns>
+            </DataGrid>
+
+            <TextBlock Grid.Row="4" x:Name="SummaryText" Margin="12,8,12,10" FontSize="12" Foreground="#475569"/>
+        </Grid>
+    </Border>
+</UserControl>

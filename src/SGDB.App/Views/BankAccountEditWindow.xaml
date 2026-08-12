@@ -1,0 +1,47 @@
+<Window x:Class="SGDB.Views.BankAccountEditWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Conta Bancária" Height="480" Width="440"
+        WindowStartupLocation="CenterOwner" ResizeMode="NoResize"
+        Background="{StaticResource SgdbBgBrush}">
+    <Grid Margin="16">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+        <StackPanel>
+            <TextBlock Text="Nome da conta *" Margin="0,0,0,4"/>
+            <TextBox x:Name="NameBox" Height="32" Margin="0,0,0,10"/>
+            <TextBlock Text="Banco" Margin="0,0,0,4"/>
+            <TextBox x:Name="BankBox" Height="32" Margin="0,0,0,10"/>
+            <Grid Margin="0,0,0,10">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/><ColumnDefinition Width="12"/><ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+                <StackPanel>
+                    <TextBlock Text="Agência" Margin="0,0,0,4"/>
+                    <TextBox x:Name="AgencyBox" Height="32"/>
+                </StackPanel>
+                <StackPanel Grid.Column="2">
+                    <TextBlock Text="Número" Margin="0,0,0,4"/>
+                    <TextBox x:Name="NumberBox" Height="32"/>
+                </StackPanel>
+            </Grid>
+            <TextBlock Text="Tipo" Margin="0,0,0,4"/>
+            <ComboBox x:Name="TypeBox" Height="32" Margin="0,0,0,10"/>
+            <TextBlock Text="Chave PIX" Margin="0,0,0,4"/>
+            <TextBox x:Name="PixBox" Height="32" Margin="0,0,0,10"/>
+            <TextBlock Text="Maquininha / Operadora padrão" Margin="0,0,0,4"/>
+            <ComboBox x:Name="OperatorBox" Height="32" IsEditable="True" Margin="0,0,0,10"/>
+            <TextBlock Text="Saldo inicial" Margin="0,0,0,4"/>
+            <TextBox x:Name="OpeningBox" Height="32" Margin="0,0,0,10"/>
+            <CheckBox x:Name="ActiveBox" Content="Conta ativa" IsChecked="True" Margin="0,0,0,10"/>
+            <TextBlock Text="Observações" Margin="0,0,0,4"/>
+            <TextBox x:Name="NotesBox" Height="48" TextWrapping="Wrap" AcceptsReturn="True"/>
+        </StackPanel>
+        <StackPanel Grid.Row="1" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,14,0,0">
+            <Button Content="Salvar" Style="{StaticResource SgdbPrimaryButtonStyle}" Width="100" Click="Save_Click" Margin="0,0,8,0"/>
+            <Button Content="Cancelar" Style="{StaticResource SgdbOutlineButtonStyle}" Width="100" IsCancel="True"/>
+        </StackPanel>
+    </Grid>
+</Window>

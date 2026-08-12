@@ -1,0 +1,236 @@
+<UserControl x:Class="SGDB.Views.CatalogModuleView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             Background="#ECE9E4" Focusable="True" PreviewKeyDown="Root_PreviewKeyDown">
+    <UserControl.Resources>
+        <Style x:Key="FilterRadio" TargetType="RadioButton">
+            <Setter Property="Margin" Value="0,0,14,0"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="Foreground" Value="#334155"/>
+            <Setter Property="Cursor" Value="Hand"/>
+        </Style>
+        <Style x:Key="ActionIconBtn" TargetType="Button">
+            <Setter Property="Width" Value="30"/>
+            <Setter Property="Height" Value="28"/>
+            <Setter Property="Margin" Value="2,0"/>
+            <Setter Property="Padding" Value="0"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="Bd" Background="{TemplateBinding Background}"
+                                CornerRadius="4" Padding="4">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Bd" Property="Background" Value="#E2E8F0"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+    </UserControl.Resources>
+
+    <Border BorderBrush="#C8C4BC" BorderThickness="1" Background="White">
+        <Grid>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="*"/>
+            </Grid.RowDefinitions>
+
+            <Border Grid.Row="0" Padding="10,6" Background="#F0F0F0" BorderBrush="#C8C4BC" BorderThickness="0,0,0,1">
+                <Grid>
+                    <TextBlock x:Name="TitleText" FontWeight="SemiBold" FontSize="13" Foreground="#1E293B"/>
+                    <Button Style="{StaticResource ModuleTabCloseStyle}" HorizontalAlignment="Right" Click="Close_Click"/>
+                </Grid>
+            </Border>
+
+            <!-- Busca + filtros na mesma linha -->
+            <Border Grid.Row="1" Padding="14,12" Margin="0,0,0,2"
+                    Background="#FAF8F4" BorderBrush="#C8C4BC" BorderThickness="0,0,0,1">
+                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                    <TextBlock x:Name="SearchLabel" Text="F6 | Pesquisar"
+                               VerticalAlignment="Center" Margin="0,0,10,0"
+                               FontSize="12" FontWeight="SemiBold" Foreground="#334155"/>
+                    <TextBox x:Name="SearchBox" Width="280" Height="32" Padding="10,0"
+                             FontSize="13" VerticalContentAlignment="Center"
+                             VerticalAlignment="Center" Margin="0,0,20,0"
+                             BorderBrush="#C8C4BC" BorderThickness="1"
+                             CharacterCasing="Upper"
+                             TextChanged="SearchBox_TextChanged"/>
+                    <Border Height="20" Width="1" Background="#D4D0C8" Margin="0,0,16,0" VerticalAlignment="Center"/>
+                    <RadioButton x:Name="FilterAtivos" Content="Ativos" GroupName="catAtivo" IsChecked="True"
+                                 Style="{StaticResource FilterRadio}" Checked="Filter_Changed"/>
+                    <RadioButton x:Name="FilterInativos" Content="Inativos" GroupName="catAtivo"
+                                 Style="{StaticResource FilterRadio}" Checked="Filter_Changed"/>
+                    <RadioButton x:Name="FilterTodos" Content="Todos" GroupName="catAtivo"
+                                 Style="{StaticResource FilterRadio}" Checked="Filter_Changed"/>
+                </StackPanel>
+            </Border>
+
+            <Grid Grid.Row="2" Margin="12">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="300" MinWidth="280" MaxWidth="340"/>
+                    <ColumnDefinition Width="*" MinWidth="360"/>
+                </Grid.ColumnDefinitions>
+
+                <!-- Painel Novo / Editar -->
+                <Border Grid.Column="0" Background="#F8FAFC" BorderBrush="#C5D4E8" BorderThickness="1"
+                        CornerRadius="8" Padding="16" Margin="0,0,12,0">
+                    <StackPanel>
+                        <TextBlock x:Name="FormTitle" Text="Novo" FontSize="15" FontWeight="SemiBold"
+                                   Foreground="#0F172A" Margin="0,0,0,14"/>
+
+                        <TextBlock x:Name="NameLabel" Text="Sigla" FontSize="11" FontWeight="SemiBold"
+                                   Foreground="#64748B" Margin="0,0,0,4"/>
+                        <TextBox x:Name="NameBox" Height="34" Padding="10,0" FontSize="14"
+                                 FontWeight="SemiBold" CharacterCasing="Upper"
+                                 VerticalContentAlignment="Center" Margin="0,0,0,12"
+                                 BorderBrush="#C8C4BC" BorderThickness="1" MaxLength="10"/>
+
+                        <TextBlock Text="Descrição (opcional)" FontSize="11" FontWeight="SemiBold"
+                                   Foreground="#64748B" Margin="0,0,0,4"/>
+                        <TextBox x:Name="DescriptionBox" Height="34" Padding="10,0" FontSize="13"
+                                 VerticalContentAlignment="Center" Margin="0,0,0,4"
+                                 BorderBrush="#C8C4BC" BorderThickness="1" MaxLength="80"/>
+                        <TextBlock x:Name="DescHint" Text="Ex.: Caixa, Quilograma, Litro"
+                                   FontSize="10" Foreground="#94A3B8" Margin="0,0,0,14"/>
+
+                        <CheckBox x:Name="ActiveBox" Content="Ativo" IsChecked="True"
+                                  FontSize="13" Margin="0,0,0,16"/>
+
+                        <Button Content="Gravar (F5)" Height="36" Margin="0,0,0,8"
+                                HorizontalAlignment="Stretch"
+                                Style="{StaticResource SgdbPrimaryButtonStyle}" Click="Save_Click"/>
+                        <Button Content="Novo (F2)" Height="34" Margin="0,0,0,8"
+                                HorizontalAlignment="Stretch"
+                                Style="{StaticResource SgdbOutlineButtonStyle}" Click="New_Click"/>
+                        <Button x:Name="DeleteBtn" Content="Inativar" Height="34"
+                                HorizontalAlignment="Stretch" Visibility="Collapsed"
+                                Style="{StaticResource SgdbOutlineButtonStyle}"
+                                Click="Delete_Click" Foreground="#C41E3A"/>
+                    </StackPanel>
+                </Border>
+
+                <!-- Grade -->
+                <Border Grid.Column="1" BorderBrush="#C8C4BC" BorderThickness="1" CornerRadius="6"
+                        Background="White" ClipToBounds="True">
+                    <DataGrid x:Name="ItemsGrid" AutoGenerateColumns="False" IsReadOnly="True"
+                              SelectionMode="Single" SelectionUnit="FullRow" HeadersVisibility="Column"
+                              GridLinesVisibility="Horizontal" HorizontalGridLinesBrush="#EEF2F7"
+                              BorderThickness="0" Background="White" RowHeaderWidth="0" RowHeight="44"
+                              FontSize="13" CanUserAddRows="False" CanUserDeleteRows="False"
+                              AlternatingRowBackground="#FAFBFC"
+                              SelectionChanged="ItemsGrid_SelectionChanged"
+                              MouseDoubleClick="ItemsGrid_MouseDoubleClick">
+                        <DataGrid.ColumnHeaderStyle>
+                            <Style TargetType="DataGridColumnHeader">
+                                <Setter Property="Background" Value="#F1F5F9"/>
+                                <Setter Property="Foreground" Value="#334155"/>
+                                <Setter Property="FontWeight" Value="SemiBold"/>
+                                <Setter Property="FontSize" Value="11"/>
+                                <Setter Property="Padding" Value="12,10"/>
+                                <Setter Property="BorderBrush" Value="#E2E8F0"/>
+                                <Setter Property="BorderThickness" Value="0,0,0,1"/>
+                            </Style>
+                        </DataGrid.ColumnHeaderStyle>
+                        <DataGrid.RowStyle>
+                            <Style TargetType="DataGridRow">
+                                <Setter Property="Cursor" Value="Hand"/>
+                                <Style.Triggers>
+                                    <Trigger Property="IsMouseOver" Value="True">
+                                        <Setter Property="Background" Value="#F1F5F9"/>
+                                    </Trigger>
+                                    <Trigger Property="IsSelected" Value="True">
+                                        <Setter Property="Background" Value="#DBEAFE"/>
+                                        <Setter Property="Foreground" Value="#0F172A"/>
+                                    </Trigger>
+                                </Style.Triggers>
+                            </Style>
+                        </DataGrid.RowStyle>
+                        <DataGrid.CellStyle>
+                            <Style TargetType="DataGridCell">
+                                <Setter Property="BorderThickness" Value="0"/>
+                                <Setter Property="FocusVisualStyle" Value="{x:Null}"/>
+                                <Setter Property="Padding" Value="12,0"/>
+                                <Setter Property="Template">
+                                    <Setter.Value>
+                                        <ControlTemplate TargetType="DataGridCell">
+                                            <Border Background="{TemplateBinding Background}" Padding="12,0">
+                                                <ContentPresenter VerticalAlignment="Center"/>
+                                            </Border>
+                                        </ControlTemplate>
+                                    </Setter.Value>
+                                </Setter>
+                            </Style>
+                        </DataGrid.CellStyle>
+                        <DataGrid.Columns>
+                            <DataGridTextColumn x:Name="ColName" Header="Sigla" Binding="{Binding Name}" Width="90">
+                                <DataGridTextColumn.ElementStyle>
+                                    <Style TargetType="TextBlock">
+                                        <Setter Property="FontWeight" Value="SemiBold"/>
+                                        <Setter Property="FontSize" Value="13"/>
+                                    </Style>
+                                </DataGridTextColumn.ElementStyle>
+                            </DataGridTextColumn>
+                            <DataGridTextColumn Header="Descrição" Binding="{Binding DescriptionDisplay}" Width="*"/>
+                            <DataGridTemplateColumn Header="Status" Width="100">
+                                <DataGridTemplateColumn.CellTemplate>
+                                    <DataTemplate>
+                                        <Border CornerRadius="10" Padding="10,3" HorizontalAlignment="Left">
+                                            <Border.Style>
+                                                <Style TargetType="Border">
+                                                    <Setter Property="Background" Value="#FEE2E2"/>
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding Active}" Value="True">
+                                                            <Setter Property="Background" Value="#D1FAE5"/>
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </Border.Style>
+                                            <TextBlock Text="{Binding ActiveDisplay}" FontSize="11" FontWeight="SemiBold">
+                                                <TextBlock.Style>
+                                                    <Style TargetType="TextBlock">
+                                                        <Setter Property="Foreground" Value="#991B1B"/>
+                                                        <Style.Triggers>
+                                                            <DataTrigger Binding="{Binding Active}" Value="True">
+                                                                <Setter Property="Foreground" Value="#065F46"/>
+                                                            </DataTrigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </TextBlock.Style>
+                                            </TextBlock>
+                                        </Border>
+                                    </DataTemplate>
+                                </DataGridTemplateColumn.CellTemplate>
+                            </DataGridTemplateColumn>
+                            <DataGridTemplateColumn Header="" Width="78">
+                                <DataGridTemplateColumn.CellTemplate>
+                                    <DataTemplate>
+                                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+                                            <Button Style="{StaticResource ActionIconBtn}"
+                                                    ToolTip="Editar" Tag="{Binding}"
+                                                    Click="EditRow_Click" Foreground="#2563EB"
+                                                    Content="✎"/>
+                                            <Button Style="{StaticResource ActionIconBtn}"
+                                                    ToolTip="Inativar" Tag="{Binding}"
+                                                    Click="InactivateRow_Click" Foreground="#DC2626"
+                                                    Content="🗑"/>
+                                        </StackPanel>
+                                    </DataTemplate>
+                                </DataGridTemplateColumn.CellTemplate>
+                            </DataGridTemplateColumn>
+                        </DataGrid.Columns>
+                    </DataGrid>
+                </Border>
+            </Grid>
+        </Grid>
+    </Border>
+</UserControl>

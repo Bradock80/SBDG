@@ -1,0 +1,104 @@
+<UserControl x:Class="SGDB.Views.CashDepositModuleView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:controls="clr-namespace:SGDB.Controls"
+             Background="#ECE9E4"
+             Focusable="True"
+             PreviewKeyDown="Root_PreviewKeyDown">
+    <Border BorderBrush="#C8C4BC" BorderThickness="1" Background="White">
+        <Grid>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="*"/>
+                <RowDefinition Height="Auto"/>
+            </Grid.RowDefinitions>
+
+            <Border Grid.Row="0" Padding="10,6" Background="#F0F0F0"
+                    BorderBrush="#C8C4BC" BorderThickness="0,0,0,1">
+                <Grid>
+                    <TextBlock Text="Conferência de Depósitos" FontWeight="SemiBold" FontSize="13" Foreground="#1E293B"
+                               VerticalAlignment="Center"/>
+                    <Button Style="{StaticResource ModuleTabCloseStyle}" HorizontalAlignment="Right" Click="Close_Click"/>
+                </Grid>
+            </Border>
+
+            <Border Grid.Row="1" Padding="12,10" Background="#FAF8F4"
+                    BorderBrush="#C8C4BC" BorderThickness="0,0,0,1">
+                <StackPanel>
+                    <TextBlock Text="Lance o dia e o valor que ficou aguardando depósito. Depois use Conferir (F5) quando depositar no banco."
+                               FontSize="12" Foreground="#475569" TextWrapping="Wrap" Margin="0,0,0,10"/>
+
+                    <DockPanel LastChildFill="False" Margin="0,0,0,10">
+                        <TextBlock Text="Dia" VerticalAlignment="Center" Margin="0,0,8,0" FontSize="12"/>
+                        <controls:BrDateBox x:Name="DateBox" Width="130" Margin="0,0,16,0" VerticalAlignment="Center"/>
+                        <TextBlock Text="Valor" VerticalAlignment="Center" Margin="0,0,8,0" FontSize="12"/>
+                        <Border BorderBrush="#CBD5E1" BorderThickness="1" CornerRadius="2" Margin="0,0,12,0"
+                                Background="White" VerticalAlignment="Center">
+                            <Grid Width="140" Height="30">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Grid.Column="0" Text="R$" VerticalAlignment="Center" Margin="8,0,4,0"
+                                           Foreground="#64748B" FontSize="12"/>
+                                <TextBox x:Name="ValorBox" Grid.Column="1" BorderThickness="0" Background="Transparent"
+                                         VerticalContentAlignment="Center" Padding="4,0,8,0" FontSize="13"
+                                         HorizontalContentAlignment="Right" Text="0,00"/>
+                            </Grid>
+                        </Border>
+                        <Button Content="Lançar (F2)" Padding="12,6" Margin="0,0,8,0"
+                                Style="{StaticResource SgdbPrimaryButtonStyle}" Click="Add_Click"/>
+                        <Button Content="Excluir" Padding="12,6"
+                                Style="{StaticResource SgdbOutlineButtonStyle}" Click="Delete_Click"/>
+                    </DockPanel>
+
+                    <DockPanel LastChildFill="False">
+                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                            <RadioButton x:Name="FilterPendentes" Content="Aguardando" GroupName="depFiltro"
+                                         IsChecked="True" Margin="0,0,12,0" Checked="Filter_Changed"/>
+                            <RadioButton x:Name="FilterTodos" Content="Todos" GroupName="depFiltro"
+                                         Margin="0,0,12,0" Checked="Filter_Changed"/>
+                            <RadioButton x:Name="FilterDepositados" Content="Já depositados" GroupName="depFiltro"
+                                         Checked="Filter_Changed"/>
+                        </StackPanel>
+                        <Button DockPanel.Dock="Right" Content="Atualizar (F1)" Padding="12,6" Margin="12,0,0,0"
+                                Style="{StaticResource SgdbOutlineButtonStyle}" Click="Refresh_Click"/>
+                        <Button DockPanel.Dock="Right" Content="Conferir (F5)" Padding="12,6"
+                                Style="{StaticResource SgdbPrimaryButtonStyle}" Click="Confirm_Click"/>
+                    </DockPanel>
+                </StackPanel>
+            </Border>
+
+            <Border Grid.Row="2" Margin="10" BorderBrush="#C8C4BC" BorderThickness="1" Background="White">
+                <DataGrid x:Name="DepositsGrid"
+                          AutoGenerateColumns="False" IsReadOnly="True"
+                          SelectionMode="Single" SelectionUnit="FullRow"
+                          HeadersVisibility="Column" GridLinesVisibility="Horizontal"
+                          HorizontalGridLinesBrush="#E2E8F0" BorderThickness="0"
+                          Background="White" RowHeaderWidth="0" RowHeight="30" FontSize="12"
+                          CanUserAddRows="False" CanUserDeleteRows="False"
+                          MouseDoubleClick="DepositsGrid_MouseDoubleClick">
+                    <DataGrid.ColumnHeaderStyle>
+                        <Style TargetType="DataGridColumnHeader">
+                            <Setter Property="Padding" Value="8,6"/>
+                            <Setter Property="Background" Value="#EEF2F7"/>
+                            <Setter Property="FontWeight" Value="SemiBold"/>
+                        </Style>
+                    </DataGrid.ColumnHeaderStyle>
+                    <DataGrid.Columns>
+                        <DataGridTextColumn Header="Dia" Binding="{Binding DepositDateBr}" Width="120"/>
+                        <DataGridTextColumn Header="Valor" Binding="{Binding AmountDisplay}" Width="140"/>
+                        <DataGridTextColumn Header="Status" Binding="{Binding StatusLabel}" Width="120"/>
+                        <DataGridTextColumn Header="Depositado" Binding="{Binding ConfirmedDisplay}" Width="120"/>
+                        <DataGridTextColumn Header="Conferido em" Binding="{Binding ConfirmedAtBr}" Width="*"/>
+                    </DataGrid.Columns>
+                </DataGrid>
+            </Border>
+
+            <Border Grid.Row="3" Padding="12,8" Background="#F8FAFC" BorderBrush="#C8C4BC" BorderThickness="0,1,0,0">
+                <TextBlock x:Name="MetaText" FontSize="12" Foreground="#334155"/>
+            </Border>
+        </Grid>
+    </Border>
+</UserControl>

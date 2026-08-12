@@ -1,0 +1,195 @@
+<Window x:Class="SGDB.Views.PdvWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="PDV - Venda de Balcão"
+        WindowState="Maximized"
+        WindowStartupLocation="CenterScreen"
+        Background="#C8C8C8"
+        FontFamily="Segoe UI, Tahoma"
+        PreviewKeyDown="PdvWindow_PreviewKeyDown">
+    <Window.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceDictionary Source="/Themes/PdvTheme.xaml"/>
+            </ResourceDictionary.MergedDictionaries>
+        </ResourceDictionary>
+    </Window.Resources>
+
+    <Grid x:Name="RootGrid">
+        <!-- Caixa fechado -->
+        <Grid x:Name="GatePanel" Visibility="Collapsed" Background="#2B2B2B">
+            <Border Background="White" BorderBrush="#888888" BorderThickness="1"
+                    Padding="40,32" MaxWidth="440" VerticalAlignment="Center" HorizontalAlignment="Center">
+                <StackPanel>
+                    <TextBlock Text="PDV - Venda de Balcão" FontSize="20" FontWeight="SemiBold"
+                               HorizontalAlignment="Center" Margin="0,0,0,16"/>
+                    <TextBlock x:Name="GateMessageText" TextWrapping="Wrap" TextAlignment="Center"
+                               FontSize="13" Margin="0,0,0,16"/>
+                    <Button Content="Abrir caixa" Padding="14,8" Margin="0,0,0,8"
+                            HorizontalAlignment="Center" Click="OpenCaixa_Click"/>
+                    <Button Content="Voltar ao painel (Esc)" Padding="12,6" Margin="0,8,0,0"
+                            HorizontalAlignment="Center" Click="ClosePdv_Click"/>
+                </StackPanel>
+            </Border>
+        </Grid>
+
+        <!-- PDV ativo -->
+        <Grid x:Name="PdvPanel" Visibility="Visible">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="*"/>
+                <RowDefinition Height="Auto"/>
+            </Grid.RowDefinitions>
+
+            <Border Grid.Row="0" Style="{StaticResource PdvTitleBar}">
+                <Grid>
+                    <TextBlock x:Name="TitleText" Style="{StaticResource PdvTitleText}"/>
+                    <Button Content="×" Style="{StaticResource PdvCloseButton}" HorizontalAlignment="Right"
+                            Click="ClosePdv_Click" ToolTip="Esc — Sair do PDV"/>
+                </Grid>
+            </Border>
+
+            <Border Grid.Row="1" Style="{StaticResource PdvMenuBar}">
+                <StackPanel Orientation="Horizontal">
+                    <Border Style="{StaticResource PdvMenuTabActive}">
+                        <TextBlock Text="PDV" Style="{StaticResource PdvMenuTab}" FontWeight="SemiBold"/>
+                    </Border>
+                    <Button x:Name="BtnResumoDiaTop" Style="{StaticResource PdvBtnSecondary}" Content="Resumo do dia (F1)"
+                            Click="OpenResumo_Click"/>
+                    <Button Style="{StaticResource PdvBtnSecondary}" Content="Consulta vendas (F9)"
+                            Click="OpenConsulta_Click"/>
+                </StackPanel>
+            </Border>
+
+            <Border Grid.Row="2" Background="{StaticResource PdvSearchBarBrush}"
+                    BorderBrush="{StaticResource PdvSearchBorderBrush}" BorderThickness="0,0,0,1" Padding="8,6">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+                    <Border Background="#DDB8AE" BorderBrush="#B08070" BorderThickness="1"
+                            Padding="10,6" Margin="0,0,8,0" VerticalAlignment="Center">
+                        <TextBlock Text="F12" FontWeight="Bold" FontSize="16"/>
+                    </Border>
+                    <StackPanel Grid.Column="1">
+                        <TextBlock Text="Leitor de barras — bipar aqui" FontSize="11" FontWeight="Bold"
+                                   Foreground="#5C4038" Margin="0,0,0,4"/>
+                        <TextBox x:Name="SearchBox" Style="{StaticResource PdvSearchInput}"
+                                 TextChanged="SearchBox_TextChanged"
+                                 PreviewKeyDown="SearchBox_PreviewKeyDown"
+                                 KeyDown="SearchBox_KeyDown"/>
+                    </StackPanel>
+                </Grid>
+            </Border>
+
+            <!-- Carrinho e busca ocupam a mesma área: na busca a lista fica em tela cheia -->
+            <Grid Grid.Row="3">
+                <Border x:Name="CartHost" Background="#D8D8D8" Padding="0">
+                    <DataGrid x:Name="CartGrid" Style="{StaticResource PdvCartDataGrid}"
+                              SelectionChanged="CartGrid_SelectionChanged">
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Header="Item" Binding="{Binding LineNum}" Width="48">
+                                <DataGridTextColumn.ElementStyle>
+                                    <Style TargetType="TextBlock">
+                                        <Setter Property="HorizontalAlignment" Value="Center"/>
+                                    </Style>
+                                </DataGridTextColumn.ElementStyle>
+                            </DataGridTextColumn>
+                            <DataGridTextColumn Header="Código" Binding="{Binding Code}" Width="80"/>
+                            <DataGridTextColumn Header="Descrição" Binding="{Binding Name}" Width="*"/>
+                            <DataGridTextColumn Header="Qtd" Binding="{Binding QuantityDisplay}" Width="90"/>
+                            <DataGridTextColumn Header="Und." Binding="{Binding Unit}" Width="55"/>
+                            <DataGridTextColumn Header="Preço R$" Binding="{Binding UnitPriceDisplay}" Width="100"/>
+                            <DataGridTextColumn Header="Total R$" Binding="{Binding SubtotalDisplay}" Width="110"/>
+                        </DataGrid.Columns>
+                    </DataGrid>
+                </Border>
+
+                <Border x:Name="LookupPanel" Background="#D8D8D8" BorderBrush="#888888"
+                        BorderThickness="0" Visibility="Collapsed">
+                    <DataGrid x:Name="LookupGrid" Style="{StaticResource PdvLookupDataGrid}"
+                              MouseDoubleClick="LookupGrid_MouseDoubleClick"
+                              SelectionChanged="LookupGrid_SelectionChanged"
+                              KeyDown="LookupGrid_KeyDown">
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Header="Código" Binding="{Binding Code}" Width="90"/>
+                            <DataGridTextColumn Header="Descrição" Binding="{Binding Name}" Width="*"/>
+                            <DataGridTextColumn Header="Preço R$" Binding="{Binding SalePriceDisplay}" Width="100"/>
+                        </DataGrid.Columns>
+                    </DataGrid>
+                </Border>
+            </Grid>
+
+            <Border Grid.Row="4" Style="{StaticResource PdvFooterBar}" BorderThickness="0,2,0,0">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                    </Grid.RowDefinitions>
+                    <Grid Grid.Row="0">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="1.4*"/>
+                        </Grid.ColumnDefinitions>
+                        <Border Grid.Column="0" BorderBrush="#AAAAAA" BorderThickness="0,0,1,1" Padding="16,8">
+                            <StackPanel>
+                                <TextBlock Text="QTD (ENTER CONFIRMA)" Style="{StaticResource PdvMetricLabel}"/>
+                                <TextBox x:Name="QtyBox" Style="{StaticResource PdvQtyInput}"
+                                         Text="1,000"
+                                         InputMethod.IsInputMethodEnabled="False"
+                                         PreviewTextInput="QtyBox_PreviewTextInput"
+                                         PreviewKeyDown="QtyBox_PreviewKeyDown"
+                                         KeyDown="QtyBox_KeyDown" LostFocus="QtyBox_LostFocus"/>
+                            </StackPanel>
+                        </Border>
+                        <Border Grid.Column="1" BorderBrush="#AAAAAA" BorderThickness="0,0,1,1" Padding="16,8">
+                            <StackPanel>
+                                <TextBlock Text="PREÇO" Style="{StaticResource PdvMetricLabel}"/>
+                                <TextBlock x:Name="CurrentPriceText" Style="{StaticResource PdvMetricValue}" Text="0,00"/>
+                            </StackPanel>
+                        </Border>
+                        <Border Grid.Column="2" BorderBrush="#AAAAAA" BorderThickness="0,0,1,1" Padding="16,8">
+                            <StackPanel>
+                                <TextBlock Text="TOTAL ITEM" Style="{StaticResource PdvMetricLabel}"/>
+                                <TextBlock x:Name="CurrentItemTotalText" Style="{StaticResource PdvMetricValue}" Text="0,00"/>
+                            </StackPanel>
+                        </Border>
+                        <Border Grid.Column="3" Background="#F5F5F5" BorderBrush="#AAAAAA" BorderThickness="0,0,0,1" Padding="16,8">
+                            <StackPanel>
+                                <TextBlock Text="TOTAL" Style="{StaticResource PdvMetricLabel}"/>
+                                <TextBlock x:Name="GrandTotalText" Style="{StaticResource PdvGrandTotal}" Text="0,00"/>
+                            </StackPanel>
+                        </Border>
+                    </Grid>
+                    <Border Grid.Row="1" Background="#E4E4E4" BorderBrush="#AAAAAA" BorderThickness="0,0,0,1"
+                            Padding="10,10">
+                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                            <Button x:Name="BtnResumoDia" Style="{StaticResource PdvBtnConsulta}" Content="Resumo do dia (F1)"
+                                    Click="OpenResumo_Click"/>
+                            <Button Style="{StaticResource PdvBtnConsulta}" Content="Consultar vendas (F9)"
+                                    Click="OpenConsulta_Click"/>
+                            <Button Style="{StaticResource PdvBtnFinalizar}" Content="Finalizar venda"
+                                    Click="Finalize_Click"/>
+                        </StackPanel>
+                    </Border>
+                    <TextBlock Grid.Row="2" TextWrapping="Wrap" FontSize="11" Foreground="#333333"
+                               Background="#E0E0E0" Padding="6,6,6,6"
+                               Text="↑↓ Selecionar · Leitor Enter → Qtd → Enter · Enter busca vazia → pagamento · F1 Resumo · F9 Vendas · F2 Caixa · Del excluir · Esc sair"/>
+                    <Grid Grid.Row="3" Background="#D8D8D8">
+                        <TextBlock x:Name="StatusTerminalText" Text="Terminal: SGDB" FontSize="11"
+                                   Foreground="#444444" Margin="12,4" HorizontalAlignment="Left"/>
+                        <TextBlock Text="Impressora: TEXTO —" FontSize="11" Foreground="#444444"
+                                   Margin="12,4" HorizontalAlignment="Right"/>
+                    </Grid>
+                </Grid>
+            </Border>
+        </Grid>
+    </Grid>
+</Window>

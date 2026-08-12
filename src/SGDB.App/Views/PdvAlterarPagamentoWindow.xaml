@@ -1,0 +1,77 @@
+<Window x:Class="SGDB.Views.PdvAlterarPagamentoWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Alterar forma de pagamento"
+        Width="640" Height="560" MinWidth="560" MinHeight="480"
+        WindowStartupLocation="CenterOwner"
+        Background="#ECE9D8"
+        FontFamily="Segoe UI, Tahoma"
+        PreviewKeyDown="Window_PreviewKeyDown">
+    <Window.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceDictionary Source="/Themes/PdvTheme.xaml"/>
+            </ResourceDictionary.MergedDictionaries>
+        </ResourceDictionary>
+    </Window.Resources>
+    <Border Background="#ECE9D8" BorderBrush="#666666" BorderThickness="2" Margin="6">
+        <Grid Margin="14">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="*"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+            </Grid.RowDefinitions>
+
+            <TextBlock x:Name="AtualText" FontSize="13" FontWeight="SemiBold" TextWrapping="Wrap" Margin="0,0,0,6"/>
+            <TextBlock Grid.Row="1" FontSize="12" Foreground="#444" TextWrapping="Wrap" Margin="0,0,0,8"
+                       Text="Misto: digite valores em mais de uma linha (ex. 10 dinheiro + restante no Pix). A–E foca a linha e preenche o que falta. F2 = usar só aquela forma."/>
+
+            <TextBlock Grid.Row="2" x:Name="TotalText" FontSize="16" FontWeight="Bold" Margin="0,0,0,10"/>
+
+            <Border Grid.Row="3" Background="White" BorderBrush="#AAA" BorderThickness="1" Padding="8">
+                <StackPanel x:Name="MethodsPanel"/>
+            </Border>
+
+            <StackPanel Grid.Row="4" Orientation="Horizontal" Margin="0,10,0,0">
+                <TextBlock Text="Recebido (dinheiro)" VerticalAlignment="Center" Margin="0,0,8,0" FontSize="12"/>
+                <TextBox x:Name="RecebidoBox" Width="140" FontSize="14" Padding="6,4"
+                         TextChanged="RecebidoBox_TextChanged"/>
+                <TextBlock x:Name="TrocoText" Margin="16,0,0,0" VerticalAlignment="Center"
+                           FontSize="13" FontWeight="SemiBold" Foreground="#1D4ED8"/>
+            </StackPanel>
+
+            <Border x:Name="ClientePanel" Grid.Row="5" Margin="0,10,0,0" Visibility="Collapsed"
+                    Background="#F8F8F8" BorderBrush="#CCC" BorderThickness="1" Padding="8">
+                <StackPanel>
+                    <TextBlock Text="Cliente (fiado)" FontWeight="SemiBold" Margin="0,0,0,4"/>
+                    <TextBox x:Name="ClienteBuscaBox" FontSize="13" Padding="6,4"
+                             TextChanged="ClienteBusca_TextChanged"/>
+                    <TextBlock x:Name="ClienteNomeText" Margin="0,4,0,0" FontSize="12" Foreground="#333"/>
+                    <DataGrid x:Name="ClienteLookupGrid" MaxHeight="100" Margin="0,6,0,0"
+                              Style="{StaticResource PdvConsultaDataGrid}"
+                              Visibility="Collapsed" IsReadOnly="True" AutoGenerateColumns="False"
+                              MouseDoubleClick="ClienteLookup_MouseDoubleClick">
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Header="Cód." Binding="{Binding Id}" Width="50"/>
+                            <DataGridTextColumn Header="Nome" Binding="{Binding Name}" Width="*"/>
+                        </DataGrid.Columns>
+                    </DataGrid>
+                </StackPanel>
+            </Border>
+
+            <Grid Grid.Row="6" Margin="0,12,0,0">
+                <TextBlock x:Name="RestanteText" VerticalAlignment="Center" FontSize="13" FontWeight="SemiBold"/>
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                    <Button Content="Confirmar (Enter)" Style="{StaticResource PdvConsultaBtnPrimary}"
+                            Click="Confirm_Click" Padding="16,8"/>
+                    <Button Content="Esc — Cancelar" Style="{StaticResource PdvConsultaBtn}"
+                            Click="Cancel_Click" IsCancel="True"/>
+                </StackPanel>
+            </Grid>
+        </Grid>
+    </Border>
+</Window>

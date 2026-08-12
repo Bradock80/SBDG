@@ -1,0 +1,284 @@
+<UserControl x:Class="SGDB.Views.PriceAdjustModuleView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             Background="#D4D0C8" Focusable="True" PreviewKeyDown="Root_PreviewKeyDown">
+    <UserControl.Resources>
+        <Style x:Key="NumColText" TargetType="TextBlock">
+            <Setter Property="TextAlignment" Value="Right"/>
+            <Setter Property="Padding" Value="6,0"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+        </Style>
+        <!-- Inputs da grade: preenchem 100% da célula (sem margem branca) -->
+        <Style x:Key="PriceCellBase" TargetType="TextBox">
+            <Setter Property="Margin" Value="0"/>
+            <Setter Property="Padding" Value="6,0"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="TextAlignment" Value="Right"/>
+            <Setter Property="VerticalContentAlignment" Value="Center"/>
+            <Setter Property="HorizontalAlignment" Value="Stretch"/>
+            <Setter Property="VerticalAlignment" Value="Stretch"/>
+            <Setter Property="MinHeight" Value="30"/>
+            <Setter Property="Foreground" Value="#0F172A"/>
+        </Style>
+        <Style x:Key="PurchaseCellStyle" TargetType="TextBox" BasedOn="{StaticResource PriceCellBase}">
+            <Setter Property="Background" Value="#FFFBEB"/>
+            <Setter Property="BorderBrush" Value="#F59E0B"/>
+            <Setter Property="BorderThickness" Value="0,0,1,0"/>
+        </Style>
+        <Style x:Key="SaleCellStyle" TargetType="TextBox" BasedOn="{StaticResource PriceCellBase}">
+            <Setter Property="Background" Value="#ECFDF5"/>
+            <Setter Property="BorderBrush" Value="#10B981"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding IsBelowCost}" Value="True">
+                    <Setter Property="Background" Value="#FECACA"/>
+                    <Setter Property="Foreground" Value="#991B1B"/>
+                    <Setter Property="FontWeight" Value="SemiBold"/>
+                    <Setter Property="ToolTip" Value="Atenção: venda abaixo ou igual ao custo (prejuízo)!"/>
+                </DataTrigger>
+            </Style.Triggers>
+        </Style>
+        <Style x:Key="HeaderField" TargetType="Control">
+            <Setter Property="Height" Value="32"/>
+            <Setter Property="MinHeight" Value="32"/>
+            <Setter Property="MaxHeight" Value="32"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+        </Style>
+        <Style x:Key="HeaderTextBox" TargetType="TextBox" BasedOn="{StaticResource HeaderField}">
+            <Setter Property="Padding" Value="6,0"/>
+            <Setter Property="VerticalContentAlignment" Value="Center"/>
+            <Setter Property="BorderBrush" Value="#C8C4BC"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Background" Value="White"/>
+            <Setter Property="CharacterCasing" Value="Upper"/>
+        </Style>
+        <Style x:Key="HeaderComboBox" TargetType="ComboBox" BasedOn="{StaticResource HeaderField}">
+            <Setter Property="VerticalContentAlignment" Value="Center"/>
+            <Setter Property="Padding" Value="4,0"/>
+        </Style>
+        <Style x:Key="HeaderDatePicker" TargetType="DatePicker" BasedOn="{StaticResource HeaderField}">
+            <Setter Property="VerticalContentAlignment" Value="Center"/>
+            <Setter Property="Padding" Value="2,0"/>
+        </Style>
+    </UserControl.Resources>
+
+    <Border BorderBrush="#8B8B8B" BorderThickness="1" Background="#ECE9E4">
+        <Grid>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="*"/>
+                <RowDefinition Height="Auto"/>
+            </Grid.RowDefinitions>
+
+            <Border Grid.Row="0" Padding="10,6" Background="#F0F0F0" BorderBrush="#C8C4BC" BorderThickness="0,0,0,1">
+                <Grid>
+                    <TextBlock Text="Ajusta Preço" FontWeight="SemiBold" FontSize="13" Foreground="#1E293B"/>
+                    <Button Style="{StaticResource ModuleTabCloseStyle}" HorizontalAlignment="Right" Click="Close_Click"/>
+                </Grid>
+            </Border>
+
+            <Border Grid.Row="1" Padding="12,10" Background="#FAF8F4" BorderBrush="#C8C4BC" BorderThickness="0,0,0,1">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    <WrapPanel>
+                        <StackPanel Margin="0,0,12,6" Width="240">
+                            <TextBlock Text="F6 | Localizar" FontSize="11" FontWeight="SemiBold" Foreground="#334155"/>
+                            <Grid>
+                                <TextBox x:Name="SearchBox" Style="{StaticResource HeaderTextBox}"
+                                         ToolTip="Digite iniciais — as opções aparecem abaixo. Enter ou F7 lista na grade."
+                                         TextChanged="SearchBox_TextChanged"
+                                         PreviewKeyDown="SearchBox_PreviewKeyDown"
+                                         LostFocus="SearchBox_LostFocus"/>
+                                <Popup x:Name="SuggestPopup" PlacementTarget="{Binding ElementName=SearchBox}"
+                                       Placement="Bottom" StaysOpen="False" AllowsTransparency="True"
+                                       PopupAnimation="Fade">
+                                    <Border Background="White" BorderBrush="#CBD5E1" BorderThickness="1"
+                                            MinWidth="320" MaxHeight="240">
+                                        <ListBox x:Name="SuggestList" BorderThickness="0" FontSize="12" MaxHeight="238"
+                                                 PreviewMouseLeftButtonUp="SuggestList_PreviewMouseLeftButtonUp"
+                                                 KeyDown="SuggestList_KeyDown">
+                                            <ListBox.ItemTemplate>
+                                                <DataTemplate>
+                                                    <StackPanel Margin="4,2">
+                                                        <TextBlock FontWeight="SemiBold" Text="{Binding Name}"/>
+                                                        <TextBlock FontSize="10" Foreground="#64748B">
+                                                            <Run Text="{Binding Code, Mode=OneWay}"/>
+                                                            <Run Text=" · "/>
+                                                            <Run Text="{Binding SalePriceDisplay, Mode=OneWay}"/>
+                                                        </TextBlock>
+                                                    </StackPanel>
+                                                </DataTemplate>
+                                            </ListBox.ItemTemplate>
+                                        </ListBox>
+                                    </Border>
+                                </Popup>
+                            </Grid>
+                        </StackPanel>
+                        <StackPanel Margin="0,0,12,6" Width="130">
+                            <TextBlock Text="Grupo" FontSize="11" Foreground="#64748B"/>
+                            <ComboBox x:Name="GroupBox" Style="{StaticResource HeaderComboBox}" IsEditable="True"/>
+                        </StackPanel>
+                        <StackPanel Margin="0,0,12,6" Width="130">
+                            <TextBlock Text="Marca" FontSize="11" Foreground="#64748B"/>
+                            <ComboBox x:Name="BrandBox" Style="{StaticResource HeaderComboBox}" IsEditable="True"/>
+                        </StackPanel>
+                        <StackPanel Margin="0,0,12,6" Width="110">
+                            <TextBlock Text="Nova Margem %" FontSize="11" Foreground="#64748B"/>
+                            <TextBox x:Name="MarginBox" Style="{StaticResource HeaderTextBox}"
+                                     TextAlignment="Right"
+                                     ToolTip="Digite a margem e pressione Enter ou F7 para aplicar em todos"
+                                     KeyDown="MarginBox_KeyDown"/>
+                        </StackPanel>
+                        <StackPanel Margin="0,0,12,6" Width="120">
+                            <TextBlock Text="Compra de" FontSize="11" Foreground="#64748B"/>
+                            <DatePicker x:Name="PurchaseFrom" Style="{StaticResource HeaderDatePicker}"
+                                        ToolTip="Filtra produtos com entrada de compra a partir desta data. Depois clique Visualizar (F7)."/>
+                        </StackPanel>
+                        <StackPanel Margin="0,0,12,6" Width="120">
+                            <TextBlock Text="Compra até" FontSize="11" Foreground="#64748B"/>
+                            <DatePicker x:Name="PurchaseTo" Style="{StaticResource HeaderDatePicker}"
+                                        ToolTip="Filtra produtos com entrada de compra até esta data. Depois clique Visualizar (F7)."/>
+                        </StackPanel>
+                    </WrapPanel>
+                    <StackPanel Grid.Column="1" Orientation="Vertical" VerticalAlignment="Bottom" Margin="8,0,0,0">
+                        <Button Content="Visualizar (F7)" Padding="12,6" Margin="0,0,0,6"
+                                Style="{StaticResource SgdbOutlineButtonStyle}" Click="Preview_Click"/>
+                        <Button x:Name="ApplyBtn" Content="Aplicar (F9)" Padding="12,6" IsEnabled="False"
+                                Style="{StaticResource SgdbPrimaryButtonStyle}" Click="Apply_Click"/>
+                    </StackPanel>
+                </Grid>
+            </Border>
+
+            <DataGrid Grid.Row="2" x:Name="PriceGrid" Margin="10,8,10,0"
+                      AutoGenerateColumns="False"
+                      IsReadOnly="True"
+                      SelectionMode="Single" SelectionUnit="FullRow"
+                      HeadersVisibility="Column" GridLinesVisibility="Horizontal"
+                      HorizontalGridLinesBrush="#E2E8F0" BorderBrush="#C8C4BC" BorderThickness="1"
+                      Background="White" RowHeaderWidth="0" RowHeight="32" FontSize="12"
+                      CanUserAddRows="False" CanUserDeleteRows="False"
+                      EnableRowVirtualization="False" EnableColumnVirtualization="False">
+                <DataGrid.CellStyle>
+                    <Style TargetType="DataGridCell">
+                        <Setter Property="Padding" Value="0"/>
+                        <Setter Property="BorderThickness" Value="0"/>
+                        <Setter Property="FocusVisualStyle" Value="{x:Null}"/>
+                        <Setter Property="Template">
+                            <Setter.Value>
+                                <ControlTemplate TargetType="DataGridCell">
+                                    <Border Background="{TemplateBinding Background}"
+                                            BorderBrush="{TemplateBinding BorderBrush}"
+                                            BorderThickness="{TemplateBinding BorderThickness}"
+                                            Padding="0" SnapsToDevicePixels="True">
+                                        <ContentPresenter VerticalAlignment="Stretch"
+                                                          HorizontalAlignment="Stretch"/>
+                                    </Border>
+                                </ControlTemplate>
+                            </Setter.Value>
+                        </Setter>
+                    </Style>
+                </DataGrid.CellStyle>
+                <DataGrid.ColumnHeaderStyle>
+                    <Style TargetType="DataGridColumnHeader">
+                        <Setter Property="Background" Value="#DDD8D0"/>
+                        <Setter Property="Foreground" Value="#1E293B"/>
+                        <Setter Property="FontWeight" Value="SemiBold"/>
+                        <Setter Property="FontSize" Value="11"/>
+                        <Setter Property="Padding" Value="6,4"/>
+                        <Setter Property="HorizontalContentAlignment" Value="Right"/>
+                    </Style>
+                </DataGrid.ColumnHeaderStyle>
+                <DataGrid.RowStyle>
+                    <Style TargetType="DataGridRow">
+                        <Setter Property="Background" Value="White"/>
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding IsModified}" Value="True">
+                                <Setter Property="Background" Value="#DBEAFE"/>
+                            </DataTrigger>
+                            <DataTrigger Binding="{Binding IsBelowCost}" Value="True">
+                                <Setter Property="Background" Value="#FEE2E2"/>
+                            </DataTrigger>
+                            <Trigger Property="IsSelected" Value="True">
+                                <Setter Property="Background" Value="#FDE68A"/>
+                                <Setter Property="Foreground" Value="#0F172A"/>
+                            </Trigger>
+                        </Style.Triggers>
+                    </Style>
+                </DataGrid.RowStyle>
+                <DataGrid.Columns>
+                    <DataGridTextColumn Header="" Binding="{Binding ModifiedMark}" Width="22"
+                                        IsReadOnly="True">
+                        <DataGridTextColumn.ElementStyle>
+                            <Style TargetType="TextBlock">
+                                <Setter Property="Foreground" Value="#2563EB"/>
+                                <Setter Property="FontWeight" Value="Bold"/>
+                                <Setter Property="HorizontalAlignment" Value="Center"/>
+                                <Setter Property="ToolTip" Value="Linha alterada — será gravada no Aplicar (F9)"/>
+                            </Style>
+                        </DataGridTextColumn.ElementStyle>
+                    </DataGridTextColumn>
+                    <DataGridTextColumn Header="Cód." Binding="{Binding ProductId}" Width="50"
+                                        ElementStyle="{StaticResource NumColText}"/>
+                    <DataGridTextColumn Header="Referência" Binding="{Binding Code}" Width="80"/>
+                    <DataGridTextColumn Header="Barras" Binding="{Binding BarcodeDisplay}" Width="100"/>
+                    <DataGridTextColumn Header=">>Descrição" Binding="{Binding Name}" Width="*"/>
+
+                    <DataGridTemplateColumn Header="Pr.Compra" Width="90">
+                        <DataGridTemplateColumn.CellTemplate>
+                            <DataTemplate>
+                                <TextBox Text="{Binding PurchaseDisplay, Mode=OneWay}"
+                                         Tag="compra"
+                                         Style="{StaticResource PurchaseCellStyle}"
+                                         IsHitTestVisible="True"
+                                         Focusable="True"
+                                         PreviewMouseLeftButtonDown="PriceCell_PreviewMouseLeftButtonDown"
+                                         LostFocus="PriceCell_LostFocus"
+                                         GotFocus="PriceCell_GotFocus"
+                                         KeyDown="PriceCell_KeyDown"/>
+                            </DataTemplate>
+                        </DataGridTemplateColumn.CellTemplate>
+                    </DataGridTemplateColumn>
+
+                    <DataGridTextColumn Header="% Custo" Binding="{Binding CostPercent, StringFormat=N2}" Width="60"
+                                        ElementStyle="{StaticResource NumColText}"/>
+                    <DataGridTextColumn Header="Pr.Custo" Binding="{Binding CostDisplay}" Width="70"
+                                        ElementStyle="{StaticResource NumColText}"/>
+                    <DataGridTextColumn Header="Margem" Binding="{Binding MarginDisplay}" Width="60"
+                                        ElementStyle="{StaticResource NumColText}"/>
+                    <DataGridTextColumn Header="Pr.Venda" Binding="{Binding SaleDisplay}" Width="70"
+                                        ElementStyle="{StaticResource NumColText}"/>
+                    <DataGridTextColumn Header="Nova Margem" Binding="{Binding NewMarginDisplay}" Width="80"
+                                        ElementStyle="{StaticResource NumColText}"/>
+
+                    <DataGridTemplateColumn Header="Pr.Venda Novo" Width="100">
+                        <DataGridTemplateColumn.CellTemplate>
+                            <DataTemplate>
+                                <TextBox Text="{Binding NewSaleDisplay, Mode=OneWay}"
+                                         Tag="venda"
+                                         Style="{StaticResource SaleCellStyle}"
+                                         IsHitTestVisible="True"
+                                         Focusable="True"
+                                         PreviewMouseLeftButtonDown="PriceCell_PreviewMouseLeftButtonDown"
+                                         LostFocus="PriceCell_LostFocus"
+                                         GotFocus="PriceCell_GotFocus"
+                                         KeyDown="PriceCell_KeyDown"/>
+                            </DataTemplate>
+                        </DataGridTemplateColumn.CellTemplate>
+                    </DataGridTemplateColumn>
+                </DataGrid.Columns>
+            </DataGrid>
+
+            <StackPanel Grid.Row="3" Margin="12,8,12,10">
+                <TextBlock FontSize="11" Foreground="#64748B" TextWrapping="Wrap"
+                           Text="* Amarelo = compra | Verde = venda nova | Azul = linha alterada | Vermelho = venda ≤ custo. Datas = produtos comprados no período (F7). Digite na busca para ver sugestões."/>
+                <TextBlock x:Name="SummaryText" FontSize="12" Foreground="#475569" Margin="0,4,0,0"
+                           Text="Busque (F6) ou informe período e Visualizar (F7). Edite Pr.Compra/Pr.Venda Novo e Aplicar (F9)."/>
+            </StackPanel>
+        </Grid>
+    </Border>
+</UserControl>

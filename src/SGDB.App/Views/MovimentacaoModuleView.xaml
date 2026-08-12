@@ -1,0 +1,374 @@
+<UserControl x:Class="SGDB.Views.MovimentacaoModuleView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:controls="clr-namespace:SGDB.Controls"
+             Background="{StaticResource SgdbBgBrush}"
+             Focusable="True"
+             PreviewKeyDown="MovimentacaoModuleView_PreviewKeyDown">
+    <UserControl.Resources>
+        <Style x:Key="MovTabBtn" TargetType="Button">
+            <Setter Property="Padding" Value="16,8"/>
+            <Setter Property="Margin" Value="0,0,8,0"/>
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Background" Value="#F1F5F9"/>
+            <Setter Property="Foreground" Value="#475569"/>
+            <Setter Property="BorderBrush" Value="#CBD5E1"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="Bd"
+                                Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="8" Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Bd" Property="Background" Value="#E2E8F0"/>
+                            </Trigger>
+                            <Trigger Property="Tag" Value="active">
+                                <Setter TargetName="Bd" Property="Background" Value="#1E3A5F"/>
+                                <Setter TargetName="Bd" Property="BorderBrush" Value="#1E3A5F"/>
+                                <Setter Property="Foreground" Value="White"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+        <Style x:Key="MovCellL" TargetType="TextBlock">
+            <Setter Property="VerticalAlignment" Value="Center"/>
+            <Setter Property="HorizontalAlignment" Value="Stretch"/>
+            <Setter Property="Padding" Value="10,0,6,0"/>
+            <Setter Property="Foreground" Value="#1E293B"/>
+            <Setter Property="TextTrimming" Value="CharacterEllipsis"/>
+        </Style>
+        <Style x:Key="MovCellR" TargetType="TextBlock" BasedOn="{StaticResource MovCellL}">
+            <Setter Property="TextAlignment" Value="Right"/>
+            <Setter Property="Padding" Value="8,0,12,0"/>
+            <Setter Property="FontFamily" Value="Consolas, Cascadia Mono, Courier New"/>
+        </Style>
+        <Style x:Key="MovCellC" TargetType="TextBlock" BasedOn="{StaticResource MovCellL}">
+            <Setter Property="TextAlignment" Value="Center"/>
+            <Setter Property="Padding" Value="4,0"/>
+        </Style>
+        <Style x:Key="MovHdrL" TargetType="DataGridColumnHeader">
+            <Setter Property="Background" Value="#F1F5F9"/>
+            <Setter Property="Foreground" Value="#1E293B"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="Padding" Value="10,8"/>
+            <Setter Property="BorderBrush" Value="#E2E8F0"/>
+            <Setter Property="BorderThickness" Value="0,0,0,1"/>
+            <Setter Property="HorizontalContentAlignment" Value="Left"/>
+        </Style>
+        <Style x:Key="MovHdrR" TargetType="DataGridColumnHeader" BasedOn="{StaticResource MovHdrL}">
+            <Setter Property="HorizontalContentAlignment" Value="Right"/>
+            <Setter Property="Padding" Value="8,8,12,8"/>
+        </Style>
+        <Style x:Key="MovHdrC" TargetType="DataGridColumnHeader" BasedOn="{StaticResource MovHdrL}">
+            <Setter Property="HorizontalContentAlignment" Value="Center"/>
+            <Setter Property="Padding" Value="4,8"/>
+        </Style>
+        <Style x:Key="MovTotalBox" TargetType="Border">
+            <Setter Property="Background" Value="#F8FAFC"/>
+            <Setter Property="BorderBrush" Value="#E2E8F0"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius" Value="8"/>
+            <Setter Property="Padding" Value="14,10"/>
+            <Setter Property="Margin" Value="0,0,12,0"/>
+            <Setter Property="MinWidth" Value="160"/>
+        </Style>
+    </UserControl.Resources>
+
+    <Border BorderBrush="#B8C4D4" BorderThickness="1" Background="White">
+        <Grid>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="*"/>
+                <RowDefinition Height="Auto"/>
+            </Grid.RowDefinitions>
+
+            <!-- Título -->
+            <Border Grid.Row="0" Padding="16,10" Background="{StaticResource TitleBarGradientBrush}"
+                    BorderBrush="{StaticResource SgdbGoldBrush}" BorderThickness="0,0,0,1">
+                <Grid>
+                    <TextBlock Text="Consultar Movimentação"
+                               Foreground="White" FontWeight="SemiBold" FontSize="13"/>
+                    <Button Style="{StaticResource ModuleTabCloseStyle}"
+                            HorizontalAlignment="Right" Click="CloseTabButton_Click"/>
+                </Grid>
+            </Border>
+
+            <!-- Filtros -->
+            <Border Grid.Row="1" Padding="16,14" Background="#FAF8F4"
+                    BorderBrush="#E2E8F0" BorderThickness="0,0,0,1">
+                <StackPanel>
+                    <TextBlock Text="F12 | Filtro — Período e tipo de movimentação"
+                               FontSize="11" FontWeight="SemiBold" Foreground="#334155" Margin="0,0,0,6"/>
+                    <TextBlock x:Name="PeriodHintText"
+                               Text="Período: — até — · Informe as datas e clique em Buscar"
+                               FontSize="11" Foreground="#64748B" Margin="0,0,0,10"/>
+
+                    <WrapPanel VerticalAlignment="Center">
+                        <TextBlock Text="Tipo" VerticalAlignment="Center" Margin="0,0,8,0" FontSize="12"/>
+                        <ComboBox x:Name="TipoBox" Width="200" Height="32" Margin="0,0,14,0"
+                                  VerticalContentAlignment="Center" SelectionChanged="TipoBox_SelectionChanged"/>
+
+                        <TextBlock Text="De" VerticalAlignment="Center" Margin="0,0,8,0" FontSize="12"/>
+                        <controls:BrDateBox x:Name="DateFromBox" Width="130" Margin="0,0,10,0"/>
+                        <TextBlock Text="até" VerticalAlignment="Center" Margin="0,0,8,0" FontSize="12"/>
+                        <controls:BrDateBox x:Name="DateToBox" Width="130" Margin="0,0,12,0"/>
+
+                        <Button Content="Hoje" Style="{StaticResource SgdbOutlineButtonStyle}"
+                                Margin="0,0,6,0" Click="Hoje_Click"/>
+                        <Button Content="Ontem" Style="{StaticResource SgdbOutlineButtonStyle}"
+                                Margin="0,0,14,0" Click="Ontem_Click"/>
+
+                        <TextBlock x:Name="PaymentLabel" Text="Forma" VerticalAlignment="Center" Margin="0,0,8,0" FontSize="12"/>
+                        <ComboBox x:Name="PaymentBox" Width="160" Height="32" Margin="0,0,12,0"
+                                  VerticalContentAlignment="Center"/>
+
+                        <Button Content="Buscar (F7)" Style="{StaticResource SgdbPrimaryButtonStyle}"
+                                Margin="0,0,8,0" Click="Buscar_Click"/>
+                        <Button Content="Limpar" Style="{StaticResource SgdbOutlineButtonStyle}"
+                                Click="Limpar_Click"/>
+                    </WrapPanel>
+                </StackPanel>
+            </Border>
+
+            <!-- Abas -->
+            <StackPanel Grid.Row="2" Orientation="Horizontal" Margin="16,12,16,8">
+                <Button x:Name="TabProdutos" Style="{StaticResource MovTabBtn}" Tag="active"
+                        Content="Produtos Vendidos (Lucro Bruto)" Click="Tab_Click"/>
+                <Button x:Name="TabVendas" Style="{StaticResource MovTabBtn}"
+                        Content="Vendas (Lucro Líquido)" Click="Tab_Click"/>
+                <Button x:Name="TabCompras" Style="{StaticResource MovTabBtn}"
+                        Content="Compras" Click="Tab_Click"/>
+            </StackPanel>
+
+            <!-- Grids -->
+            <Grid Grid.Row="3" Margin="16,0,16,8">
+                <DataGrid x:Name="ProdutosGrid"
+                          AutoGenerateColumns="False"
+                          IsReadOnly="True"
+                          SelectionMode="Single"
+                          SelectionUnit="FullRow"
+                          HeadersVisibility="Column"
+                          CanUserAddRows="False"
+                          CanUserDeleteRows="False"
+                          CanUserResizeRows="False"
+                          GridLinesVisibility="Horizontal"
+                          HorizontalGridLinesBrush="#E2E8F0"
+                          AlternatingRowBackground="#F8FAFC"
+                          RowHeaderWidth="0"
+                          RowHeight="32"
+                          FontSize="12"
+                          BorderBrush="#E2E8F0"
+                          BorderThickness="1"
+                          Background="White">
+                    <DataGrid.Resources>
+                        <SolidColorBrush x:Key="{x:Static SystemColors.HighlightBrushKey}" Color="#DBEAFE"/>
+                        <SolidColorBrush x:Key="{x:Static SystemColors.HighlightTextBrushKey}" Color="#0F172A"/>
+                        <SolidColorBrush x:Key="{x:Static SystemColors.InactiveSelectionHighlightBrushKey}" Color="#E2E8F0"/>
+                        <SolidColorBrush x:Key="{x:Static SystemColors.InactiveSelectionHighlightTextBrushKey}" Color="#0F172A"/>
+                    </DataGrid.Resources>
+                    <DataGrid.Columns>
+                        <DataGridTextColumn Header="Venda" Binding="{Binding SaleIdDisplay}" Width="64"
+                                            ElementStyle="{StaticResource MovCellC}"
+                                            HeaderStyle="{StaticResource MovHdrC}"/>
+                        <DataGridTextColumn Header="Data venda" Binding="{Binding SaleDateBr}" Width="130"
+                                            ElementStyle="{StaticResource MovCellL}"
+                                            HeaderStyle="{StaticResource MovHdrL}"/>
+                        <DataGridTextColumn Header="Produto" Binding="{Binding ProductNameDisplay}" Width="*"
+                                            MinWidth="180"
+                                            ElementStyle="{StaticResource MovCellL}"
+                                            HeaderStyle="{StaticResource MovHdrL}"/>
+                        <DataGridTextColumn Header="Preço custo" Binding="{Binding UnitCostDisplay}" Width="110"
+                                            ElementStyle="{StaticResource MovCellR}"
+                                            HeaderStyle="{StaticResource MovHdrR}"/>
+                        <DataGridTextColumn Header="Qtd." Binding="{Binding QtyDisplay}" Width="64"
+                                            ElementStyle="{StaticResource MovCellR}"
+                                            HeaderStyle="{StaticResource MovHdrR}"/>
+                        <DataGridTextColumn Header="Preço venda" Binding="{Binding UnitSaleDisplay}" Width="110"
+                                            ElementStyle="{StaticResource MovCellR}"
+                                            HeaderStyle="{StaticResource MovHdrR}"/>
+                        <DataGridTextColumn Header="Desconto" Binding="{Binding DiscountDisplay}" Width="100"
+                                            ElementStyle="{StaticResource MovCellR}"
+                                            HeaderStyle="{StaticResource MovHdrR}"/>
+                        <DataGridTextColumn Header="Acréscimo" Binding="{Binding AcrescimoDisplay}" Width="100"
+                                            ElementStyle="{StaticResource MovCellR}"
+                                            HeaderStyle="{StaticResource MovHdrR}"/>
+                        <DataGridTextColumn Header="Total item" Binding="{Binding TotalDisplay}" Width="110"
+                                            ElementStyle="{StaticResource MovCellR}"
+                                            HeaderStyle="{StaticResource MovHdrR}"/>
+                        <DataGridTextColumn Header="Lucro bruto" Binding="{Binding LucroBrutoDisplay}" Width="120"
+                                            ElementStyle="{StaticResource MovCellR}"
+                                            HeaderStyle="{StaticResource MovHdrR}"/>
+                    </DataGrid.Columns>
+                </DataGrid>
+
+                <DataGrid x:Name="VendasGrid" Visibility="Collapsed"
+                          AutoGenerateColumns="False"
+                          IsReadOnly="True"
+                          SelectionMode="Single"
+                          SelectionUnit="FullRow"
+                          HeadersVisibility="Column"
+                          CanUserAddRows="False"
+                          CanUserDeleteRows="False"
+                          CanUserResizeRows="False"
+                          GridLinesVisibility="Horizontal"
+                          HorizontalGridLinesBrush="#E2E8F0"
+                          AlternatingRowBackground="#F8FAFC"
+                          RowHeaderWidth="0"
+                          RowHeight="32"
+                          FontSize="12"
+                          BorderBrush="#E2E8F0"
+                          BorderThickness="1"
+                          Background="White">
+                    <DataGrid.Resources>
+                        <SolidColorBrush x:Key="{x:Static SystemColors.HighlightBrushKey}" Color="#DBEAFE"/>
+                        <SolidColorBrush x:Key="{x:Static SystemColors.HighlightTextBrushKey}" Color="#0F172A"/>
+                        <SolidColorBrush x:Key="{x:Static SystemColors.InactiveSelectionHighlightBrushKey}" Color="#E2E8F0"/>
+                        <SolidColorBrush x:Key="{x:Static SystemColors.InactiveSelectionHighlightTextBrushKey}" Color="#0F172A"/>
+                    </DataGrid.Resources>
+                    <DataGrid.Columns>
+                        <DataGridTextColumn Header="Venda" Binding="{Binding SaleIdDisplay}" Width="64"
+                                            ElementStyle="{StaticResource MovCellC}"
+                                            HeaderStyle="{StaticResource MovHdrC}"/>
+                        <DataGridTextColumn Header="Data" Binding="{Binding SaleDateBr}" Width="130"
+                                            ElementStyle="{StaticResource MovCellL}"
+                                            HeaderStyle="{StaticResource MovHdrL}"/>
+                        <DataGridTextColumn Header="Cliente" Binding="{Binding CustomerNameDisplay}" Width="*"
+                                            MinWidth="140"
+                                            ElementStyle="{StaticResource MovCellL}"
+                                            HeaderStyle="{StaticResource MovHdrL}"/>
+                        <DataGridTextColumn Header="Vendedor" Binding="{Binding SellerNameDisplay}" Width="120"
+                                            ElementStyle="{StaticResource MovCellL}"
+                                            HeaderStyle="{StaticResource MovHdrL}"/>
+                        <DataGridTextColumn Header="Forma" Binding="{Binding PaymentType}" Width="120"
+                                            ElementStyle="{StaticResource MovCellL}"
+                                            HeaderStyle="{StaticResource MovHdrL}"/>
+                        <DataGridTextColumn Header="Itens" Binding="{Binding ItemsCount}" Width="60"
+                                            ElementStyle="{StaticResource MovCellR}"
+                                            HeaderStyle="{StaticResource MovHdrR}"/>
+                        <DataGridTextColumn Header="Custo" Binding="{Binding CostTotalDisplay}" Width="110"
+                                            ElementStyle="{StaticResource MovCellR}"
+                                            HeaderStyle="{StaticResource MovHdrR}"/>
+                        <DataGridTextColumn Header="Total" Binding="{Binding TotalDisplay}" Width="110"
+                                            ElementStyle="{StaticResource MovCellR}"
+                                            HeaderStyle="{StaticResource MovHdrR}"/>
+                        <DataGridTextColumn Header="Taxa %" Binding="{Binding FeePercentDisplay}" Width="70"
+                                            ElementStyle="{StaticResource MovCellR}"
+                                            HeaderStyle="{StaticResource MovHdrR}"/>
+                        <DataGridTextColumn Header="Taxa R$" Binding="{Binding TaxaValorDisplay}" Width="100"
+                                            ElementStyle="{StaticResource MovCellR}"
+                                            HeaderStyle="{StaticResource MovHdrR}"/>
+                        <DataGridTextColumn Header="Líquido" Binding="{Binding TotalLiquidoDisplay}" Width="110"
+                                            ElementStyle="{StaticResource MovCellR}"
+                                            HeaderStyle="{StaticResource MovHdrR}"/>
+                        <DataGridTextColumn Header="Lucro líquido" Binding="{Binding LucroLiquidoDisplay}" Width="120"
+                                            ElementStyle="{StaticResource MovCellR}"
+                                            HeaderStyle="{StaticResource MovHdrR}"/>
+                    </DataGrid.Columns>
+                </DataGrid>
+
+                <DataGrid x:Name="ComprasGrid" Visibility="Collapsed"
+                          AutoGenerateColumns="False"
+                          IsReadOnly="True"
+                          SelectionMode="Single"
+                          SelectionUnit="FullRow"
+                          HeadersVisibility="Column"
+                          CanUserAddRows="False"
+                          CanUserDeleteRows="False"
+                          CanUserResizeRows="False"
+                          GridLinesVisibility="Horizontal"
+                          HorizontalGridLinesBrush="#E2E8F0"
+                          AlternatingRowBackground="#F8FAFC"
+                          RowHeaderWidth="0"
+                          RowHeight="32"
+                          FontSize="12"
+                          BorderBrush="#E2E8F0"
+                          BorderThickness="1"
+                          Background="White">
+                    <DataGrid.Resources>
+                        <SolidColorBrush x:Key="{x:Static SystemColors.HighlightBrushKey}" Color="#DBEAFE"/>
+                        <SolidColorBrush x:Key="{x:Static SystemColors.HighlightTextBrushKey}" Color="#0F172A"/>
+                        <SolidColorBrush x:Key="{x:Static SystemColors.InactiveSelectionHighlightBrushKey}" Color="#E2E8F0"/>
+                        <SolidColorBrush x:Key="{x:Static SystemColors.InactiveSelectionHighlightTextBrushKey}" Color="#0F172A"/>
+                    </DataGrid.Resources>
+                    <DataGrid.Columns>
+                        <DataGridTextColumn Header="Compra" Binding="{Binding PurchaseIdDisplay}" Width="70"
+                                            ElementStyle="{StaticResource MovCellC}"
+                                            HeaderStyle="{StaticResource MovHdrC}"/>
+                        <DataGridTextColumn Header="Emissão" Binding="{Binding EmissionDateBr}" Width="100"
+                                            ElementStyle="{StaticResource MovCellL}"
+                                            HeaderStyle="{StaticResource MovHdrL}"/>
+                        <DataGridTextColumn Header="Fornecedor" Binding="{Binding SupplierNameDisplay}" Width="*"
+                                            MinWidth="160"
+                                            ElementStyle="{StaticResource MovCellL}"
+                                            HeaderStyle="{StaticResource MovHdrL}"/>
+                        <DataGridTextColumn Header="NF" Binding="{Binding Document}" Width="100"
+                                            ElementStyle="{StaticResource MovCellL}"
+                                            HeaderStyle="{StaticResource MovHdrL}"/>
+                        <DataGridTextColumn Header="Status" Binding="{Binding Status}" Width="90"
+                                            ElementStyle="{StaticResource MovCellL}"
+                                            HeaderStyle="{StaticResource MovHdrL}"/>
+                        <DataGridTextColumn Header="Itens" Binding="{Binding ItemsCount}" Width="60"
+                                            ElementStyle="{StaticResource MovCellR}"
+                                            HeaderStyle="{StaticResource MovHdrR}"/>
+                        <DataGridTextColumn Header="Total" Binding="{Binding TotalDisplay}" Width="120"
+                                            ElementStyle="{StaticResource MovCellR}"
+                                            HeaderStyle="{StaticResource MovHdrR}"/>
+                    </DataGrid.Columns>
+                </DataGrid>
+            </Grid>
+
+            <!-- Totais -->
+            <Border Grid.Row="4" Padding="16,12" Background="#F8FAFC"
+                    BorderBrush="#E2E8F0" BorderThickness="0,1,0,0">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                        <Border Style="{StaticResource MovTotalBox}">
+                            <StackPanel>
+                                <TextBlock x:Name="TotalVendidoLabel" Text="Total vendido (faturamento)"
+                                           FontSize="11" Foreground="#64748B"/>
+                                <TextBlock x:Name="TotalVendidoText" Text="—"
+                                           FontSize="16" FontWeight="Bold" Foreground="#1E3A5F" Margin="0,2,0,0"/>
+                            </StackPanel>
+                        </Border>
+                        <Border Style="{StaticResource MovTotalBox}" Background="#ECFDF5" BorderBrush="#A7F3D0">
+                            <StackPanel>
+                                <TextBlock x:Name="TotalLucroLabel" Text="Total lucro bruto"
+                                           FontSize="11" Foreground="#047857"/>
+                                <TextBlock x:Name="TotalLucroText" Text="—"
+                                           FontSize="16" FontWeight="Bold" Foreground="#065F46" Margin="0,2,0,0"/>
+                            </StackPanel>
+                        </Border>
+                        <Border Style="{StaticResource MovTotalBox}">
+                            <StackPanel>
+                                <TextBlock Text="Custo"
+                                           FontSize="11" Foreground="#64748B"/>
+                                <TextBlock x:Name="TotalCustoText" Text="—"
+                                           FontSize="16" FontWeight="Bold" Foreground="#334155" Margin="0,2,0,0"/>
+                            </StackPanel>
+                        </Border>
+                    </StackPanel>
+                    <TextBlock Grid.Column="1" x:Name="FootText"
+                               VerticalAlignment="Center" FontSize="12" Foreground="#64748B"
+                               Text="Informe o período e pressione F7."/>
+                </Grid>
+            </Border>
+        </Grid>
+    </Border>
+</UserControl>

@@ -1,0 +1,58 @@
+# Visual Studio / Rider / VS Code local
+.vs/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+# Build outputs
+**/bin/
+**/obj/
+[Bb]in/
+[Oo]bj/
+
+# Databases (never commit real or temp store data)
+*.db
+*.db-shm
+*.db-wal
+*.db-journal
+*.sqlite
+*.sqlite3
+
+# Logs and archives
+*.log
+*.zip
+
+# Local publish / pendrive package
+SGDB_Para_Outro_PC/
+Banco/
+
+# Backups and temps
+**/backup*/
+**/backups/
+*.bak
+*.tmp
+*.temp
+*~
+*.swp
+
+# Local credentials / tokens if ever copied into the project folder
+# (source files like *Credentials.cs remain tracked)
+*.bin
+.env
+.env.*
+*.pfx
+*.pem
+*.key
+mercadopago_token.bin
+meudanfe_api_key.bin
+login_remember.bin
+
+# OS junk
+Thumbs.db
+Desktop.ini
+.DS_Store
+
+# WPF temp projects generated during build
+*_wpftmp.csproj
+*_wpftmp.csproj.user

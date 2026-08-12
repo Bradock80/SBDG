@@ -1,0 +1,209 @@
+<Window x:Class="SGDB.Views.PdvPaymentWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Forma de Pagamento"
+        Width="940" Height="720" MinWidth="900" MinHeight="640"
+        WindowStartupLocation="CenterOwner"
+        ResizeMode="CanResize"
+        Background="#C8C8C8"
+        FontFamily="Segoe UI, Tahoma"
+        PreviewKeyDown="Window_PreviewKeyDown">
+    <Window.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceDictionary Source="/Themes/PdvTheme.xaml"/>
+            </ResourceDictionary.MergedDictionaries>
+        </ResourceDictionary>
+    </Window.Resources>
+    <Border Background="#D8D8D8" BorderBrush="#666666" BorderThickness="2" Margin="8">
+        <Grid>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="*"/>
+                <RowDefinition Height="Auto"/>
+            </Grid.RowDefinitions>
+
+            <Border Grid.Row="0" Style="{StaticResource PdvPayTitleBar}">
+                <Grid>
+                    <TextBlock Text="Forma de Pagamento" Style="{StaticResource PdvPayTitleText}"/>
+                    <Button Content="×" Style="{StaticResource PdvCloseButton}" HorizontalAlignment="Right"
+                            Click="Cancel_Click" ToolTip="Esc — Cancelar"/>
+                </Grid>
+            </Border>
+
+            <Grid Grid.Row="1" Margin="12,10">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="*"/>
+                </Grid.RowDefinitions>
+
+                <Grid Grid.Row="0">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="1.1*"/>
+                        <ColumnDefinition Width="0.9*"/>
+                    </Grid.ColumnDefinitions>
+                    <Border Style="{StaticResource PdvPaySidePanel}">
+                        <StackPanel>
+                            <Grid Margin="0,0,0,8">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="130"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Text="Vendedor" Style="{StaticResource PdvPaySideLabel}"/>
+                                <ComboBox x:Name="SellerBox" Grid.Column="1" Style="{StaticResource PdvPaySellerCombo}"
+                                          DisplayMemberPath="Name"/>
+                            </Grid>
+                            <Grid Margin="0,0,0,8">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="130"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Text="F4 | Desconto" Style="{StaticResource PdvPaySideLabel}"/>
+                                <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Right">
+                                    <TextBox x:Name="DescontoPctBox" Width="100" Style="{StaticResource PdvPaySideInput}"
+                                             Text="0,00" LostFocus="DescontoPct_LostFocus"
+                                             InputMethod.IsInputMethodEnabled="False"
+                                             PreviewTextInput="MoneyField_PreviewTextInput"
+                                             PreviewKeyDown="MoneyField_PreviewKeyDown"/>
+                                    <TextBlock Text="%" Style="{StaticResource PdvPaySideUnit}" Margin="6,0,10,0"/>
+                                    <TextBox x:Name="DescontoValBox" Width="160" Style="{StaticResource PdvPaySideInput}"
+                                             Text="0,00" LostFocus="DescontoVal_LostFocus"
+                                             InputMethod.IsInputMethodEnabled="False"
+                                             PreviewTextInput="MoneyField_PreviewTextInput"
+                                             PreviewKeyDown="MoneyField_PreviewKeyDown"/>
+                                </StackPanel>
+                            </Grid>
+                            <Grid Margin="0,0,0,8">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="130"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Text="F5 | Acréscimo" Style="{StaticResource PdvPaySideLabel}"/>
+                                <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Right">
+                                    <TextBox x:Name="AcrescimoPctBox" Width="100" Style="{StaticResource PdvPaySideInput}"
+                                             Text="0,00" LostFocus="AcrescimoPct_LostFocus"
+                                             InputMethod.IsInputMethodEnabled="False"
+                                             PreviewTextInput="MoneyField_PreviewTextInput"
+                                             PreviewKeyDown="MoneyField_PreviewKeyDown"/>
+                                    <TextBlock Text="%" Style="{StaticResource PdvPaySideUnit}" Margin="6,0,10,0"/>
+                                    <TextBox x:Name="AcrescimoValBox" Width="160" Style="{StaticResource PdvPaySideInput}"
+                                             Text="0,00" LostFocus="AcrescimoVal_LostFocus"
+                                             InputMethod.IsInputMethodEnabled="False"
+                                             PreviewTextInput="MoneyField_PreviewTextInput"
+                                             PreviewKeyDown="MoneyField_PreviewKeyDown"/>
+                                </StackPanel>
+                            </Grid>
+                            <Border BorderBrush="#AAAAAA" BorderThickness="0,1,0,0" Padding="0,10,0,0" Margin="0,4,0,0">
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="130"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Text="Total à Pagar" Style="{StaticResource PdvPaySideLabel}"/>
+                                    <TextBlock x:Name="TotalPagarText" Grid.Column="1" Style="{StaticResource PdvPayTotalValue}"
+                                               HorizontalAlignment="Right"/>
+                                </Grid>
+                            </Border>
+                        </StackPanel>
+                    </Border>
+                    <TextBlock Grid.Column="1" Style="{StaticResource PdvPayMixedHint}"
+                               TextWrapping="Wrap" VerticalAlignment="Center" Margin="14,0,0,0"
+                               Text="F4 desconto · F5 acréscimo · F8 volta para a forma de pagamento (Dinheiro/PIX/Cartão). Misto: valor parcial + Enter ou A–E."/>
+                </Grid>
+
+                <Border x:Name="ClientePanel" Grid.Row="1" Style="{StaticResource PdvPayClienteWrap}"
+                        Margin="0,8,0,0" Visibility="Collapsed">
+                    <StackPanel>
+                        <Grid Margin="10,8">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="220"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Text="F2 | Cliente" Style="{StaticResource PdvPayClienteHint}"/>
+                            <TextBox x:Name="ClienteBuscaBox" Grid.Column="1" Style="{StaticResource PdvPayClienteBusca}"
+                                     TextChanged="ClienteBusca_TextChanged"
+                                     PreviewKeyDown="ClienteBusca_KeyDown"/>
+                            <TextBlock x:Name="ClienteNomeText" Grid.Column="2" Style="{StaticResource PdvPayClienteNome}"
+                                       Foreground="#0B3D91" Text="— digite a 1ª letra —"/>
+                        </Grid>
+                        <DataGrid x:Name="ClienteLookupGrid" MaxHeight="110" Style="{StaticResource PdvLookupDataGrid}"
+                                  Visibility="Collapsed" SelectionChanged="ClienteLookupGrid_SelectionChanged"
+                                  MouseDoubleClick="ClienteLookupGrid_MouseDoubleClick"
+                                  PreviewKeyDown="ClienteLookupGrid_PreviewKeyDown">
+                            <DataGrid.Columns>
+                                <DataGridTextColumn Header="Cód." Binding="{Binding Id}" Width="50"/>
+                                <DataGridTextColumn Header="Nome" Binding="{Binding Name}" Width="*"/>
+                                <DataGridTextColumn Header="CPF/CNPJ" Binding="{Binding CpfCnpj}" Width="120"/>
+                            </DataGrid.Columns>
+                        </DataGrid>
+                    </StackPanel>
+                </Border>
+
+                <Border Grid.Row="2" Style="{StaticResource PdvPayMethodsWrap}" Margin="0,8,0,0"
+                        VerticalAlignment="Top">
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                        </Grid.RowDefinitions>
+                        <TextBlock Text="F8 | Forma de Pagamento"
+                                   Style="{StaticResource PdvPaySideLabel}"
+                                   Margin="8,6,8,4"/>
+                        <DataGrid x:Name="MethodsGrid" Grid.Row="1" Style="{StaticResource PdvPayMethodsGrid}"
+                                  MaxHeight="300"
+                                  VerticalScrollBarVisibility="Auto"
+                                  SelectionChanged="MethodsGrid_SelectionChanged"
+                                  CellEditEnding="MethodsGrid_CellEditEnding"
+                                  PreparingCellForEdit="MethodsGrid_PreparingCellForEdit">
+                            <DataGrid.Columns>
+                                <DataGridTextColumn Header="Tecla" Binding="{Binding Tecla}" Width="70" IsReadOnly="True"/>
+                                <DataGridTextColumn Header="Forma" Binding="{Binding Nome}" Width="*" IsReadOnly="True"/>
+                                <DataGridTextColumn Header="Valor R$" Binding="{Binding ValorText, UpdateSourceTrigger=PropertyChanged}" Width="200"/>
+                            </DataGrid.Columns>
+                        </DataGrid>
+                    </Grid>
+                </Border>
+            </Grid>
+
+            <Border Grid.Row="2" Style="{StaticResource PdvPayFooterBar}">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                        <StackPanel Margin="0,0,24,0">
+                            <TextBlock Text="VALOR RESTANTE" Style="{StaticResource PdvPayFooterLabel}"/>
+                            <TextBlock x:Name="RestanteText" Style="{StaticResource PdvPayRestanteValue}" Text="R$ 0,00"/>
+                        </StackPanel>
+                        <Border Style="{StaticResource PdvPayTrocoBox}">
+                            <StackPanel>
+                                <TextBlock Text="TROCO" Style="{StaticResource PdvPayFooterLabel}"/>
+                                <TextBlock x:Name="TrocoText" Style="{StaticResource PdvPayTrocoValue}" Text="R$ 0,00"/>
+                            </StackPanel>
+                        </Border>
+                    </StackPanel>
+                    <StackPanel Grid.Column="1" Orientation="Horizontal">
+                        <Button Style="{StaticResource PdvPayActionBtn}" Click="Confirm_Click" Margin="0,0,8,0"
+                                ToolTip="F10">
+                            <StackPanel HorizontalAlignment="Center">
+                                <TextBlock Text="💾" FontSize="18" HorizontalAlignment="Center"/>
+                                <TextBlock Text="F10 Concluir" FontSize="10" FontWeight="SemiBold"/>
+                            </StackPanel>
+                        </Button>
+                        <Button Style="{StaticResource PdvPayActionBtn}" Click="Cancel_Click" IsCancel="True"
+                                ToolTip="Esc">
+                            <StackPanel HorizontalAlignment="Center">
+                                <TextBlock Text="✕" FontSize="18" HorizontalAlignment="Center"/>
+                                <TextBlock Text="Esc Cancelar" FontSize="10" FontWeight="SemiBold"/>
+                            </StackPanel>
+                        </Button>
+                    </StackPanel>
+                </Grid>
+            </Border>
+        </Grid>
+    </Border>
+</Window>

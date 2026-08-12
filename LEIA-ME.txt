@@ -1,0 +1,40 @@
+﻿SGDB NATIVO — No outro PC
+=========================
+
+Pasta: SGDB_Para_Outro_PC
+Atualizado: 26/07/2026
+
+COMO ATUALIZAR (faça nesta ordem)
+---------------------------------
+1. Feche o SGDB no outro PC (se estiver aberto).
+2. Apague a pasta antiga SGDB_Para_Outro_PC em Documentos
+   (ou renomeie para SGDB_Para_Outro_PC_ANTIGA).
+3. Copie do pendrive a pasta INTEIRA SGDB_Para_Outro_PC
+   para Documentos.
+4. Abra Documentos\SGDB_Para_Outro_PC e rode:
+      ATUALIZAR_NESTE_PC.bat
+   Esse arquivo:
+   - restaura o banco
+   - recria o atalho da área de trabalho para ESTA pasta
+   - abre o programa novo
+
+NÃO abra pelo atalho antigo da área de trabalho antes disso —
+ele pode ainda apontar para a versão velha.
+
+
+Se der problema
+---------------
+- Clique com o botão direito no atalho SGDB da área de trabalho
+  → Propriedades → "Destino" deve terminar em:
+  ...\Documentos\SGDB_Para_Outro_PC\SGDB\SGDB.exe
+- Ou abra direto: Documentos\SGDB_Para_Outro_PC\SGDB\SGDB.exe
+
+
+Arquivos
+--------
+  ATUALIZAR_NESTE_PC.bat  → use este (recomendado)
+  RESTAURAR_BANCO.bat     → só o banco
+  CRIAR_ATALHO.bat        → só o atalho
+  ABRIR_SGDB.bat          → abre o exe desta pasta
+  SGDB\                   → programa
+  Banco\                  → deposito.db

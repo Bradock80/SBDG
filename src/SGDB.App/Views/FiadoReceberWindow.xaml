@@ -1,0 +1,329 @@
+<Window x:Class="SGDB.Views.FiadoReceberWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:controls="clr-namespace:SGDB.Controls"
+        Title="Receber fiado — baixa"
+        Width="580" SizeToContent="Height"
+        WindowStartupLocation="CenterOwner"
+        ResizeMode="NoResize"
+        Background="#F3F4F6"
+        FontFamily="Segoe UI, Tahoma"
+        PreviewKeyDown="Window_PreviewKeyDown">
+    <Window.Resources>
+        <Style x:Key="FieldLabel" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="Foreground" Value="#475569"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+        </Style>
+        <Style x:Key="ModernInput" TargetType="TextBox">
+            <Setter Property="Height" Value="34"/>
+            <Setter Property="Padding" Value="10,0"/>
+            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="VerticalContentAlignment" Value="Center"/>
+            <Setter Property="Background" Value="White"/>
+            <Setter Property="BorderBrush" Value="#D1D5DB"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="TextBox">
+                        <Border x:Name="Bd"
+                                Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="6"
+                                SnapsToDevicePixels="True">
+                            <ScrollViewer x:Name="PART_ContentHost"
+                                          Margin="{TemplateBinding Padding}"
+                                          VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsKeyboardFocused" Value="True">
+                                <Setter TargetName="Bd" Property="BorderBrush" Value="#3B82F6"/>
+                                <Setter TargetName="Bd" Property="BorderThickness" Value="1.5"/>
+                            </Trigger>
+                            <Trigger Property="IsReadOnly" Value="True">
+                                <Setter TargetName="Bd" Property="Background" Value="#F8FAFC"/>
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter TargetName="Bd" Property="Opacity" Value="0.6"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+        <Style x:Key="ModernInputMultiline" TargetType="TextBox" BasedOn="{StaticResource ModernInput}">
+            <Setter Property="Height" Value="64"/>
+            <Setter Property="Padding" Value="10,8"/>
+            <Setter Property="VerticalContentAlignment" Value="Top"/>
+            <Setter Property="AcceptsReturn" Value="True"/>
+            <Setter Property="TextWrapping" Value="Wrap"/>
+            <Setter Property="VerticalScrollBarVisibility" Value="Auto"/>
+        </Style>
+        <Style x:Key="UsarRestanteBtn" TargetType="Button">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Foreground" Value="#2563EB"/>
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Padding" Value="8,4"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="Bd" Background="{TemplateBinding Background}"
+                                BorderBrush="#BFDBFE" BorderThickness="1" CornerRadius="6"
+                                Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Bd" Property="Background" Value="#EFF6FF"/>
+                                <Setter Property="Foreground" Value="#1D4ED8"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+        <Style x:Key="SalvarBtn" TargetType="Button">
+            <Setter Property="Height" Value="38"/>
+            <Setter Property="MinWidth" Value="132"/>
+            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="Bd" Background="#2563EB" CornerRadius="8" Padding="18,0">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Bd" Property="Background" Value="#1D4ED8"/>
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="Bd" Property="Background" Value="#1E40AF"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+        <Style x:Key="CancelarBtn" TargetType="Button">
+            <Setter Property="Height" Value="38"/>
+            <Setter Property="MinWidth" Value="110"/>
+            <Setter Property="Foreground" Value="#374151"/>
+            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="Bd" Background="#F3F4F6" BorderBrush="#E5E7EB"
+                                BorderThickness="1" CornerRadius="8" Padding="16,0">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Bd" Property="Background" Value="#E5E7EB"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+        <Style x:Key="SummaryCard" TargetType="Border">
+            <Setter Property="Background" Value="#F8FAFC"/>
+            <Setter Property="BorderBrush" Value="#E2E8F0"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius" Value="8"/>
+            <Setter Property="Padding" Value="12,10"/>
+            <Setter Property="Margin" Value="0,0,8,0"/>
+        </Style>
+        <Style x:Key="SummaryLabel" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="11"/>
+            <Setter Property="Foreground" Value="#64748B"/>
+        </Style>
+        <Style x:Key="SummaryValue" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="14"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Foreground" Value="#0F172A"/>
+            <Setter Property="Margin" Value="0,2,0,0"/>
+        </Style>
+        <Style x:Key="PayRow" TargetType="Grid">
+            <Setter Property="Margin" Value="0,0,0,12"/>
+        </Style>
+    </Window.Resources>
+
+    <Border Margin="16" Background="White" BorderBrush="#E5E7EB" BorderThickness="1"
+            CornerRadius="10" Padding="24,22">
+        <StackPanel>
+            <TextBlock Text="Receber fiado — baixa" FontSize="13" FontWeight="SemiBold"
+                       Foreground="#64748B" Margin="0,0,0,6"/>
+            <TextBlock x:Name="ClienteNomeText" FontSize="20" FontWeight="Bold"
+                       Foreground="#0F172A" Margin="0,0,0,4"/>
+            <TextBlock x:Name="ClientePhoneText" FontSize="12" Foreground="#64748B"
+                       Margin="0,0,0,12"/>
+
+            <Grid Margin="0,0,0,18">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+                <Border Grid.Column="0" Style="{StaticResource SummaryCard}">
+                    <StackPanel>
+                        <TextBlock Text="Vendido" Style="{StaticResource SummaryLabel}"/>
+                        <TextBlock x:Name="VendidoText" Style="{StaticResource SummaryValue}"/>
+                    </StackPanel>
+                </Border>
+                <Border Grid.Column="1" Style="{StaticResource SummaryCard}">
+                    <StackPanel>
+                        <TextBlock Text="Já recebido" Style="{StaticResource SummaryLabel}"/>
+                        <TextBlock x:Name="RecebidoText" Style="{StaticResource SummaryValue}"/>
+                    </StackPanel>
+                </Border>
+                <Border Grid.Column="2" Style="{StaticResource SummaryCard}" Margin="0">
+                    <StackPanel>
+                        <TextBlock Text="Saldo restante" Style="{StaticResource SummaryLabel}"/>
+                        <TextBlock x:Name="SaldoText" Style="{StaticResource SummaryValue}"
+                                   Foreground="#C2410C"/>
+                    </StackPanel>
+                </Border>
+            </Grid>
+
+            <Grid Margin="0,0,0,14">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="120"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="16"/>
+                    <ColumnDefinition Width="80"/>
+                    <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+                <TextBlock Text="Abate do fiado" Style="{StaticResource FieldLabel}"/>
+                <TextBox x:Name="AbateBox" Grid.Column="1" Style="{StaticResource ModernInput}"
+                         HorizontalContentAlignment="Right"
+                         LostFocus="Money_LostFocus" TextChanged="Values_Changed"/>
+                <TextBlock Grid.Column="3" Text="Juros %" Style="{StaticResource FieldLabel}"/>
+                <TextBox x:Name="JurosPctBox" Grid.Column="4" Style="{StaticResource ModernInput}"
+                         HorizontalContentAlignment="Right"
+                         LostFocus="JurosPct_LostFocus" TextChanged="JurosPct_Changed"/>
+            </Grid>
+
+            <Grid Margin="0,0,0,14">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="120"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="16"/>
+                    <ColumnDefinition Width="80"/>
+                    <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+                <TextBlock Text="Juros (R$)" Style="{StaticResource FieldLabel}"/>
+                <TextBox x:Name="JurosValorBox" Grid.Column="1" Style="{StaticResource ModernInput}"
+                         HorizontalContentAlignment="Right"
+                         LostFocus="JurosValor_LostFocus" TextChanged="JurosValor_Changed"/>
+                <TextBlock Grid.Column="3" Text="Total" Style="{StaticResource FieldLabel}"
+                           FontWeight="Bold" Foreground="#0F172A"/>
+                <Border Grid.Column="4" Background="Transparent" VerticalAlignment="Center">
+                    <TextBlock x:Name="TotalValueText" FontSize="22" FontWeight="Bold"
+                               Foreground="#1D4ED8" HorizontalAlignment="Right"
+                               VerticalAlignment="Center"/>
+                </Border>
+            </Grid>
+
+            <Grid Margin="0,0,0,18">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="120"/>
+                    <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+                <TextBlock Text="Recebido em" Style="{StaticResource FieldLabel}"/>
+                <controls:BrDateBox x:Name="DataBox" Grid.Column="1"/>
+            </Grid>
+
+            <TextBlock Text="Formas de pagamento" FontWeight="SemiBold" FontSize="13"
+                       Foreground="#0F172A" Margin="0,0,0,12"/>
+
+            <Grid Style="{StaticResource PayRow}">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="120"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+                <TextBlock Text="Dinheiro" Style="{StaticResource FieldLabel}"/>
+                <TextBox x:Name="DinheiroBox" Grid.Column="1" Style="{StaticResource ModernInput}"
+                         HorizontalContentAlignment="Right"
+                         LostFocus="Pay_LostFocus" TextChanged="Pay_Changed"/>
+                <Button Grid.Column="2" Content="Usar restante" Style="{StaticResource UsarRestanteBtn}"
+                        Margin="10,0,0,0" Click="UsarRestante_Dinheiro"/>
+            </Grid>
+
+            <Grid Style="{StaticResource PayRow}">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="120"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+                <TextBlock Text="Pix" Style="{StaticResource FieldLabel}"/>
+                <TextBox x:Name="PixBox" Grid.Column="1" Style="{StaticResource ModernInput}"
+                         HorizontalContentAlignment="Right"
+                         LostFocus="Pay_LostFocus" TextChanged="Pay_Changed"/>
+                <Button Grid.Column="2" Content="Usar restante" Style="{StaticResource UsarRestanteBtn}"
+                        Margin="10,0,0,0" Click="UsarRestante_Pix"/>
+            </Grid>
+
+            <Grid Style="{StaticResource PayRow}">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="120"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+                <TextBlock Text="Cartão Débito" Style="{StaticResource FieldLabel}"/>
+                <TextBox x:Name="DebitoBox" Grid.Column="1" Style="{StaticResource ModernInput}"
+                         HorizontalContentAlignment="Right"
+                         LostFocus="Pay_LostFocus" TextChanged="Pay_Changed"/>
+                <Button Grid.Column="2" Content="Usar restante" Style="{StaticResource UsarRestanteBtn}"
+                        Margin="10,0,0,0" Click="UsarRestante_Debito"/>
+            </Grid>
+
+            <Grid Margin="0,0,0,8">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="120"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+                <TextBlock Text="Cartão Crédito" Style="{StaticResource FieldLabel}"/>
+                <TextBox x:Name="CreditoBox" Grid.Column="1" Style="{StaticResource ModernInput}"
+                         HorizontalContentAlignment="Right"
+                         LostFocus="Pay_LostFocus" TextChanged="Pay_Changed"/>
+                <Button Grid.Column="2" Content="Usar restante" Style="{StaticResource UsarRestanteBtn}"
+                        Margin="10,0,0,0" Click="UsarRestante_Credito"/>
+            </Grid>
+
+            <TextBlock x:Name="PagRestanteText" FontSize="12" Foreground="#B45309" Margin="0,4,0,4"/>
+            <TextBlock x:Name="TrocoText" FontSize="16" FontWeight="Bold" Foreground="#15803D"
+                       Margin="0,0,0,14" Visibility="Collapsed"/>
+
+            <Grid Margin="0,0,0,8">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="120"/>
+                    <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+                <TextBlock Text="Observação" Style="{StaticResource FieldLabel}" VerticalAlignment="Top" Margin="0,8,0,0"/>
+                <TextBox x:Name="ObsBox" Grid.Column="1" Style="{StaticResource ModernInputMultiline}"
+                         MaxLength="200"/>
+            </Grid>
+
+            <TextBlock x:Name="SaldoAposText" FontSize="12" Foreground="#64748B" Margin="0,4,0,18" TextWrapping="Wrap"/>
+
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                <Button Content="Salvar baixa" Style="{StaticResource SalvarBtn}"
+                        Margin="0,0,10,0" IsDefault="True" Click="Salvar_Click"/>
+                <Button Content="Cancelar" Style="{StaticResource CancelarBtn}"
+                        IsCancel="True" Click="Cancelar_Click"/>
+            </StackPanel>
+        </StackPanel>
+    </Border>
+</Window>

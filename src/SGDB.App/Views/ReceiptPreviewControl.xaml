@@ -1,0 +1,70 @@
+<UserControl x:Class="SGDB.Views.ReceiptPreviewControl"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Name="Root"
+             HorizontalAlignment="Stretch"
+             SizeChanged="Root_SizeChanged">
+    <Viewbox x:Name="Scaler"
+             Stretch="Uniform"
+             StretchDirection="DownOnly"
+             HorizontalAlignment="Center"
+             VerticalAlignment="Top">
+        <StackPanel x:Name="ReceiptRoot" HorizontalAlignment="Center">
+            <Border x:Name="SerrateTopEdge" Height="6"
+                    SnapsToDevicePixels="True"/>
+
+            <Border x:Name="PaperHost"
+                    Background="#FDFCF7"
+                    BorderBrush="#D6D3CD" BorderThickness="1,0,1,0"
+                    SnapsToDevicePixels="True">
+                <StackPanel x:Name="PaperInner">
+                    <StackPanel Margin="12,14,12,8">
+                        <TextBlock x:Name="HeaderText"
+                                   FontFamily="Courier New" FontWeight="Bold"
+                                   Foreground="#0F172A" TextAlignment="Center"
+                                   TextWrapping="NoWrap"/>
+                        <TextBlock x:Name="MetaText"
+                                   FontFamily="Courier New" Foreground="#334155"
+                                   TextAlignment="Center" TextWrapping="NoWrap"
+                                   Margin="0,6,0,0"/>
+                    </StackPanel>
+
+                    <TextBlock x:Name="BodyText"
+                               FontFamily="Courier New" Foreground="#0F172A"
+                               Margin="12,0,12,8" TextWrapping="NoWrap"/>
+
+                    <Border x:Name="FooterHighlight" Background="#FEF9C3" BorderBrush="#FDE68A" BorderThickness="0,1,0,1"
+                            Padding="12,10" Margin="0,2,0,0">
+                        <StackPanel>
+                            <TextBlock x:Name="FooterLabel" Text="▼ RODAPÉ (editável)"
+                                       FontSize="9" FontWeight="SemiBold"
+                                       Foreground="#A16207" Margin="0,0,0,6"/>
+                            <TextBlock x:Name="FooterText"
+                                       FontFamily="Courier New" Foreground="#0F172A"
+                                       TextWrapping="NoWrap"/>
+                        </StackPanel>
+                    </Border>
+
+                    <StackPanel x:Name="DetailsPanel" Margin="12,12,12,14" HorizontalAlignment="Center">
+                        <TextBlock x:Name="BarcodeText"
+                                   FontFamily="Courier New" Foreground="#0F172A"
+                                   TextAlignment="Center"/>
+                        <Border Margin="0,8,0,0" Padding="8" Background="#F8FAFC"
+                                BorderBrush="#E2E8F0" BorderThickness="1"
+                                HorizontalAlignment="Center">
+                            <TextBlock x:Name="QrHintText"
+                                       FontFamily="Courier New" FontSize="9"
+                                       Foreground="#64748B" TextAlignment="Center"/>
+                        </Border>
+                        <TextBlock x:Name="CutHintText"
+                                   FontSize="9" Foreground="#94A3B8"
+                                   TextAlignment="Center" Margin="0,10,0,0"/>
+                    </StackPanel>
+                </StackPanel>
+            </Border>
+
+            <Border x:Name="SerrateBottomEdge" Height="6"
+                    SnapsToDevicePixels="True"/>
+        </StackPanel>
+    </Viewbox>
+</UserControl>

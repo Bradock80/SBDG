@@ -1,0 +1,227 @@
+<UserControl x:Class="SGDB.Views.VasilhameModuleView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             Background="{StaticResource SgdbBgBrush}"
+             Focusable="True"
+             PreviewKeyDown="Root_PreviewKeyDown">
+    <UserControl.Resources>
+        <BooleanToVisibilityConverter x:Key="BoolToVis"/>
+        <Style x:Key="StatusBadgeStyle" TargetType="Border">
+            <Setter Property="CornerRadius" Value="10"/>
+            <Setter Property="Padding" Value="8,2"/>
+            <Setter Property="HorizontalAlignment" Value="Left"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+        </Style>
+        <Style x:Key="SummaryChipStyle" TargetType="Border">
+            <Setter Property="Background" Value="#EFF6FF"/>
+            <Setter Property="BorderBrush" Value="#BFDBFE"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius" Value="6"/>
+            <Setter Property="Padding" Value="10,6"/>
+            <Setter Property="Margin" Value="0,0,8,0"/>
+        </Style>
+    </UserControl.Resources>
+
+    <Border BorderBrush="#B8C4D4" BorderThickness="1" Background="White">
+        <Grid>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="*"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+            </Grid.RowDefinitions>
+
+            <Border Grid.Row="0" Padding="16,10" Background="{StaticResource TitleBarGradientBrush}"
+                    BorderBrush="{StaticResource SgdbGoldBrush}" BorderThickness="0,0,0,1">
+                <Grid>
+                    <TextBlock Text="Vasilhame — pendências (garrafeiras / cascos)"
+                               Foreground="White" FontWeight="SemiBold" FontSize="13"/>
+                    <Button Style="{StaticResource ModuleTabCloseStyle}" HorizontalAlignment="Right" Click="Close_Click"/>
+                </Grid>
+            </Border>
+
+            <!-- Filtros -->
+            <Border Grid.Row="1" Padding="16,12" Background="#FAF8F4" BorderBrush="#E2E8F0" BorderThickness="0,0,0,1">
+                <StackPanel>
+                    <WrapPanel Margin="0,0,0,8">
+                        <RadioButton x:Name="SomenteDevedor" Content="Somente com saldo" IsChecked="True"
+                                     GroupName="vas" Margin="0,0,16,0" Checked="Filter_Changed"/>
+                        <RadioButton x:Name="Todos" Content="Todos" GroupName="vas" Margin="0,0,16,0" Checked="Filter_Changed"/>
+                        <CheckBox x:Name="SomenteVencido" Content="Somente vencidos" VerticalAlignment="Center"
+                                  Checked="Filter_Changed" Unchecked="Filter_Changed"/>
+                    </WrapPanel>
+
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+                        <Grid>
+                            <TextBox x:Name="SearchBox" Height="32" Padding="10,0"
+                                     VerticalContentAlignment="Center" FontSize="12"
+                                     TextChanged="SearchBox_TextChanged"
+                                     ToolTip="Nome, telefone ou tipo de vasilhame"/>
+                            <TextBlock x:Name="SearchPlaceholder"
+                                       Text="Digite nome, telefone ou tipo de vasilhame para filtrar..."
+                                       Foreground="#94A3B8" FontSize="12" Margin="12,0,0,0"
+                                       VerticalAlignment="Center" IsHitTestVisible="False"/>
+                        </Grid>
+                        <StackPanel Grid.Column="1" Orientation="Horizontal" Margin="10,0,0,0" VerticalAlignment="Center">
+                            <TextBlock Text="De" FontSize="11" Foreground="#64748B" VerticalAlignment="Center" Margin="0,0,4,0"/>
+                            <DatePicker x:Name="FromDateBox" Width="118" SelectedDateChanged="Period_Changed"/>
+                            <TextBlock Text="Até" FontSize="11" Foreground="#64748B" VerticalAlignment="Center" Margin="8,0,4,0"/>
+                            <DatePicker x:Name="ToDateBox" Width="118" SelectedDateChanged="Period_Changed"/>
+                        </StackPanel>
+                        <Button Grid.Column="2" Content="Atualizar" Style="{StaticResource SgdbOutlineButtonStyle}"
+                                Margin="8,0,0,0" Click="Refresh_Click" ToolTip="F5"/>
+                        <Button Grid.Column="3" Content="Tipos…" Style="{StaticResource SgdbOutlineButtonStyle}"
+                                Margin="8,0,0,0" Click="Tipos_Click" ToolTip="Cadastrar galão, casco, garrafa"/>
+                    </Grid>
+                </StackPanel>
+            </Border>
+
+            <!-- Cards resumo -->
+            <Border Grid.Row="2" Padding="16,8" Background="#F8FAFC" BorderBrush="#E2E8F0" BorderThickness="0,0,0,1">
+                <DockPanel>
+                    <TextBlock DockPanel.Dock="Left" Text="Resumo em aberto:" FontSize="11" FontWeight="SemiBold"
+                               Foreground="#475569" VerticalAlignment="Center" Margin="0,0,10,0"/>
+                    <ItemsControl x:Name="ResumoPanel">
+                        <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate>
+                                <WrapPanel/>
+                            </ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <Border Style="{StaticResource SummaryChipStyle}">
+                                    <TextBlock Text="{Binding Display}" FontSize="11" FontWeight="SemiBold" Foreground="#1E3A5F"/>
+                                </Border>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </DockPanel>
+            </Border>
+
+            <Grid Grid.Row="3" Margin="16,12,16,8">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="1.35*"/><ColumnDefinition Width="12"/><ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+                <DockPanel>
+                    <TextBlock DockPanel.Dock="Top" Text="Saldos em aberto" FontWeight="SemiBold" Margin="0,0,0,6"/>
+                    <DataGrid x:Name="SaldosGrid" AutoGenerateColumns="False" IsReadOnly="True"
+                              SelectionMode="Single" HeadersVisibility="Column" CanUserAddRows="False"
+                              RowHeaderWidth="0" GridLinesVisibility="Horizontal"
+                              HorizontalGridLinesBrush="#E2E8F0" RowHeight="34" FontSize="12"
+                              BorderBrush="#E2E8F0" BorderThickness="1"
+                              MouseDoubleClick="SaldosGrid_MouseDoubleClick"
+                              LoadingRow="SaldosGrid_LoadingRow">
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Header="Quem" Binding="{Binding BorrowerName}" Width="*" MinWidth="110"/>
+                            <DataGridTemplateColumn Header="Telefone" Width="118">
+                                <DataGridTemplateColumn.CellTemplate>
+                                    <DataTemplate>
+                                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                            <TextBlock Text="{Binding BorrowerPhone}" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                                            <Button Content="📲" Padding="4,0" MinWidth="28" Height="24"
+                                                    ToolTip="Abrir WhatsApp"
+                                                    Click="WhatsApp_Click"
+                                                    Visibility="{Binding HasPhone, Converter={StaticResource BoolToVis}}"/>
+                                        </StackPanel>
+                                    </DataTemplate>
+                                </DataGridTemplateColumn.CellTemplate>
+                            </DataGridTemplateColumn>
+                            <DataGridTextColumn Header="Vasilhame" Binding="{Binding ContainerTypeName}" Width="110"/>
+                            <DataGridTextColumn Header="Qtd" Binding="{Binding BalanceDisplay}" Width="50"/>
+                            <DataGridTemplateColumn Header="Status" Width="92">
+                                <DataGridTemplateColumn.CellTemplate>
+                                    <DataTemplate>
+                                        <Border x:Name="Badge" Style="{StaticResource StatusBadgeStyle}">
+                                            <TextBlock Text="{Binding StatusBadge}" FontSize="10" FontWeight="SemiBold"/>
+                                        </Border>
+                                        <DataTemplate.Triggers>
+                                            <DataTrigger Binding="{Binding StatusKind}" Value="vencido">
+                                                <Setter TargetName="Badge" Property="Background" Value="#FEE2E2"/>
+                                                <Setter TargetName="Badge" Property="BorderBrush" Value="#FECACA"/>
+                                                <Setter TargetName="Badge" Property="BorderThickness" Value="1"/>
+                                            </DataTrigger>
+                                            <DataTrigger Binding="{Binding StatusKind}" Value="parcial">
+                                                <Setter TargetName="Badge" Property="Background" Value="#FEF3C7"/>
+                                                <Setter TargetName="Badge" Property="BorderBrush" Value="#FDE68A"/>
+                                                <Setter TargetName="Badge" Property="BorderThickness" Value="1"/>
+                                            </DataTrigger>
+                                            <DataTrigger Binding="{Binding StatusKind}" Value="em_dia">
+                                                <Setter TargetName="Badge" Property="Background" Value="#DCFCE7"/>
+                                                <Setter TargetName="Badge" Property="BorderBrush" Value="#BBF7D0"/>
+                                                <Setter TargetName="Badge" Property="BorderThickness" Value="1"/>
+                                            </DataTrigger>
+                                        </DataTemplate.Triggers>
+                                    </DataTemplate>
+                                </DataGridTemplateColumn.CellTemplate>
+                            </DataGridTemplateColumn>
+                            <DataGridTextColumn Header="Vencimento" Binding="{Binding DueDateDisplay}" Width="88"/>
+                            <DataGridTextColumn Header="Caução (R$)" Binding="{Binding CautionDisplay}" Width="90"/>
+                        </DataGrid.Columns>
+                    </DataGrid>
+                </DockPanel>
+                <DockPanel Grid.Column="2">
+                    <TextBlock DockPanel.Dock="Top" Text="Últimos movimentos" FontWeight="SemiBold" Margin="0,0,0,6"/>
+                    <DataGrid x:Name="MovGrid" AutoGenerateColumns="False" IsReadOnly="True"
+                              SelectionMode="Single" HeadersVisibility="Column" CanUserAddRows="False"
+                              RowHeaderWidth="0" GridLinesVisibility="Horizontal"
+                              HorizontalGridLinesBrush="#E2E8F0" RowHeight="32" FontSize="12"
+                              BorderBrush="#E2E8F0" BorderThickness="1">
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Header="Quando" Binding="{Binding CreatedDisplay}" Width="120"/>
+                            <DataGridTextColumn Header="Tipo" Binding="{Binding KindDisplay}" Width="110"/>
+                            <DataGridTextColumn Header="Quem" Binding="{Binding BorrowerName}" Width="*"/>
+                            <DataGridTextColumn Header="Item" Binding="{Binding ContainerTypeName}" Width="100"/>
+                            <DataGridTextColumn Header="Qtd" Binding="{Binding QtyDisplay}" Width="50"/>
+                        </DataGrid.Columns>
+                    </DataGrid>
+                </DockPanel>
+            </Grid>
+
+            <Border Grid.Row="4" Padding="16,8" Background="#F8FAFC" BorderBrush="#E2E8F0" BorderThickness="0,1,0,0">
+                <TextBlock x:Name="MetaText" FontSize="12" Foreground="#475569"/>
+            </Border>
+
+            <Border Grid.Row="5" Padding="10,8" Background="#F5F3EE" BorderBrush="#E2E8F0" BorderThickness="0,1,0,0">
+                <WrapPanel>
+                    <Button Style="{StaticResource ModuleActionButtonStyle}" Click="QuemPegou_Click">
+                        <StackPanel>
+                            <TextBlock Text="📤" Style="{StaticResource ModuleActionIconStyle}"/>
+                            <TextBlock Text="F2 | Quem pegou" Style="{StaticResource ModuleActionLabelStyle}"/>
+                        </StackPanel>
+                    </Button>
+                    <Button Style="{StaticResource ModuleActionButtonStyle}" Click="Devolver_Click">
+                        <StackPanel>
+                            <TextBlock Text="📥" Style="{StaticResource ModuleActionIconStyle}"/>
+                            <TextBlock Text="F7 | Devolver" Style="{StaticResource ModuleActionLabelStyle}"/>
+                        </StackPanel>
+                    </Button>
+                    <Button Style="{StaticResource ModuleActionButtonStyle}" Click="Comprovante_Click"
+                            ToolTip="Imprime comprovante do saldo ou movimento selecionado">
+                        <StackPanel>
+                            <TextBlock Text="🖨" Style="{StaticResource ModuleActionIconStyle}"/>
+                            <TextBlock Text="F8 | Comprovante" Style="{StaticResource ModuleActionLabelStyle}"/>
+                        </StackPanel>
+                    </Button>
+                    <Button Style="{StaticResource ModuleActionButtonStyle}" Click="ExcluirMov_Click">
+                        <StackPanel>
+                            <TextBlock Text="🗑" Style="{StaticResource ModuleActionIconStyle}"/>
+                            <TextBlock Text="Del | Excluir lanç." Style="{StaticResource ModuleActionLabelStyle}"/>
+                        </StackPanel>
+                    </Button>
+                    <TextBlock Text="F3 Busca · F5 Atualizar · Ctrl+P Comprovante"
+                               FontSize="11" Foreground="#94A3B8" VerticalAlignment="Center" Margin="12,0,0,0"/>
+                </WrapPanel>
+            </Border>
+        </Grid>
+    </Border>
+</UserControl>

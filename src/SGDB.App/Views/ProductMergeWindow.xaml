@@ -1,0 +1,74 @@
+<Window x:Class="SGDB.Views.ProductMergeWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Unificar produtos"
+        Height="520" Width="640"
+        WindowStartupLocation="CenterOwner"
+        ResizeMode="NoResize"
+        Background="{StaticResource SgdbBgBrush}"
+        PreviewKeyDown="Window_PreviewKeyDown">
+    <Window.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceDictionary Source="/Themes/SgdbTheme.xaml"/>
+            </ResourceDictionary.MergedDictionaries>
+        </ResourceDictionary>
+    </Window.Resources>
+    <Border BorderBrush="#B8C4D4" BorderThickness="1" Background="White" Margin="0">
+        <Grid Margin="14">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="*"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+            </Grid.RowDefinitions>
+
+            <StackPanel Grid.Row="0" Margin="0,0,0,12">
+                <TextBlock Text="Produto principal (manter)" FontWeight="SemiBold" FontSize="12" Foreground="#334155"/>
+                <TextBlock x:Name="KeepSummaryText" FontSize="13" Margin="0,4,0,0" TextWrapping="Wrap"/>
+            </StackPanel>
+
+            <StackPanel Grid.Row="1" Margin="0,0,0,8">
+                <TextBlock Text="Buscar produto duplicado a juntar"
+                           FontWeight="SemiBold" FontSize="12" Foreground="#334155" Margin="0,0,0,6"/>
+                <TextBox x:Name="SearchBox" Height="30" Padding="8,0"
+                         FontSize="13" VerticalContentAlignment="Center"
+                         CharacterCasing="Upper"
+                         TextChanged="SearchBox_TextChanged"/>
+            </StackPanel>
+
+            <DataGrid x:Name="CandidatesGrid" Grid.Row="2"
+                      AutoGenerateColumns="False" IsReadOnly="True"
+                      SelectionMode="Single" SelectionUnit="FullRow"
+                      HeadersVisibility="Column" GridLinesVisibility="Horizontal"
+                      HorizontalGridLinesBrush="{StaticResource SgdbGridLineBrush}"
+                      VerticalGridLinesBrush="{StaticResource SgdbGridLineBrush}"
+                      BorderThickness="1" BorderBrush="#E2E8F0" Background="White"
+                      RowHeight="26" FontSize="12"
+                      SelectionChanged="CandidatesGrid_SelectionChanged">
+                <DataGrid.Columns>
+                    <DataGridTextColumn Header="Cód." Binding="{Binding Id}" Width="55"/>
+                    <DataGridTextColumn Header="Barras" Binding="{Binding BarcodeDisplay}" Width="110"/>
+                    <DataGridTextColumn Header="Descrição" Binding="{Binding Name}" Width="*"/>
+                    <DataGridTextColumn Header="Estoque" Binding="{Binding StockDisplay}" Width="90"/>
+                    <DataGridTextColumn Header="Preço" Binding="{Binding SalePriceDisplay}" Width="80"/>
+                </DataGrid.Columns>
+            </DataGrid>
+
+            <Border Grid.Row="3" Background="#FAF8F4" BorderBrush="#E2E8F0" BorderThickness="1"
+                    Padding="10,8" Margin="0,10,0,0">
+                <TextBlock x:Name="PreviewText" FontSize="12" TextWrapping="Wrap"
+                           Foreground="#475569"
+                           Text="Selecione o produto duplicado na lista."/>
+            </Border>
+
+            <StackPanel Grid.Row="4" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,12,0,0">
+                <Button Content="F5 | Unificar" Style="{StaticResource SgdbPrimaryButtonStyle}"
+                        MinWidth="120" Click="Confirm_Click" IsDefault="True"/>
+                <Button Content="Esc | Cancelar" Style="{StaticResource SgdbOutlineButtonStyle}"
+                        MinWidth="120" Margin="8,0,0,0" Click="Cancel_Click" IsCancel="True"/>
+            </StackPanel>
+        </Grid>
+    </Border>
+</Window>
