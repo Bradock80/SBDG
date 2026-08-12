@@ -367,33 +367,8 @@ public static class PdvService
             }
         }
 
-        var descPrefix = $"VENDA PDV #{saleId}";
-        foreach (var part in paymentParts)
-        {
-            if (IsFiado(part.PaymentType))
-            {
-                var desc = $"{descPrefix} — FIADO R$ {part.Amount:F2}";
-                if (!string.IsNullOrWhiteSpace(customerName))
-                    desc = $"{descPrefix} — FIADO R$ {part.Amount:F2} — {customerName}";
-                CashService.AddSalePaymentMovement(conn, tx, d, saleId, CashMovementKind.VendaFiado,
-                    desc, part.PaymentType, part.Amount, customerName, affectsBalance: false);
-            }
-            else
-            {
-                var desc = paymentParts.Count > 1
-                    ? $"{descPrefix} — {part.PaymentType} R$ {part.Amount:F2}"
-                    : $"{descPrefix} — {part.PaymentType}";
-                string? movNotes = null;
-                if (IsDinheiro(part.PaymentType) && cashReceived is not null && changeAmount > 0.009
-                    && Math.Abs(part.Amount - paymentParts.Where(p => IsDinheiro(p.PaymentType)).Sum(p => p.Amount)) < 0.02)
-                {
-                    desc = $"{desc} (recebido R$ {cashReceived:F2}, troco R$ {changeAmount:F2})";
-                    movNotes = $"{{\"cash_received\":{cashReceived.Value.ToString(System.Globalization.CultureInfo.InvariantCulture)},\"change\":{changeAmount.ToString(System.Globalization.CultureInfo.InvariantCulture)}}}";
-                }
-                CashService.AddSalePaymentMovement(conn, tx, d, saleId, CashMovementKind.Venda,
-                    desc, part.PaymentType, part.Amount, customerName, affectsBalance: true, movNotes);
-            }
-        }
+        WriteSalePaymentMovements(
+            conn, tx, d, saleId, paymentParts, customerName, cashReceived, changeAmount);
 
         return new PdvFinalizeResult
         {
@@ -1100,9 +1075,42 @@ public static class PdvService
 
         CashService.DeleteSaleMovements(conn, tx, saleId);
 
+        WriteSalePaymentMovements(
+            conn, tx, saleDate, saleId, parts, customerName, cashReceived, changeAmount);
+    }
+
+    /// <summary>
+    /// Grava cash_movements das partes de pagamento.
+    /// Troco (description/notes): somente na primeira parte Dinheiro do payload, se houver troco.
+    /// </summary>
+    private static void WriteSalePaymentMovements(
+        SqliteConnection conn,
+        SqliteTransaction tx,
+        DateTime saleDate,
+        int saleId,
+        IReadOnlyList<PdvPaymentPart> parts,
+        string? customerName,
+        double? cashReceived,
+        double changeAmount)
+    {
         var descPrefix = $"VENDA PDV #{saleId}";
-        foreach (var part in parts)
+        var hasTroco = cashReceived is not null && changeAmount > 0.009;
+        var firstCashIndex = -1;
+        if (hasTroco)
         {
+            for (var i = 0; i < parts.Count; i++)
+            {
+                if (IsDinheiro(parts[i].PaymentType))
+                {
+                    firstCashIndex = i;
+                    break;
+                }
+            }
+        }
+
+        for (var i = 0; i < parts.Count; i++)
+        {
+            var part = parts[i];
             if (IsFiado(part.PaymentType))
             {
                 var desc = string.IsNullOrWhiteSpace(customerName)
@@ -1117,10 +1125,11 @@ public static class PdvService
                     ? $"{descPrefix} — {part.PaymentType} R$ {part.Amount:F2}"
                     : $"{descPrefix} — {part.PaymentType}";
                 string? movNotes = null;
-                if (IsDinheiro(part.PaymentType) && cashReceived is not null && changeAmount > 0.009)
+                if (hasTroco && i == firstCashIndex)
                 {
                     desc = $"{desc} (recebido R$ {cashReceived:F2}, troco R$ {changeAmount:F2})";
-                    movNotes = $"{{\"cash_received\":{cashReceived.Value.ToString(System.Globalization.CultureInfo.InvariantCulture)},\"change\":{changeAmount.ToString(System.Globalization.CultureInfo.InvariantCulture)}}}";
+                    movNotes =
+                        $"{{\"cash_received\":{cashReceived!.Value.ToString(System.Globalization.CultureInfo.InvariantCulture)},\"change\":{changeAmount.ToString(System.Globalization.CultureInfo.InvariantCulture)}}}";
                 }
                 CashService.AddSalePaymentMovement(conn, tx, saleDate, saleId, CashMovementKind.Venda,
                     desc, part.PaymentType, part.Amount, customerName, affectsBalance: true, movNotes);
