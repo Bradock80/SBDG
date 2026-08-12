@@ -1108,6 +1108,8 @@ public static class ProductService
             keep.QtdAtacado = absorb.QtdAtacado;
         if (keep.PrecoAtacado <= 0.009 && absorb.PrecoAtacado > 0.009)
             keep.PrecoAtacado = absorb.PrecoAtacado;
+        if (keep.PrecoAvulso <= 0.009 && absorb.PrecoAvulso > 0.009)
+            keep.PrecoAvulso = absorb.PrecoAvulso;
         if (keep.PrecoCompra <= 0.009 && absorb.PrecoCompra > 0.009)
             keep.PrecoCompra = absorb.PrecoCompra;
         if (keep.PriceTableId is null or <= 0 && absorb.PriceTableId is > 0)

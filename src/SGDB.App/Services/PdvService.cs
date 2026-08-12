@@ -16,8 +16,10 @@ public static class PdvService
     /// <summary>
     /// Resolve bipe: código da unidade = 1 un no preço avulso;
     /// código do fardo/maço = fator (ex. 20) no preço do maço.
+    /// Cigarro: default histórico = MAÇO. Passe <paramref name="cigaretteMode"/> = AVULSO
+    /// quando a UI escolher modalidade (sem UI nesta etapa).
     /// </summary>
-    public static PdvScanResult? ResolveScan(string? term)
+    public static PdvScanResult? ResolveScan(string? term, string? cigaretteMode = null)
     {
         var t = (term ?? "").Trim();
         if (string.IsNullOrEmpty(t))
@@ -55,28 +57,16 @@ public static class PdvService
             && (unitDigits.Length < 4 || !BarcodesEqual(packDigits, unitDigits));
         var isPackScan = matchesPack && packDistinct && !matchesUnit;
 
-        var packQty = extra.FatorEmbalagem >= 2
-            ? extra.FatorEmbalagem
-            : (extra.QtdAtacado >= 2 ? extra.QtdAtacado : 0);
+        var packQty = ResolveCigarettePackQty(extra);
 
-        // Cigarro: qtd 1 (maço), preço do maço, estoque −20 por maço
-        var cigarettePack = ProductClassificationHelper.IsCigarette(product.Name, product.GroupName)
-                            && packQty >= 10
-                            && product.SalePrice >= 5;
+        // Modalidade AVULSO explícita (API nova; UI ainda não usa).
+        if (PdvCigaretteSaleMode.IsAvulso(cigaretteMode)
+            && ProductClassificationHelper.IsCigarette(product.Name, product.GroupName))
+            return ResolveCigaretteSale(product, PdvCigaretteSaleMode.Avulso);
 
-        if (cigarettePack && packQty >= 2)
-        {
-            var packPrice = extra.PrecoAtacado > 0 ? extra.PrecoAtacado : product.SalePrice;
-            return new PdvScanResult
-            {
-                Product = product,
-                Quantity = 1,
-                UnitPrice = ProductPriceHelper.RoundPrice(packPrice),
-                IsPackSale = true,
-                ModeLabel = "MAÇO",
-                StockUnitsPerSale = packQty,
-            };
-        }
+        // Cigarro: qtd 1 (maço), preço do maço, estoque −20 por maço (default PDV).
+        if (IsLegacyCigarettePackSale(product, packQty))
+            return ResolveCigaretteSale(product, PdvCigaretteSaleMode.Maco);
 
         if (isPackScan && packQty >= 2)
         {
@@ -108,33 +98,29 @@ public static class PdvService
     }
 
     /// <summary>
-    /// Seleção manual no PDV: cigarro → qtd 1, preço maço, baixa fator no estoque.
-    /// Avulso: produto "Varejo …".
+    /// Seleção manual no PDV: cigarro → MAÇO (histórico).
+    /// Use <see cref="ResolveManualSale(Product, string?)"/> para AVULSO.
     /// </summary>
-    public static PdvScanResult ResolveManualSale(Product product)
+    public static PdvScanResult ResolveManualSale(Product product) =>
+        ResolveManualSale(product, cigaretteMode: null);
+
+    /// <summary>
+    /// Seleção manual com modalidade explícita (AVULSO / MAÇO).
+    /// Null/vazio em cigarro elegível a maço → MAÇO (comportamento antigo).
+    /// </summary>
+    public static PdvScanResult ResolveManualSale(Product product, string? cigaretteMode)
     {
+        ArgumentNullException.ThrowIfNull(product);
+
+        if (PdvCigaretteSaleMode.IsAvulso(cigaretteMode)
+            && ProductClassificationHelper.IsCigarette(product.Name, product.GroupName))
+            return ResolveCigaretteSale(product, PdvCigaretteSaleMode.Avulso);
+
         var extra = ProductExtra.Parse(product.ExtraJson);
-        var packQty = extra.FatorEmbalagem >= 2
-            ? extra.FatorEmbalagem
-            : (extra.QtdAtacado >= 2 ? extra.QtdAtacado : 0);
+        var packQty = ResolveCigarettePackQty(extra);
 
-        var cigarettePack = ProductClassificationHelper.IsCigarette(product.Name, product.GroupName)
-                            && packQty >= 10
-                            && product.SalePrice >= 5;
-
-        if (cigarettePack && packQty >= 2)
-        {
-            var packPrice = extra.PrecoAtacado > 0 ? extra.PrecoAtacado : product.SalePrice;
-            return new PdvScanResult
-            {
-                Product = product,
-                Quantity = 1,
-                UnitPrice = ProductPriceHelper.RoundPrice(packPrice),
-                IsPackSale = true,
-                ModeLabel = "MAÇO",
-                StockUnitsPerSale = packQty,
-            };
-        }
+        if (IsLegacyCigarettePackSale(product, packQty))
+            return ResolveCigaretteSale(product, PdvCigaretteSaleMode.Maco);
 
         return new PdvScanResult
         {
@@ -146,6 +132,73 @@ public static class PdvService
             StockUnitsPerSale = 1,
         };
     }
+
+    /// <summary>
+    /// True quando <c>preco_avulso &gt; 0</c> — sem flag separada PermiteVendaAvulsa.
+    /// </summary>
+    public static bool AllowsCigaretteAvulso(ProductExtra extra) =>
+        extra.PrecoAvulso > 0.009;
+
+    /// <summary>
+    /// Resolve cigarro em AVULSO (1 físico) ou MAÇO (fator físicos).
+    /// Não usa preço de maço como fallback do avulso.
+    /// </summary>
+    public static PdvScanResult ResolveCigaretteSale(
+        Product product, string mode = PdvCigaretteSaleMode.Maco)
+    {
+        ArgumentNullException.ThrowIfNull(product);
+
+        if (!ProductClassificationHelper.IsCigarette(product.Name, product.GroupName))
+            throw new InvalidOperationException("Produto não é cigarro para modalidade avulso/maço.");
+
+        var extra = ProductExtra.Parse(product.ExtraJson);
+        var packQty = ResolveCigarettePackQty(extra);
+
+        if (PdvCigaretteSaleMode.IsAvulso(mode))
+        {
+            if (!AllowsCigaretteAvulso(extra))
+                throw new InvalidOperationException(
+                    "Venda avulsa indisponível: cadastre preço avulso (preco_avulso) maior que zero.");
+
+            return new PdvScanResult
+            {
+                Product = product,
+                Quantity = 1,
+                UnitPrice = ProductPriceHelper.RoundPrice(extra.PrecoAvulso),
+                IsPackSale = false,
+                ModeLabel = PdvCigaretteSaleMode.Avulso,
+                StockUnitsPerSale = 1,
+            };
+        }
+
+        if (packQty < 2)
+            throw new InvalidOperationException(
+                "Fator de embalagem inválido para venda de maço (informe fator_embalagem ≥ 2).");
+
+        // Preço do maço: mesma heurística legada (PrecoAtacado || SalePrice).
+        var packPrice = extra.PrecoAtacado > 0 ? extra.PrecoAtacado : product.SalePrice;
+        return new PdvScanResult
+        {
+            Product = product,
+            Quantity = 1,
+            UnitPrice = ProductPriceHelper.RoundPrice(packPrice),
+            IsPackSale = true,
+            ModeLabel = PdvCigaretteSaleMode.Maco,
+            StockUnitsPerSale = packQty,
+        };
+    }
+
+    private static double ResolveCigarettePackQty(ProductExtra extra) =>
+        extra.FatorEmbalagem >= 2
+            ? extra.FatorEmbalagem
+            : (extra.QtdAtacado >= 2 ? extra.QtdAtacado : 0);
+
+    /// <summary>Heurística histórica do PDV para forçar venda de maço no bipe/manual.</summary>
+    private static bool IsLegacyCigarettePackSale(Product product, double packQty) =>
+        ProductClassificationHelper.IsCigarette(product.Name, product.GroupName)
+        && packQty >= 10
+        && product.SalePrice >= 5
+        && packQty >= 2;
 
     public static double StockQuantityForSale(double displayQty, double stockUnitsPerSale) =>
         ProductPriceCalculator.StockQuantityForSale(displayQty, stockUnitsPerSale);

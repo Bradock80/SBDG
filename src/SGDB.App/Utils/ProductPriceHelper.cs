@@ -78,9 +78,10 @@ public static class ProductPriceHelper
     }
 
     /// <summary>
-    /// Custo da unidade vendida no PDV. Se o custo cadastrado for de fardo/cartela
+    /// Custo da unidade vendida no PDV. Se o custo cadastrado for de fardo/cartela/maço
     /// (muito acima do preço unitário da venda), divide pelo fator.
     /// Ex.: cartela R$ 142,60 ÷ 20 maços = R$ 7,13; venda maço R$ 8,50.
+    /// Cigarro avulso: custo maço R$ 24 ÷ 20 = R$ 1,20 quando soldUnitPrice ≈ preço avulso.
     /// </summary>
     public static double UnitCostForSoldLine(
         double catalogCost,
@@ -97,7 +98,7 @@ public static class ProductPriceHelper
             return RoundPrice(catalogCost);
 
         // Pode ter cartela (ou cartela×cigarro) gravada no lugar do maço — divide até
-        // o custo ficar compatível com o preço de venda da unidade.
+        // o custo ficar compatível com o preço de venda da unidade (inclui avulso).
         var cost = catalogCost;
         for (var i = 0; i < 3 && cost > soldUnitPrice * 1.5; i++)
             cost = RoundPrice(cost / fator);

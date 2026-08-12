@@ -25,6 +25,13 @@ public sealed class ProductExtra
     [JsonPropertyName("preco_atacado")]
     public double PrecoAtacado { get; set; }
 
+    /// <summary>
+    /// Preço de 1 cigarro avulso (PDV). 0 = modalidade avulsa indisponível.
+    /// Persistido só em extra_json; produto antigo sem o campo → 0.
+    /// </summary>
+    [JsonPropertyName("preco_avulso")]
+    public double PrecoAvulso { get; set; }
+
     [JsonPropertyName("desconto_percent")]
     public double DescontoPercent { get; set; }
 
