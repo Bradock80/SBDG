@@ -134,7 +134,7 @@ public static class OpenTabService
     }
 
     public static OpenTabItemRow AddProduct(int tabId, int productId, double quantity = 1,
-        double? unitPrice = null, double stockUnitsPerSale = 1)
+        double? unitPrice = null, double stockUnitsPerSale = 1, string? productDisplayName = null)
     {
         StoreNetworkMode.EnsureLocalMutationAllowed("itens do deck");
         if (quantity <= 0)
@@ -154,6 +154,9 @@ public static class OpenTabService
             throw new OpenTabException("Preço inválido.");
 
         stockUnitsPerSale = stockUnitsPerSale < 0.0001 ? 1 : stockUnitsPerSale;
+        var lineName = string.IsNullOrWhiteSpace(productDisplayName)
+            ? product.Name
+            : productDisplayName.Trim();
 
         // Junta linha igual (mesmo produto + mesmo modo de estoque)
         using (var find = conn.CreateCommand())
@@ -212,7 +215,7 @@ public static class OpenTabService
             ins.Parameters.AddWithValue("$tab", tabId);
             ins.Parameters.AddWithValue("$pid", product.Id);
             ins.Parameters.AddWithValue("$code", product.Code ?? "");
-            ins.Parameters.AddWithValue("$name", product.Name);
+            ins.Parameters.AddWithValue("$name", lineName);
             ins.Parameters.AddWithValue("$unit", product.Unit);
             ins.Parameters.AddWithValue("$qty", quantity);
             ins.Parameters.AddWithValue("$price", price);

@@ -281,6 +281,25 @@ public partial class OpenTabDetailWindow : Window
 
         try
         {
+            // Localiza produto sem abrir UI no service; modalidade só na View.
+            var scan = PdvService.ResolveScan(term);
+            if (scan is not null
+                && ProductClassificationHelper.IsCigarette(scan.Product.Name, scan.Product.GroupName))
+            {
+                if (!TryResolveCigaretteSaleForDeck(scan.Product, out var chosen) || chosen is null)
+                    return;
+                OpenTabService.AddProduct(
+                    _tabId,
+                    chosen.Product.Id,
+                    qty * chosen.Quantity,
+                    chosen.UnitPrice,
+                    chosen.StockUnitsPerSale,
+                    PdvCartHelper.LineDisplayName(chosen.Product, chosen.ModeLabel));
+                AfterAddOk();
+                return;
+            }
+
+            // Não-cigarro (inclui CX/fardo): comportamento histórico de AddFromScan.
             OpenTabService.AddFromScan(_tabId, term, qty);
             AfterAddOk();
         }
@@ -296,6 +315,12 @@ public partial class OpenTabDetailWindow : Window
             SearchBox.SelectAll();
             SearchBox.Focus();
         }
+        catch (InvalidOperationException ex)
+        {
+            MessageBox.Show(ex.Message, "Decks", MessageBoxButton.OK, MessageBoxImage.Warning);
+            SearchBox.SelectAll();
+            SearchBox.Focus();
+        }
     }
 
     private void AddProductDirect(Product product, double qty)
@@ -305,7 +330,23 @@ public partial class OpenTabDetailWindow : Window
 
         try
         {
-            OpenTabService.AddProduct(_tabId, product.Id, qty);
+            if (ProductClassificationHelper.IsCigarette(product.Name, product.GroupName))
+            {
+                if (!TryResolveCigaretteSaleForDeck(product, out var chosen) || chosen is null)
+                    return;
+                OpenTabService.AddProduct(
+                    _tabId,
+                    chosen.Product.Id,
+                    qty * chosen.Quantity,
+                    chosen.UnitPrice,
+                    chosen.StockUnitsPerSale,
+                    PdvCartHelper.LineDisplayName(chosen.Product, chosen.ModeLabel));
+            }
+            else
+            {
+                OpenTabService.AddProduct(_tabId, product.Id, qty);
+            }
+
             AfterAddOk();
         }
         catch (OpenTabException ex)
@@ -314,6 +355,43 @@ public partial class OpenTabDetailWindow : Window
             SearchBox.SelectAll();
             SearchBox.Focus();
         }
+        catch (InvalidOperationException ex)
+        {
+            MessageBox.Show(ex.Message, "Decks", MessageBoxButton.OK, MessageBoxImage.Warning);
+            SearchBox.SelectAll();
+            SearchBox.Focus();
+        }
+    }
+
+    /// <summary>
+    /// Cigarro com PrecoAvulso → diálogo; sem PrecoAvulso → MAÇO direto.
+    /// Retorna false se o operador cancelar (Esc).
+    /// </summary>
+    private bool TryResolveCigaretteSaleForDeck(Product product, out PdvScanResult? chosen)
+    {
+        chosen = null;
+
+        if (PdvCartHelper.NeedsCigaretteModeChoice(product))
+        {
+            var extra = ProductExtra.Parse(product.ExtraJson);
+            var packPrice = extra.PrecoAtacado > 0 ? extra.PrecoAtacado : product.SalePrice;
+            var dlg = new PdvCigaretteModeWindow(
+                product.Name,
+                ProductPriceHelper.RoundPrice(extra.PrecoAvulso),
+                ProductPriceHelper.RoundPrice(packPrice))
+            {
+                Owner = this,
+            };
+            if (dlg.ShowDialog() != true || string.IsNullOrWhiteSpace(dlg.SelectedMode))
+                return false;
+
+            chosen = PdvService.ResolveManualSale(product, dlg.SelectedMode);
+            return true;
+        }
+
+        // Cigarro sem preço avulso: MAÇO explícito (corrige SalePrice + fator 1).
+        chosen = PdvService.ResolveCigaretteSale(product, PdvCigaretteSaleMode.Maco);
+        return true;
     }
 
     private double ParseQty()
