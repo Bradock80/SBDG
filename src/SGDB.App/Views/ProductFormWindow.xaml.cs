@@ -76,7 +76,7 @@ public partial class ProductFormWindow : Window
     private void SetPriceDefaults()
     {
         PrecoCompraBox.Text = CostBox.Text = SaleBox.Text = LucroBox.Text =
-            QtdAtacadoBox.Text = PrecoAtacadoBox.Text = ProductPriceHelper.FormatBr(0);
+            QtdAtacadoBox.Text = PrecoAtacadoBox.Text = PrecoAvulsoBox.Text = ProductPriceHelper.FormatBr(0);
             FatorEmbalagemBox.Text = "1";
             PackBarcodeBox.Text = "";
         MinStockBox.Text = "5";
@@ -84,6 +84,7 @@ public partial class ProductFormWindow : Window
         StockFridgeBox.Text = ProductPriceHelper.FormatBr(0);
         StockFridgeMinBox.Text = "0";
         RefreshFridgeUi();
+        RefreshPrecoAvulsoVisibility();
     }
 
     private void LoadCatalogs()
@@ -156,6 +157,7 @@ public partial class ProductFormWindow : Window
         LucroBox.Text = ProductPriceHelper.FormatBr(extra.LucroPercent);
         QtdAtacadoBox.Text = ProductPriceHelper.FormatBr(extra.QtdAtacado);
         PrecoAtacadoBox.Text = ProductPriceHelper.FormatBr(extra.PrecoAtacado);
+        PrecoAvulsoBox.Text = ProductPriceHelper.FormatBr(extra.PrecoAvulso);
         FatorEmbalagemBox.Text = extra.FatorEmbalagem > 0
             ? extra.FatorEmbalagem.ToString("G", CultureInfo.CurrentCulture)
             : "1";
@@ -180,6 +182,7 @@ public partial class ProductFormWindow : Window
         VasilhameQtyBox.Text = extra.VasilhameQty > 0
             ? extra.VasilhameQty.ToString("G", CultureInfo.CurrentCulture)
             : "1";
+        RefreshPrecoAvulsoVisibility();
     }
 
     private void SelectPriceTable(int? id)
@@ -256,6 +259,23 @@ public partial class ProductFormWindow : Window
             GroupBox.Text = inferred.Group;
         if (string.IsNullOrWhiteSpace(BrandBox.Text) && !string.IsNullOrWhiteSpace(inferred.Brand))
             BrandBox.Text = inferred.Brand;
+        RefreshPrecoAvulsoVisibility();
+    }
+
+    private void GroupBox_LostFocus(object sender, RoutedEventArgs e) =>
+        RefreshPrecoAvulsoVisibility();
+
+    private void RefreshPrecoAvulsoVisibility()
+    {
+        var cig = ProductClassificationHelper.IsCigarette(NameBox.Text, GroupBox.Text);
+        PrecoAvulsoRow.Visibility = cig ? Visibility.Visible : Visibility.Collapsed;
+    }
+
+    private void PrecoAvulsoBox_LostFocus(object sender, RoutedEventArgs e)
+    {
+        var v = Math.Max(0, ProductPriceHelper.ParseBr(PrecoAvulsoBox.Text));
+        PrecoAvulsoBox.Text = ProductPriceHelper.FormatBr(v);
+        // Não recalcula SalePrice / margem / custo do maço.
     }
 
     private void PrecoCompraBox_LostFocus(object sender, RoutedEventArgs e) =>
@@ -419,6 +439,7 @@ public partial class ProductFormWindow : Window
             LucroPercent = ProductPriceHelper.ParseBr(LucroBox.Text),
             QtdAtacado = ProductPriceHelper.ParseBr(QtdAtacadoBox.Text),
             PrecoAtacado = ProductPriceHelper.ParseBr(PrecoAtacadoBox.Text),
+            PrecoAvulso = Math.Max(0, ProductPriceHelper.ParseBr(PrecoAvulsoBox.Text)),
             FatorEmbalagem = Math.Max(1, ProductPriceHelper.ParseBr(FatorEmbalagemBox.Text)),
             BarcodeEmbalagem = TextNorm.DistinctPackBarcode(PackBarcodeBox.Text, BarcodeBox.Text),
             DescontoPercent = ProductPriceHelper.ParseBr(DescontoBox.Text),

@@ -1,0 +1,84 @@
+<Window x:Class="SGDB.Views.PdvCigaretteModeWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Cigarro — Avulso ou Maço"
+        Width="520" Height="420"
+        MinWidth="460" MinHeight="360"
+        WindowStartupLocation="CenterOwner"
+        ResizeMode="NoResize"
+        Background="#C8C8C8"
+        FontFamily="Segoe UI, Tahoma"
+        PreviewKeyDown="Window_PreviewKeyDown">
+    <Window.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceDictionary Source="/Themes/PdvTheme.xaml"/>
+            </ResourceDictionary.MergedDictionaries>
+        </ResourceDictionary>
+    </Window.Resources>
+
+    <Border Background="#D8D8D8" BorderBrush="#666666" BorderThickness="2" Margin="8">
+        <Grid>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="*"/>
+                <RowDefinition Height="Auto"/>
+            </Grid.RowDefinitions>
+
+            <Border Grid.Row="0" Style="{StaticResource PdvPayTitleBar}">
+                <Grid>
+                    <TextBlock Text="Modalidade de venda" Style="{StaticResource PdvPayTitleText}"/>
+                    <Button Content="×" Style="{StaticResource PdvCloseButton}" HorizontalAlignment="Right"
+                            Click="Cancel_Click" ToolTip="Cancelar (Esc)"/>
+                </Grid>
+            </Border>
+
+            <StackPanel Grid.Row="1" Margin="20,16" VerticalAlignment="Center">
+                <TextBlock Text="Produto" FontSize="13" Foreground="#555555" HorizontalAlignment="Center"/>
+                <TextBlock x:Name="ProductNameText"
+                           FontSize="22" FontWeight="SemiBold"
+                           TextWrapping="Wrap" TextAlignment="Center"
+                           Margin="0,4,0,18"/>
+
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="12"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+
+                    <Button Grid.Column="0" Style="{StaticResource PdvPayActionBtn}"
+                            MinHeight="110" Click="Avulso_Click"
+                            ToolTip="Tecla A">
+                        <StackPanel>
+                            <TextBlock Text="AVULSO" FontSize="22" FontWeight="Bold" HorizontalAlignment="Center"/>
+                            <TextBlock x:Name="AvulsoPriceText" FontSize="18" Margin="0,8,0,0"
+                                       HorizontalAlignment="Center"/>
+                            <TextBlock Text="(A)" FontSize="12" Foreground="#666666"
+                                       HorizontalAlignment="Center" Margin="0,6,0,0"/>
+                        </StackPanel>
+                    </Button>
+
+                    <Button Grid.Column="2" Style="{StaticResource PdvPayActionBtn}"
+                            MinHeight="110" Click="Maco_Click"
+                            ToolTip="Tecla M">
+                        <StackPanel>
+                            <TextBlock Text="MAÇO" FontSize="22" FontWeight="Bold" HorizontalAlignment="Center"/>
+                            <TextBlock x:Name="MacoPriceText" FontSize="18" Margin="0,8,0,0"
+                                       HorizontalAlignment="Center"/>
+                            <TextBlock Text="(M)" FontSize="12" Foreground="#666666"
+                                       HorizontalAlignment="Center" Margin="0,6,0,0"/>
+                        </StackPanel>
+                    </Button>
+                </Grid>
+            </StackPanel>
+
+            <Border Grid.Row="2" Background="#ECECEC" BorderBrush="#AAAAAA"
+                    BorderThickness="0,1,0,0" Padding="14,10">
+                <TextBlock Text="A = Avulso · M = Maço · Esc = cancelar"
+                           FontSize="13" FontWeight="SemiBold" Foreground="#555555"
+                           HorizontalAlignment="Center"/>
+            </Border>
+        </Grid>
+    </Border>
+</Window>

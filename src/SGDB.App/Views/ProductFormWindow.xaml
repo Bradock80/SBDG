@@ -173,7 +173,8 @@
                                             <ColumnDefinition Width="Auto"/>
                                         </Grid.ColumnDefinitions>
                                         <TextBlock Text="F2 | Grupo" Style="{StaticResource FormColLabel}"/>
-                                        <ComboBox x:Name="GroupBox" Grid.Column="1" Style="{StaticResource WpdvCombo}" IsEditable="True"/>
+                                        <ComboBox x:Name="GroupBox" Grid.Column="1" Style="{StaticResource WpdvCombo}" IsEditable="True"
+                                                  LostFocus="GroupBox_LostFocus"/>
                                         <Button Grid.Column="2" Style="{StaticResource WpdvPlusButton}" Click="OpenGroup_Click"/>
                                     </Grid>
 
@@ -320,7 +321,18 @@
                                                        ToolTip="Preço do maço na venda (ex.: R$ 14,50). Lucro compara custo 13,35 × este valor."/>
                                             <TextBox x:Name="PrecoAtacadoBox" Grid.Column="1" Style="{StaticResource WpdvInput}"
                                                      LostFocus="PrecoAtacadoBox_LostFocus"
-                                                     ToolTip="Maço R$ 14,50 — Preço Venda continua o avulso (0,67)"/>
+                                                     ToolTip="Para cigarro: preço do maço no PDV (ex.: R$ 28,50)."/>
+                                        </Grid>
+                                        <Grid x:Name="PrecoAvulsoRow" Style="{StaticResource FormFieldRow}" Visibility="Collapsed">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="Auto" SharedSizeGroup="LblCol"/>
+                                                <ColumnDefinition Width="*"/>
+                                            </Grid.ColumnDefinitions>
+                                            <TextBlock Text="Preço Avulso" Style="{StaticResource FormColLabel}"
+                                                       ToolTip="Preço de 1 cigarro no PDV. 0 = só vende maço. Não altera Preço Venda/maço."/>
+                                            <TextBox x:Name="PrecoAvulsoBox" Grid.Column="1" Style="{StaticResource WpdvInput}"
+                                                     LostFocus="PrecoAvulsoBox_LostFocus"
+                                                     ToolTip="Ex.: R$ 1,50 — modalidade AVULSO no PDV"/>
                                         </Grid>
                                         <Grid Style="{StaticResource FormFieldRow}">
                                             <Grid.ColumnDefinitions>

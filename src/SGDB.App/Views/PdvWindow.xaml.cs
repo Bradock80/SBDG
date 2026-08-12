@@ -20,6 +20,7 @@ public partial class PdvWindow : Window
     private double _pendingUnitPrice;
     private double _pendingStockUnitsPerSale = 1;
     private string? _pendingBuscaLabel;
+    private string? _pendingLineDisplayName;
     private int _lineCounter;
     private long _lastBuscaKeyAt;
     private bool _suppressSearchChange;
@@ -248,6 +249,12 @@ public partial class PdvWindow : Window
             var scan = PdvService.ResolveScan(term);
             if (scan is not null)
             {
+                if (!TryResolveCigaretteModeForUi(scan.Product, out var chosen))
+                {
+                    SearchBox.SelectAll();
+                    return;
+                }
+                scan = chosen ?? scan;
                 SetPendingFromScan(scan);
                 if (scan.IsPackSale)
                     TryIncludePending();
@@ -339,6 +346,7 @@ public partial class PdvWindow : Window
         _pendingUnitPrice = 0;
         _pendingStockUnitsPerSale = 1;
         _pendingBuscaLabel = null;
+        _pendingLineDisplayName = null;
         CurrentPriceText.Text = "0,00";
         CurrentItemTotalText.Text = "0,00";
     }
@@ -347,13 +355,49 @@ public partial class PdvWindow : Window
     {
         _pendingProduct = product;
         _pendingUnitPrice = product.SalePrice;
+        _pendingStockUnitsPerSale = 1;
+        _pendingLineDisplayName = null;
         CurrentPriceText.Text = product.SalePriceDisplay;
         UpdateItemTotalPreview();
     }
 
     private void SetPendingProduct(Product product)
     {
-        SetPendingFromScan(PdvService.ResolveManualSale(product));
+        if (!TryResolveCigaretteModeForUi(product, out var scan))
+        {
+            ClearPendingProduct();
+            SearchBox.Focus();
+            SearchBox.SelectAll();
+            return;
+        }
+        SetPendingFromScan(scan ?? PdvService.ResolveManualSale(product));
+    }
+
+    /// <summary>
+    /// Se cigarro com PrecoAvulso &gt; 0, abre diálogo Avulso/Maço.
+    /// Retorna false se o operador cancelar (Esc).
+    /// chosen null = sem diálogo (usar resolução padrão do chamador).
+    /// </summary>
+    private bool TryResolveCigaretteModeForUi(Product product, out PdvScanResult? chosen)
+    {
+        chosen = null;
+        if (!PdvCartHelper.NeedsCigaretteModeChoice(product))
+            return true;
+
+        var extra = ProductExtra.Parse(product.ExtraJson);
+        var packPrice = extra.PrecoAtacado > 0 ? extra.PrecoAtacado : product.SalePrice;
+        var dlg = new PdvCigaretteModeWindow(
+            product.Name,
+            ProductPriceHelper.RoundPrice(extra.PrecoAvulso),
+            ProductPriceHelper.RoundPrice(packPrice))
+        {
+            Owner = this,
+        };
+        if (dlg.ShowDialog() != true || string.IsNullOrWhiteSpace(dlg.SelectedMode))
+            return false;
+
+        chosen = PdvService.ResolveManualSale(product, dlg.SelectedMode);
+        return true;
     }
 
     private void SetPendingFromScan(PdvScanResult scan)
@@ -361,11 +405,12 @@ public partial class PdvWindow : Window
         _pendingProduct = scan.Product;
         _pendingUnitPrice = scan.UnitPrice;
         _pendingStockUnitsPerSale = scan.StockUnitsPerSale;
+        _pendingLineDisplayName = PdvCartHelper.LineDisplayName(scan.Product, scan.ModeLabel);
         HideLookup();
         CurrentPriceText.Text = ProductPriceHelper.FormatBr(scan.UnitPrice);
         QtyBox.Text = scan.Quantity.ToString("0.000", CultureInfo.GetCultureInfo("pt-BR"));
         UpdateItemTotalPreview();
-        var label = scan.IsPackSale
+        var label = !string.IsNullOrWhiteSpace(scan.ModeLabel)
             ? $"{scan.Product.Name} [{scan.ModeLabel}]"
             : scan.Product.Name;
         _pendingBuscaLabel = label;
@@ -442,7 +487,8 @@ public partial class PdvWindow : Window
             return;
         }
         var qty = ParseQty(QtyBox.Text);
-        var unit = ResolveLineUnitPrice(_pendingProduct, qty, _pendingUnitPrice, _pendingStockUnitsPerSale);
+        var unit = PdvCartHelper.ResolveLineUnitPrice(
+            _pendingProduct, qty, _pendingUnitPrice, _pendingStockUnitsPerSale);
         CurrentPriceText.Text = ProductPriceHelper.FormatBr(unit);
         CurrentItemTotalText.Text = ProductPriceHelper.FormatBr(ProductPriceHelper.RoundPrice(qty * unit));
     }
@@ -460,47 +506,20 @@ public partial class PdvWindow : Window
             return;
         }
 
-        var unitPrice = ResolveLineUnitPrice(_pendingProduct, qty, _pendingUnitPrice, _pendingStockUnitsPerSale);
-
-        // Junta linhas do mesmo produto (mesmo modo de estoque)
-        var existing = _cart.FirstOrDefault(c =>
-            c.ProductId == _pendingProduct.Id
-            && Math.Abs(c.StockUnitsPerSale - _pendingStockUnitsPerSale) < 0.0001);
-        if (existing is not null)
-        {
-            var newQty = ProductPriceHelper.RoundPrice(existing.Quantity + qty);
-            var mergedPrice = ResolveLineUnitPrice(_pendingProduct, newQty, _pendingUnitPrice, _pendingStockUnitsPerSale);
-            _cart.Remove(existing);
-            _cart.Add(new PdvCartLine
-            {
-                ProductId = existing.ProductId,
-                Code = existing.Code,
-                Name = existing.Name,
-                Unit = existing.Unit,
-                Quantity = newQty,
-                UnitPrice = mergedPrice,
-                StockUnitsPerSale = existing.StockUnitsPerSale,
-            });
-        }
-        else
-        {
-            _cart.Add(new PdvCartLine
-            {
-                LineNum = ++_lineCounter,
-                ProductId = _pendingProduct.Id,
-                Code = _pendingProduct.Code ?? "",
-                Name = _pendingProduct.Name,
-                Unit = _pendingProduct.Unit,
-                Quantity = qty,
-                UnitPrice = unitPrice,
-                StockUnitsPerSale = _pendingStockUnitsPerSale,
-            });
-        }
+        PdvCartHelper.IncludeOrMerge(
+            _cart,
+            _pendingProduct,
+            qty,
+            _pendingUnitPrice,
+            _pendingStockUnitsPerSale,
+            ref _lineCounter,
+            _pendingLineDisplayName);
 
         _pendingProduct = null;
         _pendingUnitPrice = 0;
         _pendingStockUnitsPerSale = 1;
         _pendingBuscaLabel = null;
+        _pendingLineDisplayName = null;
         _suppressSearchChange = true;
         SearchBox.Text = "";
         _suppressSearchChange = false;
@@ -511,37 +530,6 @@ public partial class PdvWindow : Window
         UpdateGrandTotal();
         RefreshCartGrid();
         SearchBox.Focus();
-    }
-
-    private static double ResolveLineUnitPrice(
-        Product product, double qty, double pendingUnitPrice, double stockUnitsPerSale = 1)
-    {
-        // Maço cigarro: preço fixo por maço (qtd 1, 2, 3…)
-        if (stockUnitsPerSale > 1.0001
-            && ProductClassificationHelper.IsCigarette(product.Name, product.GroupName)
-            && pendingUnitPrice > 0)
-            return pendingUnitPrice;
-
-        var extra = ProductExtra.Parse(product.ExtraJson);
-        var packQty = extra.FatorEmbalagem >= 2 ? extra.FatorEmbalagem
-            : (extra.QtdAtacado >= 2 ? extra.QtdAtacado : 0);
-
-        // Bipou CX/fardo (refrigerante): preço unitário só na qtd exata do fardo
-        if (pendingUnitPrice > 0 && packQty >= 2 && extra.PrecoAtacado > 0)
-        {
-            var packUnit = PdvService.WholesaleUnitPrice(product.SalePrice, extra.PrecoAtacado, packQty);
-            if (Math.Abs(pendingUnitPrice - packUnit) < 0.009)
-            {
-                if (Math.Abs(qty - packQty) < 0.0001)
-                    return packUnit;
-                return PdvService.UnitPriceForQuantity(product, qty);
-            }
-        }
-
-        if (pendingUnitPrice > 0 && Math.Abs(qty - 1) < 0.0001)
-            return pendingUnitPrice;
-
-        return PdvService.UnitPriceForQuantity(product, qty);
     }
 
     private void RefreshCartGrid()
