@@ -1,5 +1,6 @@
 using Microsoft.Data.Sqlite;
 using SGDB.Domain.Products;
+using SGDB.Domain.Sales;
 using SGDB.Models;
 using SGDB.Utils;
 
@@ -858,7 +859,7 @@ public static class PdvService
     }
 
     private static bool IsPureFiadoPayment(IReadOnlyList<PdvPaymentPart> parts) =>
-        parts.Count == 1 && IsFiado(parts[0].PaymentType);
+        SalePaymentCalculator.IsPureFiadoPayment(ToDomainParts(parts), IsFiado);
 
     public static PdvSaleDetail ChangeSalePayment(
         int saleId,
@@ -1130,25 +1131,34 @@ public static class PdvService
     private static List<PdvPaymentPart> NormalizePaymentParts(
         string paymentType, double total, IReadOnlyList<PdvPaymentPart>? payments)
     {
-        if (payments is { Count: > 0 })
+        try
         {
-            var parts = payments
-                .Select(p => new PdvPaymentPart
-                {
-                    PaymentType = NormalizePayment(p.PaymentType),
-                    Amount = ProductPriceHelper.RoundPrice(p.Amount),
-                })
-                .Where(p => p.Amount > 0)
+            // Aliases/catálogo ficam no App; Domain recebe labels já canônicos.
+            IReadOnlyList<PaymentPart>? domainPayments = null;
+            if (payments is { Count: > 0 })
+            {
+                domainPayments = payments
+                    .Select(p => new PaymentPart
+                    {
+                        PaymentType = NormalizePayment(p.PaymentType),
+                        Amount = p.Amount,
+                    })
+                    .ToList();
+            }
+
+            var normalized = SalePaymentCalculator.NormalizeParts(
+                NormalizePayment(paymentType),
+                total,
+                domainPayments);
+
+            return normalized
+                .Select(p => new PdvPaymentPart { PaymentType = p.PaymentType, Amount = p.Amount })
                 .ToList();
-            if (parts.Count == 0)
-                throw new PdvException("Informe ao menos uma forma de pagamento.");
-            var sum = ProductPriceHelper.RoundPrice(parts.Sum(p => p.Amount));
-            if (Math.Abs(sum - total) > 0.02)
-                throw new PdvException($"Soma dos pagamentos (R$ {sum:N2}) difere do total (R$ {total:N2}).");
-            return parts;
         }
-        var forma = NormalizePayment(paymentType);
-        return [new PdvPaymentPart { PaymentType = forma, Amount = total }];
+        catch (ArgumentException ex)
+        {
+            throw new PdvException(ex.Message);
+        }
     }
 
     private static string SalePaymentLabel(IReadOnlyList<PdvPaymentPart> parts)
@@ -1170,19 +1180,16 @@ public static class PdvService
     private static (double? cashReceived, double changeAmount) ResolveCashTroco(
         IReadOnlyList<PdvPaymentPart> parts, double total, double cashReceivedInput)
     {
-        var recv = ProductPriceHelper.RoundPrice(cashReceivedInput);
-        if (recv <= 0)
-            return (null, 0);
-        var dinheiroAmt = ProductPriceHelper.RoundPrice(parts.Where(p => IsDinheiro(p.PaymentType)).Sum(p => p.Amount));
-        if (dinheiroAmt <= 0 && parts.Count == 1 && IsDinheiro(parts[0].PaymentType))
-            dinheiroAmt = total;
-        // Sem componente em dinheiro: ignora cashReceived (evita troco fantasma em PIX/cartão).
-        if (dinheiroAmt <= 0)
-            return (null, 0);
-        if (recv <= dinheiroAmt + 0.009)
-            return (null, 0);
-        return (recv, ProductPriceHelper.RoundPrice(recv - dinheiroAmt));
+        var result = SalePaymentCalculator.ResolveCashChange(
+            ToDomainParts(parts),
+            total,
+            cashReceivedInput,
+            IsDinheiro);
+        return (result.CashReceived, result.ChangeAmount);
     }
+
+    private static IReadOnlyList<PaymentPart> ToDomainParts(IReadOnlyList<PdvPaymentPart> parts) =>
+        parts.Select(p => new PaymentPart { PaymentType = p.PaymentType, Amount = p.Amount }).ToList();
 
     private static Product? LoadProduct(SqliteConnection conn, SqliteTransaction? tx, int id)
     {
