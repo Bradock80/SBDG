@@ -534,12 +534,14 @@ public static class PdvService
     /// </summary>
     public static PdvSwapItemPreview PreviewSwapSaleItem(
         int saleId, int itemId, int newProductId, bool keepLinePrice,
-        double? newQuantity = null, DateTime? sessionDate = null)
+        double? newQuantity = null, DateTime? sessionDate = null,
+        string? cigaretteMode = null)
     {
         StoreNetworkMode.EnsureLocalMutationAllowed("trocar item da venda");
         using var conn = DatabaseService.OpenConnection();
         var d = (sessionDate ?? DateTime.Today).Date;
-        var plan = PlanSwapSaleItem(conn, tx: null, saleId, itemId, newProductId, keepLinePrice, newQuantity, d);
+        var plan = PlanSwapSaleItem(conn, tx: null, saleId, itemId, newProductId, keepLinePrice,
+            newQuantity, d, cigaretteMode);
         var payments = PdvQueryService.LoadSalePayments(conn, saleId, plan.PaymentType, plan.OldTotal);
         var isPureFiado = IsPureFiadoPayment(payments);
         var difference = ProductPriceHelper.RoundPrice(plan.NewTotal - plan.OldTotal);
@@ -577,7 +579,8 @@ public static class PdvService
         double? newQuantity = null, DateTime? sessionDate = null,
         IReadOnlyList<PdvPaymentPart>? confirmedPayments = null,
         double cashReceived = 0,
-        int? customerPersonId = null)
+        int? customerPersonId = null,
+        string? cigaretteMode = null)
     {
         StoreNetworkMode.EnsureLocalMutationAllowed("trocar item da venda");
         if (!AccessControl.Can("PdvEditarVenda"))
@@ -587,7 +590,8 @@ public static class PdvService
         var d = (sessionDate ?? DateTime.Today).Date;
         using var tx = conn.BeginTransaction();
 
-        var plan = PlanSwapSaleItem(conn, tx, saleId, itemId, newProductId, keepLinePrice, newQuantity, d);
+        var plan = PlanSwapSaleItem(conn, tx, saleId, itemId, newProductId, keepLinePrice,
+            newQuantity, d, cigaretteMode);
         var oldPaymentsSnapshot = PdvQueryService.LoadSalePayments(conn, saleId, plan.PaymentType, plan.OldTotal);
 
         // Devolve estoque do produto antigo (stock_qty / composição — sem remultiplicar fator)
@@ -625,7 +629,7 @@ public static class PdvService
                 """;
             updItem.Parameters.AddWithValue("$pid", plan.NewProduct.Id);
             updItem.Parameters.AddWithValue("$code", plan.NewProduct.Code ?? "");
-            updItem.Parameters.AddWithValue("$name", plan.NewProduct.Name);
+            updItem.Parameters.AddWithValue("$name", plan.ProductDisplayName);
             updItem.Parameters.AddWithValue("$unit", plan.NewProduct.Unit);
             updItem.Parameters.AddWithValue("$qty", plan.Qty);
             updItem.Parameters.AddWithValue("$price", plan.UnitPrice);
@@ -739,6 +743,10 @@ public static class PdvService
                 new_quantity = plan.Qty,
                 old_stock_qty = plan.OldStockQty,
                 new_stock_qty = plan.NewStockQty,
+                old_stock_units_per_sale = plan.OldStockUnitsPerSale,
+                new_stock_units_per_sale = plan.NewStockUnitsPerSale,
+                old_mode = plan.OldModeLabel,
+                new_mode = plan.NewModeLabel,
                 old_unit_price = plan.OldUnitPrice,
                 new_unit_price = plan.UnitPrice,
                 old_total = plan.OldTotal,
@@ -798,16 +806,37 @@ public static class PdvService
         public required double OldQty { get; init; }
         public required double OldUnitPrice { get; init; }
         public required double OldStockQty { get; init; }
+        public required double OldStockUnitsPerSale { get; init; }
+        public required string? OldModeLabel { get; init; }
         public required double Qty { get; init; }
         public required double UnitPrice { get; init; }
         public required double LineSubtotal { get; init; }
         public required double NewStockQty { get; init; }
+        public required double NewStockUnitsPerSale { get; init; }
+        public required string? NewModeLabel { get; init; }
+        public required string ProductDisplayName { get; init; }
+    }
+
+    /// <summary>
+    /// Null/vazio → null (legado MAÇO no ResolveManualSale).
+    /// AVULSO / MAÇO / MACO → canônico. Outros → PdvException.
+    /// </summary>
+    public static string? NormalizeCigaretteModeForSwap(string? cigaretteMode)
+    {
+        if (string.IsNullOrWhiteSpace(cigaretteMode))
+            return null;
+        if (PdvCigaretteSaleMode.IsAvulso(cigaretteMode))
+            return PdvCigaretteSaleMode.Avulso;
+        if (PdvCigaretteSaleMode.IsMaco(cigaretteMode))
+            return PdvCigaretteSaleMode.Maco;
+        throw new PdvException(
+            $"Modalidade de cigarro inválida: '{cigaretteMode.Trim()}'. Use AVULSO ou MAÇO.");
     }
 
     private static SwapPlan PlanSwapSaleItem(
         SqliteConnection conn, SqliteTransaction? tx,
         int saleId, int itemId, int newProductId, bool keepLinePrice,
-        double? newQuantity, DateTime today)
+        double? newQuantity, DateTime today, string? cigaretteMode = null)
     {
         var (saleDate, _, oldTotal, paymentType, customerId, cashReceived) =
             LoadSaleHeaderForEdit(conn, tx, saleId, today);
@@ -838,26 +867,66 @@ public static class PdvService
             throw new PdvException("Quantidade inválida no item.");
 
         var oldStockQty = oldStockQtyRaw > 0 ? oldStockQtyRaw : oldQty;
+        var oldStockUnitsPerSale = oldQty > 0.0001
+            ? ProductPriceHelper.RoundPrice(oldStockQty / oldQty)
+            : 1;
+        var oldModeLabel = oldStockUnitsPerSale > 1.0001
+            ? PdvCigaretteSaleMode.Maco
+            : null;
 
         var qty = newQuantity is > 0 ? ProductPriceHelper.RoundPrice(newQuantity.Value) : oldQty;
         if (qty <= 0)
             throw new PdvException("Informe uma quantidade maior que zero.");
-
-        if (newProductId == oldProductId && Math.Abs(qty - oldQty) < 0.0001)
-            throw new PdvException("Selecione um produto diferente ou altere a quantidade.");
 
         var newProduct = LoadProduct(conn, tx, newProductId)
             ?? throw new PdvException("Produto não encontrado.");
         if (!newProduct.Active)
             throw new PdvException($"Produto inativo: {newProduct.Name}");
 
-        var unitPrice = keepLinePrice ? oldUnitPrice : newProduct.SalePrice;
+        var normalizedMode = NormalizeCigaretteModeForSwap(cigaretteMode);
+        PdvScanResult resolvedSale;
+        try
+        {
+            var isCig = ProductClassificationHelper.IsCigarette(newProduct.Name, newProduct.GroupName);
+            if (PdvCigaretteSaleMode.IsAvulso(normalizedMode))
+            {
+                if (!isCig)
+                    throw new PdvException("Modalidade AVULSO só se aplica a produtos de cigarro.");
+                resolvedSale = ResolveCigaretteSale(newProduct, PdvCigaretteSaleMode.Avulso);
+            }
+            else if (isCig)
+            {
+                // null ou MAÇO → resolução canônica de maço (não SalePrice cru)
+                resolvedSale = ResolveCigaretteSale(newProduct, PdvCigaretteSaleMode.Maco);
+            }
+            else
+            {
+                resolvedSale = ResolveManualSale(newProduct, cigaretteMode: null);
+            }
+        }
+        catch (InvalidOperationException ex)
+        {
+            throw new PdvException(ex.Message);
+        }
+
+        var unitPrice = keepLinePrice ? oldUnitPrice : resolvedSale.UnitPrice;
         if (unitPrice < 0)
             throw new PdvException("Preço inválido.");
         var lineSubtotal = ProductPriceHelper.RoundPrice(qty * unitPrice);
 
-        var newStockUnitsPerSale = ResolveManualSale(newProduct).StockUnitsPerSale;
+        var newStockUnitsPerSale = resolvedSale.StockUnitsPerSale;
         var newStockQty = StockQuantityForSale(qty, newStockUnitsPerSale);
+        var newModeLabel = resolvedSale.ModeLabel;
+        var displayName = PdvCartHelper.LineDisplayName(newProduct, newModeLabel);
+
+        // Sem alteração: mesmo produto + qty + fator físico + preço efetivo
+        if (newProductId == oldProductId
+            && Math.Abs(qty - oldQty) < 0.0001
+            && Math.Abs(newStockUnitsPerSale - oldStockUnitsPerSale) < 0.0001
+            && Math.Abs(unitPrice - oldUnitPrice) < 0.009)
+        {
+            throw new PdvException("Selecione um produto diferente, altere a quantidade ou a modalidade.");
+        }
 
         var newGross = ProductPriceHelper.RoundPrice(oldGross - oldItemSubtotal + lineSubtotal);
         var newTotal = ProductPriceHelper.RoundPrice(Math.Max(0, newGross + originalAdjustment));
@@ -879,10 +948,15 @@ public static class PdvService
             OldQty = oldQty,
             OldUnitPrice = oldUnitPrice,
             OldStockQty = oldStockQty,
+            OldStockUnitsPerSale = oldStockUnitsPerSale,
+            OldModeLabel = oldModeLabel,
             Qty = qty,
             UnitPrice = unitPrice,
             LineSubtotal = lineSubtotal,
             NewStockQty = newStockQty,
+            NewStockUnitsPerSale = newStockUnitsPerSale,
+            NewModeLabel = newModeLabel,
+            ProductDisplayName = displayName,
         };
     }
 

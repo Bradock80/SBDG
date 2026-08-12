@@ -21,7 +21,8 @@ public sealed class SwapSaleItemGateway : ISwapSaleItemGateway
             command.SessionDate,
             confirmedPayments: confirmed,
             cashReceived: command.CashReceived,
-            customerPersonId: command.CustomerPersonId);
+            customerPersonId: command.CustomerPersonId,
+            cigaretteMode: command.CigaretteMode);
 
         return ToResult(result);
     }

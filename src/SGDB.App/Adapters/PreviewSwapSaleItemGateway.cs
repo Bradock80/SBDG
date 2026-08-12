@@ -17,7 +17,8 @@ public sealed class PreviewSwapSaleItemGateway : IPreviewSwapSaleItemGateway
             command.NewProductId,
             command.KeepLinePrice,
             command.NewQuantity,
-            command.SessionDate);
+            command.SessionDate,
+            cigaretteMode: command.CigaretteMode);
 
         return ToResult(preview);
     }

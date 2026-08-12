@@ -5,6 +5,7 @@ using System.Windows.Media;
 using SGDB.Application.Sales;
 using SGDB.Models;
 using SGDB.Services;
+using SGDB.Utils;
 
 namespace SGDB.Views;
 
@@ -295,6 +296,9 @@ public partial class PdvVendasConsultaWindow : Window
         if (dlg.ShowDialog() != true || !dlg.Confirmed || dlg.SelectedProduct is null)
             return;
 
+        if (!TryResolveCigaretteModeForSwap(dlg.SelectedProduct, out var cigaretteMode))
+            return;
+
         try
         {
             var preview = ApplicationServices.PreviewSwapSaleItem.Execute(new PreviewSwapSaleItemCommand
@@ -304,6 +308,7 @@ public partial class PdvVendasConsultaWindow : Window
                 NewProductId = dlg.SelectedProduct.Id,
                 KeepLinePrice = dlg.KeepLinePrice,
                 NewQuantity = dlg.NewQuantity,
+                CigaretteMode = cigaretteMode,
             });
 
             IReadOnlyList<SalePayment>? confirmedPayments = null;
@@ -360,6 +365,7 @@ public partial class PdvVendasConsultaWindow : Window
                 NewProductId = dlg.SelectedProduct.Id,
                 KeepLinePrice = dlg.KeepLinePrice,
                 NewQuantity = dlg.NewQuantity,
+                CigaretteMode = cigaretteMode,
                 ConfirmedPayments = confirmedPayments,
                 CashReceived = cashReceived,
                 CustomerPersonId = customerPersonId,
@@ -371,6 +377,32 @@ public partial class PdvVendasConsultaWindow : Window
         {
             MessageBox.Show(ex.Message, "Trocar produto", MessageBoxButton.OK, MessageBoxImage.Warning);
         }
+    }
+
+    /// <summary>
+    /// Cigarro com PrecoAvulso → diálogo Avulso/Maço; demais → null (legado MAÇO no Service).
+    /// Retorna false se o operador cancelar (Esc).
+    /// </summary>
+    private bool TryResolveCigaretteModeForSwap(Product product, out string? cigaretteMode)
+    {
+        cigaretteMode = null;
+        if (!PdvCartHelper.NeedsCigaretteModeChoice(product))
+            return true;
+
+        var extra = ProductExtra.Parse(product.ExtraJson);
+        var packPrice = extra.PrecoAtacado > 0 ? extra.PrecoAtacado : product.SalePrice;
+        var modeDlg = new PdvCigaretteModeWindow(
+            product.Name,
+            ProductPriceHelper.RoundPrice(extra.PrecoAvulso),
+            ProductPriceHelper.RoundPrice(packPrice))
+        {
+            Owner = this,
+        };
+        if (modeDlg.ShowDialog() != true || string.IsNullOrWhiteSpace(modeDlg.SelectedMode))
+            return false;
+
+        cigaretteMode = modeDlg.SelectedMode;
+        return true;
     }
 
     private void TrocaDevolucao_Click(object sender, RoutedEventArgs e)

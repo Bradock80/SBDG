@@ -13,6 +13,12 @@ public sealed class SwapSaleItemCommand
     public double? NewQuantity { get; init; }
 
     /// <summary>
+    /// Modalidade de cigarro: "AVULSO", "MACO"/"MAÇO", ou null (legado = MAÇO no App).
+    /// Deve ser o mesmo valor usado no Preview.
+    /// </summary>
+    public string? CigaretteMode { get; init; }
+
+    /// <summary>
     /// Pagamentos confirmados pelo operador quando o total mudou (exceto fiado puro).
     /// Null/omitido = não informado (Service decide conforme política 24.5).
     /// </summary>
