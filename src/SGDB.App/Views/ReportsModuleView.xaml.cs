@@ -451,7 +451,7 @@ public partial class ReportsModuleView : UserControl
 
         try
         {
-            var detail = PdvService.GetSaleDetail(row.Id);
+            var detail = PdvQueryService.GetSaleDetail(row.Id);
             VpDetailTitle.Text = detail.Cancelled
                 ? $"Venda #{detail.Id} — CANCELADA"
                 : $"Venda #{detail.Id}";

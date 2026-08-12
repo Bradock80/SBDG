@@ -68,7 +68,7 @@ public partial class SaleExchangeWindow : Window
     {
         try
         {
-            var detail = PdvService.GetSaleDetail(saleId);
+            var detail = PdvQueryService.GetSaleDetail(saleId);
             if (detail.Cancelled)
             {
                 MessageBox.Show("Venda cancelada.", "Troca / Devolução",

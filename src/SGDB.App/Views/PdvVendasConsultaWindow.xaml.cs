@@ -58,7 +58,7 @@ public partial class PdvVendasConsultaWindow : Window
         var range = StoreNetworkMode.IsClient
             ? (From: DateTime.Today, To: DateTime.Today, CarriedOver: false, IsOpen: false)
             : CashService.GetPdvSalesDateRange();
-        var rows = PdvService.ListSales(includeCancelled: true);
+        var rows = PdvQueryService.ListSales(includeCancelled: true);
         SalesGrid.ItemsSource = rows;
 
         var ativas = rows.Where(r => !r.Cancelled).ToList();
@@ -113,7 +113,7 @@ public partial class PdvVendasConsultaWindow : Window
 
         try
         {
-            ShowDetail(PdvService.GetSaleDetail(row.Id));
+            ShowDetail(PdvQueryService.GetSaleDetail(row.Id));
         }
         catch (PdvException ex)
         {

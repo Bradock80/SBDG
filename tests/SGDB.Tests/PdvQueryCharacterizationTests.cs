@@ -7,8 +7,7 @@ namespace SGDB.Tests;
 /// <summary>
 /// Congela o comportamento atual das queries históricas do PDV
 /// (ListSales / GetSaleDetail / GetResumoDia e variantes *Local)
-/// antes da futura extração para PdvQueryService.
-/// Não altera produção.
+/// via PdvQueryService.
 /// </summary>
 [Collection(TempDatabaseCollection.Name)]
 public class PdvQueryCharacterizationTests
@@ -32,7 +31,7 @@ public class PdvQueryCharacterizationTests
         var productId = TestDataHelper.SeedSimpleProduct(50, 10, 4, "L1", "Lista Basico");
         var sale = TestDataHelper.FinalizeSimpleCashSale(productId, 2, 10, 20);
 
-        var rows = PdvService.ListSalesLocal(includeCancelled: true);
+        var rows = PdvQueryService.ListSalesLocal(includeCancelled: true);
         var row = Assert.Single(rows, r => r.Id == sale.SaleId);
 
         Assert.Equal(DateTime.Today.ToString("yyyy-MM-dd"), row.SessionDate);
@@ -60,7 +59,7 @@ public class PdvQueryCharacterizationTests
         var third = TestDataHelper.FinalizeSimpleCashSale(p, 1, 10, 10);
         PdvService.CancelSale(third.SaleId);
 
-        var withCancelled = PdvService.ListSalesLocal(includeCancelled: true);
+        var withCancelled = PdvQueryService.ListSalesLocal(includeCancelled: true);
         Assert.Equal(3, withCancelled.Count);
         // ORDER BY created_at DESC, id DESC → mais recente primeiro
         Assert.Equal(third.SaleId, withCancelled[0].Id);
@@ -68,15 +67,15 @@ public class PdvQueryCharacterizationTests
         Assert.Equal(second.SaleId, withCancelled[1].Id);
         Assert.Equal(first.SaleId, withCancelled[2].Id);
 
-        var activeOnly = PdvService.ListSalesLocal(includeCancelled: false);
+        var activeOnly = PdvQueryService.ListSalesLocal(includeCancelled: false);
         Assert.Equal(2, activeOnly.Count);
         Assert.DoesNotContain(activeOnly, r => r.Id == third.SaleId);
 
         // Filtro por data explícita fora do dia → vazio
-        var otherDay = PdvService.ListSalesLocal(DateTime.Today.AddYears(-1), includeCancelled: true);
+        var otherDay = PdvQueryService.ListSalesLocal(DateTime.Today.AddYears(-1), includeCancelled: true);
         Assert.Empty(otherDay);
 
-        var today = PdvService.ListSalesLocal(DateTime.Today, includeCancelled: true);
+        var today = PdvQueryService.ListSalesLocal(DateTime.Today, includeCancelled: true);
         Assert.Equal(3, today.Count);
     }
 
@@ -90,7 +89,7 @@ public class PdvQueryCharacterizationTests
         var p = TestDataHelper.SeedSimpleProduct(40, 10, 4, "MIX", "Misto");
         var sale = FinalizeMixed(p, dinheiro: 12, pix: 8);
 
-        var row = Assert.Single(PdvService.ListSalesLocal(includeCancelled: false), r => r.Id == sale.SaleId);
+        var row = Assert.Single(PdvQueryService.ListSalesLocal(includeCancelled: false), r => r.Id == sale.SaleId);
         Assert.Equal(20, row.Total);
         Assert.Equal("DIN+PIX", row.PaymentType);
         Assert.Equal("DIN+PIX", row.PaymentLabel);
@@ -128,7 +127,7 @@ public class PdvQueryCharacterizationTests
             SellerId = seller.Id,
         });
 
-        var row = Assert.Single(PdvService.ListSalesLocal(), r => r.Id == sale.SaleId);
+        var row = Assert.Single(PdvQueryService.ListSalesLocal(), r => r.Id == sale.SaleId);
         Assert.Equal("Cliente Lista", row.CustomerName);
         // SellersService grava nome em maiúsculas
         Assert.Equal("VENDEDOR LISTA", row.SellerName);
@@ -164,7 +163,7 @@ public class PdvQueryCharacterizationTests
             CashReceived = 10,
         });
 
-        var detail = PdvService.GetSaleDetailLocal(sale.SaleId);
+        var detail = PdvQueryService.GetSaleDetailLocal(sale.SaleId);
         Assert.Equal(sale.SaleId, detail.Id);
         Assert.Equal(10, detail.Total);
         Assert.Equal("Dinheiro", detail.PaymentType);
@@ -199,7 +198,7 @@ public class PdvQueryCharacterizationTests
         var p = TestDataHelper.SeedSimpleProduct(40, 10, 4, "PM", "Pag Misto");
         var sale = FinalizeMixed(p, dinheiro: 7, pix: 13);
 
-        var detail = PdvService.GetSaleDetailLocal(sale.SaleId);
+        var detail = PdvQueryService.GetSaleDetailLocal(sale.SaleId);
         Assert.Equal("DIN+PIX", detail.PaymentType);
         Assert.Equal(2, detail.Payments.Count);
         Assert.Contains(detail.Payments, x => x.PaymentType == "Dinheiro" && x.Amount == 7);
@@ -232,7 +231,7 @@ public class PdvQueryCharacterizationTests
             CashReceived = 0,
         });
 
-        var detailPuro = PdvService.GetSaleDetailLocal(puro.SaleId);
+        var detailPuro = PdvQueryService.GetSaleDetailLocal(puro.SaleId);
         Assert.Equal("Fiado", detailPuro.PaymentType);
         Assert.Equal(customerId, detailPuro.CustomerPersonId);
         Assert.Equal("Cliente Fiado Query", detailPuro.CustomerName);
@@ -261,7 +260,7 @@ public class PdvQueryCharacterizationTests
             CashReceived = 5,
         });
 
-        var detailMisto = PdvService.GetSaleDetailLocal(misto.SaleId);
+        var detailMisto = PdvQueryService.GetSaleDetailLocal(misto.SaleId);
         Assert.Equal("DIN+Fiado", detailMisto.PaymentType);
         Assert.Equal(2, detailMisto.Payments.Count);
         Assert.Contains(detailMisto.Payments, x => x.PaymentType == "Dinheiro" && x.Amount == 5);
@@ -280,7 +279,7 @@ public class PdvQueryCharacterizationTests
         var sale = TestDataHelper.FinalizeSimpleCashSale(p, 1, 10, 10);
         PdvService.CancelSale(sale.SaleId);
 
-        var detail = PdvService.GetSaleDetailLocal(sale.SaleId);
+        var detail = PdvQueryService.GetSaleDetailLocal(sale.SaleId);
         Assert.True(detail.Cancelled);
         Assert.Equal(10, detail.Total);
         Assert.Single(detail.Items);
@@ -295,7 +294,7 @@ public class PdvQueryCharacterizationTests
         using var db = TempDatabase.Create();
         EnsureStandalone();
 
-        var ex = Assert.Throws<PdvException>(() => PdvService.GetSaleDetailLocal(999_999));
+        var ex = Assert.Throws<PdvException>(() => PdvQueryService.GetSaleDetailLocal(999_999));
         Assert.Equal("Venda não encontrada.", ex.Message);
     }
 
@@ -330,7 +329,7 @@ public class PdvQueryCharacterizationTests
             CustomerPersonId = customerId,
         });
 
-        var resumo = PdvService.GetResumoDiaLocal();
+        var resumo = PdvQueryService.GetResumoDiaLocal();
 
         Assert.True(resumo.CaixaOpen);
         Assert.Equal(80, resumo.EntradaCaixa);
@@ -369,7 +368,7 @@ public class PdvQueryCharacterizationTests
         var cancel = TestDataHelper.FinalizeSimpleCashSale(p, 2, 10, 20);
         PdvService.CancelSale(cancel.SaleId);
 
-        var resumo = PdvService.GetResumoDiaLocal();
+        var resumo = PdvQueryService.GetResumoDiaLocal();
         Assert.Equal(10, resumo.Faturamento);
         Assert.Equal(1, resumo.QtdVendas);
         Assert.Equal(1, resumo.QtdCancelados); // 1 item na venda cancelada → +1 por linha do JOIN
@@ -378,13 +377,13 @@ public class PdvQueryCharacterizationTests
         Assert.Contains(resumo.TopProdutos, t => t.ProductName == "Cancel Resumo" && t.Qty == 1 && t.Total == 10);
 
         // Sale ativa ainda listável
-        Assert.Contains(PdvService.ListSalesLocal(includeCancelled: false), r => r.Id == keep.SaleId);
+        Assert.Contains(PdvQueryService.ListSalesLocal(includeCancelled: false), r => r.Id == keep.SaleId);
     }
 
-    // ——— Paridade facade ↔ Local (standalone) ———
+    // ——— Paridade público ↔ Local (standalone) ———
 
     [Fact]
-    public void Paridade_FacadesIguaisAosLocal_EmStandalone()
+    public void Paridade_PublicoIgualAosLocal_EmStandalone()
     {
         using var db = TempDatabase.Create();
         EnsureStandalone();
@@ -393,39 +392,38 @@ public class PdvQueryCharacterizationTests
         var p = TestDataHelper.SeedSimpleProduct(30, 10, 4, "PAR", "Paridade");
         var sale = FinalizeMixed(p, dinheiro: 6, pix: 4);
 
-        var listLocal = PdvService.ListSalesLocal(includeCancelled: true);
-        var listFacade = PdvService.ListSales(includeCancelled: true);
-        Assert.Equal(listLocal.Count, listFacade.Count);
+        var listLocal = PdvQueryService.ListSalesLocal(includeCancelled: true);
+        var listPublic = PdvQueryService.ListSales(includeCancelled: true);
+        Assert.Equal(listLocal.Count, listPublic.Count);
         for (var i = 0; i < listLocal.Count; i++)
         {
-            Assert.Equal(listLocal[i].Id, listFacade[i].Id);
-            Assert.Equal(listLocal[i].Total, listFacade[i].Total);
-            Assert.Equal(listLocal[i].PaymentType, listFacade[i].PaymentType);
-            Assert.Equal(listLocal[i].Cancelled, listFacade[i].Cancelled);
-            Assert.Equal(listLocal[i].ItemsCount, listFacade[i].ItemsCount);
+            Assert.Equal(listLocal[i].Id, listPublic[i].Id);
+            Assert.Equal(listLocal[i].Total, listPublic[i].Total);
+            Assert.Equal(listLocal[i].PaymentType, listPublic[i].PaymentType);
+            Assert.Equal(listLocal[i].Cancelled, listPublic[i].Cancelled);
+            Assert.Equal(listLocal[i].ItemsCount, listPublic[i].ItemsCount);
         }
 
-        var detailLocal = PdvService.GetSaleDetailLocal(sale.SaleId);
-        var detailFacade = PdvService.GetSaleDetail(sale.SaleId);
-        Assert.Equal(detailLocal.Id, detailFacade.Id);
-        Assert.Equal(detailLocal.Total, detailFacade.Total);
-        Assert.Equal(detailLocal.PaymentType, detailFacade.PaymentType);
-        Assert.Equal(detailLocal.Payments.Count, detailFacade.Payments.Count);
-        Assert.Equal(detailLocal.Items.Count, detailFacade.Items.Count);
+        var detailLocal = PdvQueryService.GetSaleDetailLocal(sale.SaleId);
+        var detailPublic = PdvQueryService.GetSaleDetail(sale.SaleId);
+        Assert.Equal(detailLocal.Id, detailPublic.Id);
+        Assert.Equal(detailLocal.Total, detailPublic.Total);
+        Assert.Equal(detailLocal.PaymentType, detailPublic.PaymentType);
+        Assert.Equal(detailLocal.Payments.Count, detailPublic.Payments.Count);
+        Assert.Equal(detailLocal.Items.Count, detailPublic.Items.Count);
 
-        var resumoLocal = PdvService.GetResumoDiaLocal();
-        var resumoFacade = PdvService.GetResumoDia();
-        Assert.Equal(resumoLocal.Faturamento, resumoFacade.Faturamento);
-        Assert.Equal(resumoLocal.QtdVendas, resumoFacade.QtdVendas);
-        Assert.Equal(resumoLocal.TicketMedio, resumoFacade.TicketMedio);
-        Assert.Equal(resumoLocal.Formas.Count, resumoFacade.Formas.Count);
-        Assert.Equal(resumoLocal.EntradaCaixa, resumoFacade.EntradaCaixa);
-        Assert.Equal(resumoLocal.CaixaOpen, resumoFacade.CaixaOpen);
+        var resumoLocal = PdvQueryService.GetResumoDiaLocal();
+        var resumoPublic = PdvQueryService.GetResumoDia();
+        Assert.Equal(resumoLocal.Faturamento, resumoPublic.Faturamento);
+        Assert.Equal(resumoLocal.QtdVendas, resumoPublic.QtdVendas);
+        Assert.Equal(resumoLocal.TicketMedio, resumoPublic.TicketMedio);
+        Assert.Equal(resumoLocal.Formas.Count, resumoPublic.Formas.Count);
+        Assert.Equal(resumoLocal.EntradaCaixa, resumoPublic.EntradaCaixa);
+        Assert.Equal(resumoLocal.CaixaOpen, resumoPublic.CaixaOpen);
     }
 
     /// <summary>
-    /// Documenta que GetResumoDiaLocal monta formas via ListSales (facade),
-    /// e em standalone isso equivale a ListSalesLocal — risco a corrigir na extração.
+    /// GetResumoDiaLocal monta formas via ListSalesLocal (ETAPA 30).
     /// </summary>
     [Fact]
     public void GetResumoDiaLocal_FormasEquivalentesAListSalesLocal_Standalone()
@@ -438,8 +436,8 @@ public class PdvQueryCharacterizationTests
         TestDataHelper.FinalizeSimpleCashSale(p, 1, 10, 10);
         FinalizePix(p, 1, 10);
 
-        var resumo = PdvService.GetResumoDiaLocal();
-        var list = PdvService.ListSalesLocal(includeCancelled: false);
+        var resumo = PdvQueryService.GetResumoDiaLocal();
+        var list = PdvQueryService.ListSalesLocal(includeCancelled: false);
         Assert.Equal(list.Count, resumo.QtdVendas);
         Assert.Equal(list.Sum(r => r.Total), resumo.Formas.Sum(f => f.Total));
     }

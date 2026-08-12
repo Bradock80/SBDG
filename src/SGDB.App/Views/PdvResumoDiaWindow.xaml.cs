@@ -15,7 +15,7 @@ public partial class PdvResumoDiaWindow : Window
 
     private void LoadData()
     {
-        var resumo = PdvService.GetResumoDia();
+        var resumo = PdvQueryService.GetResumoDia();
 
         TitleText.Text = resumo.SessionDate.Contains(" a ", StringComparison.Ordinal)
             ? $"Resumo do turno — {resumo.SessionDate}"

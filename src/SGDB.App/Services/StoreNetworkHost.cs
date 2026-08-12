@@ -797,7 +797,7 @@ public sealed class StoreNetworkHost : IDisposable
             if (path.Equals("/api/pdv/resumo", StringComparison.OrdinalIgnoreCase) && ex.Method == "GET")
             {
                 DateTime? day = ParseDate(ex.Query["date"]);
-                WriteJson(ex, 200, PdvService.GetResumoDiaLocal(day));
+                WriteJson(ex, 200, PdvQueryService.GetResumoDiaLocal(day));
                 return;
             }
 
@@ -805,7 +805,7 @@ public sealed class StoreNetworkHost : IDisposable
             {
                 DateTime? day = ParseDate(ex.Query["date"]);
                 var includeCancelled = (ex.Query["includeCancelled"] ?? "1") is not ("0" or "false" or "False");
-                var list = PdvService.ListSalesLocal(day, includeCancelled);
+                var list = PdvQueryService.ListSalesLocal(day, includeCancelled);
                 WriteJson(ex, 200, new { ok = true, items = list });
                 return;
             }
@@ -815,7 +815,7 @@ public sealed class StoreNetworkHost : IDisposable
                 var idPart = path["/api/pdv/sales/".Length..];
                 if (int.TryParse(idPart, out var saleId))
                 {
-                    WriteJson(ex, 200, PdvService.GetSaleDetailLocal(saleId));
+                    WriteJson(ex, 200, PdvQueryService.GetSaleDetailLocal(saleId));
                     return;
                 }
             }
