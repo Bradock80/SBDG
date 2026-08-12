@@ -415,7 +415,11 @@ public sealed class DeckCompanionHost : IDisposable
 
                         OpenTabItemRow item;
                         if (body.TryGetInt("productId", out var productId) && productId > 0)
-                            item = OpenTabService.AddProduct(tabId, productId, qty);
+                        {
+                            // unitPrice / stockUnitsPerSale do body são ignorados de propósito.
+                            var mode = body.GetString("mode");
+                            item = DeckCompanionSaleHelper.AddByProductId(tabId, productId, qty, mode);
+                        }
                         else
                         {
                             var term = body.GetString("term") ?? "";
@@ -477,16 +481,8 @@ public sealed class DeckCompanionHost : IDisposable
             if (path.Equals("/api/products", StringComparison.OrdinalIgnoreCase) && ex.Method == "GET")
             {
                 var q = ex.Query["q"] ?? "";
-                var products = PdvService.SearchProducts(q, 25).Select(p => new
-                {
-                    id = p.Id,
-                    code = p.Code,
-                    barcode = p.Barcode,
-                    name = p.Name,
-                    unit = p.Unit,
-                    price = p.SalePrice,
-                    priceDisplay = ProductPriceHelper.MoneyBr(p.SalePrice),
-                });
+                var products = PdvService.SearchProducts(q, 25)
+                    .Select(DeckCompanionSaleHelper.MapProductForApi);
                 WriteJson(ex, 200, new { ok = true, products });
                 return;
             }

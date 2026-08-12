@@ -194,12 +194,27 @@ internal static class DeckCompanionHtml
   </div>
 </div>
 
+<div id="modeModal" class="modal-bg hidden">
+  <div class="modal">
+    <h3 id="modeProductName">Produto</h3>
+    <p class="muted" style="margin:0 0 12px">Escolha a modalidade</p>
+    <button class="btn-ok" id="btnModeAvulso" type="button" style="width:100%;margin-bottom:8px;min-height:64px;font-size:16px">
+      AVULSO<br/><span id="modeAvulsoPrice" style="font-weight:500;font-size:15px"></span>
+    </button>
+    <button class="btn" id="btnModeMaco" type="button" style="width:100%;min-height:64px;font-size:16px;background:#1e3a5f;color:#fff">
+      MAÇO<br/><span id="modeMacoPrice" style="font-weight:500;font-size:15px"></span>
+    </button>
+    <button class="btn-secondary" id="btnModeCancel" type="button" style="width:100%;margin-top:10px">Cancelar</button>
+  </div>
+</div>
+
 <script>
 const state = {
   pin: localStorage.getItem('deckPin') || '',
   deckId: null,
   selectedProduct: null,
-  pendingTable: null
+  pendingTable: null,
+  pendingModeProduct: null
 };
 
 function $(id){ return document.getElementById(id); }
@@ -430,13 +445,23 @@ async function runSuggest(){
     if (!list.length) { $('suggest').classList.add('hidden'); return; }
     $('suggest').classList.remove('hidden');
     $('suggest').innerHTML = list.map(p => `
-      <div data-id="${p.id}" data-name="${escapeAttr(p.name)}" data-price="${escapeAttr(p.priceDisplay)}">
+      <div data-id="${p.id}" data-name="${escapeAttr(p.name)}"
+           data-price="${escapeAttr(p.priceDisplay)}"
+           data-allows="${p.allowsAvulso ? 1 : 0}"
+           data-pav="${escapeAttr(String(p.precoAvulso ?? 0))}"
+           data-pmaco="${escapeAttr(String(p.precoMaco ?? p.price ?? 0))}">
         <div style="font-weight:600">${escapeHtml(p.name)}</div>
-        <div class="muted">${escapeHtml(p.code||'')} · ${escapeHtml(p.priceDisplay)}</div>
+        <div class="muted">${escapeHtml(p.code||'')} · ${escapeHtml(p.priceDisplay)}${p.allowsAvulso ? ' · Avulso/Maço' : ''}</div>
       </div>`).join('');
     $('suggest').querySelectorAll('div[data-id]').forEach(el => {
       el.onclick = () => {
-        state.selectedProduct = { id:+el.dataset.id, name: el.dataset.name };
+        state.selectedProduct = {
+          id: +el.dataset.id,
+          name: el.dataset.name,
+          allowsAvulso: el.dataset.allows === '1',
+          precoAvulso: parseFloat(el.dataset.pav) || 0,
+          precoMaco: parseFloat(el.dataset.pmaco) || 0
+        };
         $('prodSearch').value = el.dataset.name;
         $('suggest').classList.add('hidden');
       };
@@ -444,27 +469,64 @@ async function runSuggest(){
   } catch { $('suggest').classList.add('hidden'); }
 }
 
+function moneyBr(v){
+  try { return 'R$ ' + Number(v).toFixed(2).replace('.',','); } catch { return 'R$ ' + v; }
+}
+
+function openModeModal(product){
+  state.pendingModeProduct = product;
+  $('modeProductName').textContent = product.name || 'Produto';
+  $('modeAvulsoPrice').textContent = moneyBr(product.precoAvulso);
+  $('modeMacoPrice').textContent = moneyBr(product.precoMaco);
+  $('modeModal').classList.remove('hidden');
+}
+
+function closeModeModal(){
+  state.pendingModeProduct = null;
+  $('modeModal').classList.add('hidden');
+}
+
+async function postAddItem(body){
+  const data = await api('/api/decks/' + state.deckId + '/items', {
+    method:'POST', body: JSON.stringify(body)
+  });
+  $('prodSearch').value = '';
+  $('prodQty').value = '1';
+  state.selectedProduct = null;
+  $('suggest').classList.add('hidden');
+  showOk('addMsg', 'Lançado: ' + (data.item?.name || 'item'));
+  await refreshDeck();
+}
+
 async function addItem(){
   $('addErr').classList.add('hidden');
   const qty = parseFloat(($('prodQty').value||'1').replace(',','.')) || 1;
   try {
-    let body;
     if (state.selectedProduct && state.selectedProduct.id) {
-      body = { productId: state.selectedProduct.id, qty };
-    } else {
-      const term = ($('prodSearch').value||'').trim();
-      if (!term) { showErr('addErr','Busque e escolha um produto.'); return; }
-      body = { term, qty };
+      const p = state.selectedProduct;
+      if (p.allowsAvulso) {
+        openModeModal(p);
+        return;
+      }
+      // Cigarro sem avulso ou comum: Host resolve (cigarro → MAÇO).
+      await postAddItem({ productId: p.id, qty });
+      return;
     }
-    const data = await api('/api/decks/' + state.deckId + '/items', {
-      method:'POST', body: JSON.stringify(body)
-    });
-    $('prodSearch').value = '';
-    $('prodQty').value = '1';
-    state.selectedProduct = null;
-    $('suggest').classList.add('hidden');
-    showOk('addMsg', 'Lançado: ' + (data.item?.name || 'item'));
-    await refreshDeck();
+    const term = ($('prodSearch').value||'').trim();
+    if (!term) { showErr('addErr','Busque e escolha um produto.'); return; }
+    // Scan/term legado: sem escolha Avulso nesta etapa.
+    await postAddItem({ term, qty });
+  } catch(e) { showErr('addErr', e.message); }
+}
+
+async function confirmMode(mode){
+  const p = state.pendingModeProduct;
+  if (!p || !p.id) { closeModeModal(); return; }
+  const qty = parseFloat(($('prodQty').value||'1').replace(',','.')) || 1;
+  closeModeModal();
+  $('addErr').classList.add('hidden');
+  try {
+    await postAddItem({ productId: p.id, qty, mode });
   } catch(e) { showErr('addErr', e.message); }
 }
 
@@ -481,6 +543,9 @@ $('newName').addEventListener('keydown', e => { if (e.key==='Enter') createDeck(
 $('btnOpenCancel').onclick = () => { $('openModal').classList.add('hidden'); state.pendingTable = null; };
 $('btnOpenConfirm').onclick = confirmOpenMesa;
 $('openClientName').addEventListener('keydown', e => { if (e.key==='Enter') confirmOpenMesa(); });
+$('btnModeAvulso').onclick = () => confirmMode('AVULSO');
+$('btnModeMaco').onclick = () => confirmMode('MACO');
+$('btnModeCancel').onclick = closeModeModal;
 $('btnBack').onclick = async () => { show('viewList'); await loadDecks(); };
 $('btnNewFromDeck').onclick = async () => {
   show('viewList');
