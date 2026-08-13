@@ -1,7 +1,9 @@
+using System.Globalization;
 using System.Text.RegularExpressions;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
+using SGDB.Domain.Inventory;
 using SGDB.Models;
 using SGDB.Services;
 using SGDB.Utils;
@@ -17,6 +19,9 @@ public partial class InventoryModuleView : UserControl
     private bool _onlyDivergences;
     private bool _suppressSearch;
     private bool _processingScan;
+    private bool _suppressPackLoose;
+    private bool _cigarettePackMode;
+    private int _activePackFactor;
 
     public InventoryModuleView()
     {
@@ -32,7 +37,12 @@ public partial class InventoryModuleView : UserControl
         };
     }
 
-    private void ResetCountDefault() => CountBox.Text = "1";
+    private void ResetCountDefault()
+    {
+        CountBox.Text = "1";
+        SetPackLooseFields(0, 0);
+        UpdatePhysicalTotalLabel();
+    }
 
     private void Refresh(string? keepSearch = null)
     {
@@ -43,6 +53,7 @@ public partial class InventoryModuleView : UserControl
             SummaryText.Text = "";
             _allRows = [];
             _rows = [];
+            ShowCommonCountUi();
             return;
         }
 
@@ -123,12 +134,45 @@ public partial class InventoryModuleView : UserControl
             return;
         }
 
-        var delta = ProductPriceHelper.ParseBr(CountBox.Text);
-        if (delta <= 0) delta = 1;
+        double newQty;
+        if (addMode)
+        {
+            // Bipe = +1 unidade física (nunca interpreta como maço).
+            var delta = ProductPriceHelper.ParseBr(CountBox.Text);
+            if (delta <= 0) delta = 1;
+            newQty = (item.CountedQty ?? 0) + delta;
+        }
+        else if (_cigarettePackMode
+                 && TryResolveCigarettePackMode(item, out var factor)
+                 && IsPackLooseEligibleCounted(item.CountedQty))
+        {
+            // Só usa Maços/Avulsos quando a UI já está nesse modo (produto selecionado).
+            // Busca+Enter sem seleção continua no caminho físico (CountBox), preservando o padrão 1 UN.
+            if (!TryReadPackLoose(out var packs, out var loose, out var error))
+            {
+                MessageBox.Show(error, "Inventário", MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
 
-        var newQty = addMode
-            ? (item.CountedQty ?? 0) + delta
-            : delta;
+            try
+            {
+                var normalized = InventoryPhysicalQuantityCalculator.Normalize(packs, loose, factor);
+                SetPackLooseFields(normalized.Packs, normalized.Loose);
+                newQty = InventoryPhysicalQuantityCalculator.Calculate(normalized.Packs, normalized.Loose, factor);
+                UpdatePhysicalTotalLabel();
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(ex.Message, "Inventário", MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
+        }
+        else
+        {
+            var delta = ProductPriceHelper.ParseBr(CountBox.Text);
+            if (delta <= 0) delta = 1;
+            newQty = delta;
+        }
 
         try
         {
@@ -140,7 +184,10 @@ public partial class InventoryModuleView : UserControl
             Refresh();
             var shown = _rows.FirstOrDefault(r => r.Id == item.Id);
             if (shown is not null)
+            {
                 ItemsGrid.SelectedItem = shown;
+                ApplySelectionUi(shown);
+            }
             SearchBox.Focus();
         }
         catch (Exception ex)
@@ -271,10 +318,216 @@ public partial class InventoryModuleView : UserControl
     {
         if (_processingScan) return;
         if (ItemsGrid.SelectedItem is InventoryItem row)
+            ApplySelectionUi(row);
+    }
+
+    private void ApplySelectionUi(InventoryItem row)
+    {
+        if (TryResolveCigarettePackMode(row, out var factor)
+            && IsPackLooseEligibleCounted(row.CountedQty))
         {
-            // Mantém qtd padrão 1 para bipagem; se já contado, mostra o valor atual para edição manual
-            CountBox.Text = row.IsCounted ? row.CountedDisplay : "1";
+            ShowCigaretteCountUi(row, factor);
+            return;
         }
+
+        // Cigarro com counted decimal legado: modo físico normal (não trunca silenciosamente).
+        ShowCommonCountUi(row.IsCounted
+            ? "Contagem com decimal — use Qtd contada (unidades físicas)."
+            : null);
+        CountBox.Text = row.IsCounted ? row.CountedDisplay : "1";
+    }
+
+    private void ShowCommonCountUi(string? hint = null)
+    {
+        _cigarettePackMode = false;
+        _activePackFactor = 0;
+        CommonCountPanel.Visibility = Visibility.Visible;
+        CigaretteCountPanel.Visibility = Visibility.Collapsed;
+        if (string.IsNullOrWhiteSpace(hint))
+        {
+            StockHintText.Visibility = Visibility.Collapsed;
+            StockHintText.Text = "";
+        }
+        else
+        {
+            StockHintText.Text = hint;
+            StockHintText.Visibility = Visibility.Visible;
+        }
+    }
+
+    private void ShowCigaretteCountUi(InventoryItem row, int factor)
+    {
+        _cigarettePackMode = true;
+        _activePackFactor = factor;
+        CommonCountPanel.Visibility = Visibility.Collapsed;
+        CigaretteCountPanel.Visibility = Visibility.Visible;
+
+        var theoretical = row.TheoreticalQty;
+        var theoText = FormatStockLine(theoretical, factor);
+        StockHintText.Text = $"Estoque atual (teórico): {theoText}";
+        StockHintText.Visibility = Visibility.Visible;
+
+        if (row.CountedQty is double counted && InventoryPhysicalQuantityCalculator.IsWholeNumber(counted))
+        {
+            var split = InventoryPhysicalQuantityCalculator.SplitPhysicalQuantity(counted, factor);
+            SetPackLooseFields(split.Packs, split.Loose);
+        }
+        else
+        {
+            SetPackLooseFields(0, 0);
+        }
+
+        UpdatePhysicalTotalLabel();
+    }
+
+    private static string FormatStockLine(double physical, int factor)
+    {
+        var qtyText = InventoryPhysicalQuantityCalculator.IsWholeNumber(physical)
+            ? ((long)Math.Round(physical)).ToString(CultureInfo.CurrentCulture)
+            : physical.ToString("0.####", CultureInfo.CurrentCulture);
+
+        if (!InventoryPhysicalQuantityCalculator.IsWholeNumber(physical) || physical < 0)
+            return $"{qtyText} UN";
+
+        try
+        {
+            var split = InventoryPhysicalQuantityCalculator.SplitPhysicalQuantity(physical, factor);
+            return $"{qtyText} UN · {split.Packs} maços + {split.Loose} avulsos";
+        }
+        catch
+        {
+            return $"{qtyText} UN";
+        }
+    }
+
+    private static bool TryResolveCigarettePackMode(InventoryItem item, out int factor)
+    {
+        factor = 0;
+        var product = ProductService.GetById(item.ProductId);
+        if (product is null)
+            return false;
+
+        if (!ProductClassificationHelper.IsCigarette(product.Name, product.GroupName))
+            return false;
+
+        var fator = ProductExtra.Parse(product.ExtraJson).FatorEmbalagem;
+        return InventoryPhysicalQuantityCalculator.TryResolveFactor(fator, out factor);
+    }
+
+    /// <summary>
+    /// Maços/Avulsos só se não houver contagem OU contagem inteira.
+    /// Contagem decimal legada → modo Qtd contada (sem truncar).
+    /// </summary>
+    private static bool IsPackLooseEligibleCounted(double? countedQty)
+    {
+        if (countedQty is null)
+            return true;
+        return InventoryPhysicalQuantityCalculator.IsWholeNumber(countedQty.Value);
+    }
+
+    private bool TryReadPackLoose(out long packs, out long loose, out string error)
+    {
+        packs = 0;
+        loose = 0;
+        error = "";
+
+        if (!TryParseNonNegativeInt(PacksBox.Text, out packs))
+        {
+            error = "Maços deve ser um número inteiro ≥ 0 (sem decimais).";
+            return false;
+        }
+
+        if (!TryParseNonNegativeInt(LooseBox.Text, out loose))
+        {
+            error = "Avulsos deve ser um número inteiro ≥ 0 (sem decimais).";
+            return false;
+        }
+
+        return true;
+    }
+
+    private static bool TryParseNonNegativeInt(string? text, out long value)
+    {
+        value = 0;
+        var raw = (text ?? "").Trim();
+        if (string.IsNullOrEmpty(raw))
+        {
+            value = 0;
+            return true;
+        }
+
+        if (raw.Contains(',') || raw.Contains('.'))
+            return false;
+
+        if (!long.TryParse(raw, NumberStyles.None, CultureInfo.InvariantCulture, out value))
+            return false;
+
+        return value >= 0;
+    }
+
+    private void SetPackLooseFields(long packs, long loose)
+    {
+        _suppressPackLoose = true;
+        PacksBox.Text = packs.ToString(CultureInfo.InvariantCulture);
+        LooseBox.Text = loose.ToString(CultureInfo.InvariantCulture);
+        _suppressPackLoose = false;
+    }
+
+    private void PackLoose_TextChanged(object sender, TextChangedEventArgs e)
+    {
+        if (_suppressPackLoose || !_cigarettePackMode)
+            return;
+
+        // Normalização visual quando avulsos ≥ fator (sem mensagem de erro).
+        if (TryReadPackLoose(out var packs, out var loose, out _)
+            && _activePackFactor >= 2
+            && loose >= _activePackFactor)
+        {
+            try
+            {
+                var n = InventoryPhysicalQuantityCalculator.Normalize(packs, loose, _activePackFactor);
+                if (n.Packs != packs || n.Loose != loose)
+                    SetPackLooseFields(n.Packs, n.Loose);
+            }
+            catch
+            {
+                // overflow: deixa o rótulo de total mostrar o problema no Registrar
+            }
+        }
+
+        UpdatePhysicalTotalLabel();
+    }
+
+    private void UpdatePhysicalTotalLabel()
+    {
+        if (!_cigarettePackMode || _activePackFactor < 2)
+        {
+            PhysicalTotalText.Text = "Total físico: —";
+            return;
+        }
+
+        if (!TryReadPackLoose(out var packs, out var loose, out _))
+        {
+            PhysicalTotalText.Text = "Total físico: —";
+            return;
+        }
+
+        try
+        {
+            var total = InventoryPhysicalQuantityCalculator.Calculate(packs, loose, _activePackFactor);
+            PhysicalTotalText.Text = $"Total físico: {total:0.####} UN";
+        }
+        catch
+        {
+            PhysicalTotalText.Text = "Total físico: —";
+        }
+    }
+
+    private void PackLoose_KeyDown(object sender, KeyEventArgs e)
+    {
+        if (e.Key != Key.Enter) return;
+        e.Handled = true;
+        RegisterCount(addMode: false);
     }
 
     private void SearchBox_KeyDown(object sender, KeyEventArgs e)
@@ -297,6 +550,19 @@ public partial class InventoryModuleView : UserControl
         if (_rows.Count == 1)
         {
             ItemsGrid.SelectedItem = _rows[0];
+            FocusActiveCountField();
+        }
+    }
+
+    private void FocusActiveCountField()
+    {
+        if (_cigarettePackMode)
+        {
+            PacksBox.Focus();
+            PacksBox.SelectAll();
+        }
+        else
+        {
             CountBox.Focus();
             CountBox.SelectAll();
         }
