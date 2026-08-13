@@ -9,6 +9,12 @@ namespace SGDB.Services;
 
 public static class StockService
 {
+    /// <summary>
+    /// Somente testes: invocado no início de <see cref="Adjust(SqliteConnection, SqliteTransaction, int, StockAdjustMode, double?, double?, string?, double?)"/>.
+    /// Deve permanecer null em produção.
+    /// </summary>
+    public static Action<int>? TestBeforeTransactionalAdjust { get; set; }
+
     public static StockAdjustResult Adjust(
         int productId,
         StockAdjustMode mode,
@@ -33,7 +39,39 @@ public static class StockService
         StoreNetworkMode.EnsureLocalMutationAllowed("ajustar estoque");
         using var conn = DatabaseService.OpenConnection();
         using var tx = conn.BeginTransaction();
+        var result = AdjustCore(conn, tx, productId, mode, quantity, newStock, notes, unitCost);
+        tx.Commit();
+        return result;
+    }
 
+    /// <summary>
+    /// Ajuste na conexão/transação externas. Não abre conexão, não faz Commit nem Rollback.
+    /// </summary>
+    public static StockAdjustResult Adjust(
+        SqliteConnection conn,
+        SqliteTransaction tx,
+        int productId,
+        StockAdjustMode mode,
+        double? quantity = null,
+        double? newStock = null,
+        string? notes = null,
+        double? unitCost = null)
+    {
+        StoreNetworkMode.EnsureLocalMutationAllowed("ajustar estoque");
+        TestBeforeTransactionalAdjust?.Invoke(productId);
+        return AdjustCore(conn, tx, productId, mode, quantity, newStock, notes, unitCost);
+    }
+
+    private static StockAdjustResult AdjustCore(
+        SqliteConnection conn,
+        SqliteTransaction tx,
+        int productId,
+        StockAdjustMode mode,
+        double? quantity,
+        double? newStock,
+        string? notes,
+        double? unitCost)
+    {
         var product = GetProductWithExtra(conn, tx, productId)
             ?? throw new InvalidOperationException("Produto não encontrado.");
 
@@ -50,7 +88,6 @@ public static class StockService
             var delta = Math.Round(target - stockBefore, 4);
             if (Math.Abs(delta) < 1e-9)
             {
-                tx.Commit();
                 return new StockAdjustResult
                 {
                     ProductId = productId,
@@ -129,7 +166,6 @@ public static class StockService
             operation: mode == StockAdjustMode.Saldo ? "ajuste_manual"
                 : mode == StockAdjustMode.Entrada ? "entrada_manual" : "saida_manual",
             unit: null);
-        tx.Commit();
 
         return new StockAdjustResult
         {

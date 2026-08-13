@@ -10,6 +10,12 @@ namespace SGDB.Services;
 /// </summary>
 public static class InventoryService
 {
+    /// <summary>
+    /// Somente testes: invocado imediatamente antes de marcar a sessão como consolidada.
+    /// Deve permanecer null em produção.
+    /// </summary>
+    public static Action? TestBeforeMarkSessionConsolidated { get; set; }
+
     public static InventorySession CreateSession(string? groupName = null, string? notes = null)
     {
         StoreNetworkMode.EnsureLocalMutationAllowed("inventário");
@@ -230,13 +236,36 @@ public static class InventoryService
             cmd.Transaction = tx;
             cmd.CommandText = """
                 SELECT product_id, counted_qty FROM inventory_items
-                WHERE session_id = $session AND counted_qty IS NOT NULL;
+                WHERE session_id = $session AND counted_qty IS NOT NULL
+                ORDER BY product_id;
                 """;
             cmd.Parameters.AddWithValue("$session", sessionId);
             using var reader = cmd.ExecuteReader();
             while (reader.Read())
                 rows.Add((reader.GetInt32(0), reader.GetDouble(1)));
         }
+
+        var adjusted = 0;
+        double totalPositive = 0, totalNegative = 0;
+        foreach (var (productId, counted) in rows)
+        {
+            var result = StockService.Adjust(
+                conn,
+                tx,
+                productId,
+                StockAdjustMode.Saldo,
+                newStock: counted,
+                notes: $"Inventário #{sessionId} — consolidação");
+            if (result.Quantity <= 0)
+                continue;
+            adjusted++;
+            if (result.MovementType == "entrada")
+                totalPositive += result.Quantity;
+            else
+                totalNegative += result.Quantity;
+        }
+
+        TestBeforeMarkSessionConsolidated?.Invoke();
 
         using (var close = conn.CreateCommand())
         {
@@ -251,24 +280,6 @@ public static class InventoryService
         }
 
         tx.Commit();
-
-        var adjusted = 0;
-        double totalPositive = 0, totalNegative = 0;
-        foreach (var (productId, counted) in rows)
-        {
-            var result = StockService.Adjust(
-                productId,
-                StockAdjustMode.Saldo,
-                newStock: counted,
-                notes: $"Inventário #{sessionId} — consolidação");
-            if (result.Quantity <= 0)
-                continue;
-            adjusted++;
-            if (result.MovementType == "entrada")
-                totalPositive += result.Quantity;
-            else
-                totalNegative += result.Quantity;
-        }
 
         return new InventoryConsolidateResult
         {
