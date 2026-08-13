@@ -121,6 +121,8 @@
                     <MenuItem Header="Val. próximo 7 dias" Tag="estoque_validade" Click="MenuModule_Click"/>
                     <MenuItem Header="Validade por lote (30/60/90)" Tag="estoque_validade_lotes" Click="MenuModule_Click"
                               ToolTip="FEFO — lotes próximos do vencimento para promoção"/>
+                    <MenuItem Header="Consistência Estoque × Lotes" Tag="estoque_consistencia_lotes" Click="MenuModule_Click"
+                              ToolTip="Diagnóstico somente leitura: products.stock × soma dos lotes"/>
                 </MenuItem>
             </MenuItem>
             <MenuItem Header="Financeiro">

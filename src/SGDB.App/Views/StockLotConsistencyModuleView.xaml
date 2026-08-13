@@ -1,0 +1,93 @@
+<UserControl x:Class="SGDB.Views.StockLotConsistencyModuleView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             Background="{StaticResource SgdbBgBrush}"
+             Focusable="True"
+             PreviewKeyDown="Root_PreviewKeyDown">
+    <Border BorderBrush="#C8C4BC" BorderThickness="1" Background="White">
+        <Grid>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="*"/>
+                <RowDefinition Height="Auto"/>
+            </Grid.RowDefinitions>
+
+            <Border Grid.Row="0" Padding="10,6" Background="#F0F0F0"
+                    BorderBrush="#C8C4BC" BorderThickness="0,0,0,1">
+                <Grid>
+                    <TextBlock Text="Consistência Estoque × Lotes"
+                               FontWeight="SemiBold" FontSize="13" Foreground="#1E293B"
+                               VerticalAlignment="Center"/>
+                    <Button Style="{StaticResource ModuleTabCloseStyle}"
+                            HorizontalAlignment="Right" Click="Close_Click"/>
+                </Grid>
+            </Border>
+
+            <Border Grid.Row="1" Padding="12,8" Background="#FFFBEB" BorderBrush="#FDE68A"
+                    BorderThickness="0,0,0,1">
+                <TextBlock TextWrapping="Wrap" FontSize="12" Foreground="#78350F" LineHeight="18"
+                           Text="Este relatório é somente leitura. O estoque global é usado pelo PDV. Os lotes são usados para validade/FEFO. Divergências devem ser analisadas antes de qualquer correção."/>
+            </Border>
+
+            <Border Grid.Row="2" Padding="12,8" Background="#F8FAFC" BorderBrush="#E2E8F0"
+                    BorderThickness="0,0,0,1">
+                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                    <CheckBox x:Name="OnlyDivergentBox" Content="Somente divergentes" IsChecked="True"
+                              Margin="0,0,16,0" VerticalAlignment="Center" Checked="Filter_Changed" Unchecked="Filter_Changed"/>
+                    <CheckBox x:Name="OnlyLotsBox" Content="Somente com lotes / controle validade" IsChecked="True"
+                              Margin="0,0,16,0" VerticalAlignment="Center" Checked="Filter_Changed" Unchecked="Filter_Changed"/>
+                    <TextBlock Text="Buscar" VerticalAlignment="Center" Margin="0,0,8,0" FontSize="12" Foreground="#64748B"/>
+                    <TextBox x:Name="SearchBox" Width="220" Height="32" Padding="8,0"
+                             VerticalContentAlignment="Center" Margin="0,0,10,0"
+                             KeyDown="SearchBox_KeyDown"/>
+                    <Button Content="Atualizar (F5)" Style="{StaticResource SgdbPrimaryButtonStyle}"
+                            Height="32" Padding="12,6" Click="Refresh_Click"/>
+                </StackPanel>
+            </Border>
+
+            <DataGrid x:Name="Grid" Grid.Row="3" Margin="10"
+                      AutoGenerateColumns="False" IsReadOnly="True"
+                      CanUserAddRows="False" HeadersVisibility="Column"
+                      GridLinesVisibility="Horizontal" HorizontalGridLinesBrush="#E2E8F0"
+                      BorderBrush="#C8C4BC" BorderThickness="1" Background="White"
+                      RowHeaderWidth="0" RowHeight="32" FontSize="12.5"
+                      AlternatingRowBackground="#F8FAFC">
+                <DataGrid.Columns>
+                    <DataGridTextColumn Header="Código" Binding="{Binding Code}" Width="90"/>
+                    <DataGridTextColumn Header="Produto" Binding="{Binding ProductName}" Width="*"/>
+                    <DataGridTextColumn Header="Estoque global" Binding="{Binding GlobalDisplay}" Width="110"/>
+                    <DataGridTextColumn Header="Soma lotes" Binding="{Binding LotsDisplay}" Width="100"/>
+                    <DataGridTextColumn Header="Diferença" Binding="{Binding DifferenceDisplay}" Width="100"/>
+                    <DataGridTextColumn Header="Tem lotes?" Binding="{Binding HasLotsDisplay}" Width="80"/>
+                    <DataGridTextColumn Header="Controle validade?" Binding="{Binding ExpiryControlDisplay}" Width="120"/>
+                    <DataGridTemplateColumn Header="Situação" Width="130">
+                        <DataGridTemplateColumn.CellTemplate>
+                            <DataTemplate>
+                                <TextBlock Text="{Binding Situation}" FontWeight="SemiBold" HorizontalAlignment="Center">
+                                    <TextBlock.Style>
+                                        <Style TargetType="TextBlock">
+                                            <Setter Property="Foreground" Value="#64748B"/>
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding Tone}" Value="global">
+                                                    <Setter Property="Foreground" Value="#B45309"/>
+                                                </DataTrigger>
+                                                <DataTrigger Binding="{Binding Tone}" Value="lots">
+                                                    <Setter Property="Foreground" Value="#DC2626"/>
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </TextBlock.Style>
+                                </TextBlock>
+                            </DataTemplate>
+                        </DataGridTemplateColumn.CellTemplate>
+                    </DataGridTemplateColumn>
+                </DataGrid.Columns>
+            </DataGrid>
+
+            <TextBlock Grid.Row="4" x:Name="SummaryText" Margin="12,4,12,10"
+                       FontSize="12" Foreground="#475569"/>
+        </Grid>
+    </Border>
+</UserControl>

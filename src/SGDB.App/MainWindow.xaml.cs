@@ -276,6 +276,14 @@ public partial class MainWindow : Window
         UpdateToolbarHighlight();
     }
 
+    private void ShowStockLotConsistencyReport()
+    {
+        var view = new StockLotConsistencyModuleView();
+        view.CloseRequested += (_, _) => ShowHome();
+        MainContent.Content = view;
+        UpdateToolbarHighlight();
+    }
+
     private static string FormatAppVersion(Version v)
     {
         if (v.Build >= 0 && v.Revision > 0)
@@ -711,6 +719,11 @@ public partial class MainWindow : Window
         if (moduleId == "estoque_validade_lotes")
         {
             ShowLotExpiryReport();
+            return;
+        }
+        if (moduleId == "estoque_consistencia_lotes")
+        {
+            ShowStockLotConsistencyReport();
             return;
         }
         if (moduleId == "estoque_mais_vendidos")

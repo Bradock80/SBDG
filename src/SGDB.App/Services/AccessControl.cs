@@ -45,7 +45,7 @@ public static class AccessControl
                 or "estoque_curva_abc" or "estoque_mais_vendidos" or "estoque_menos_vendidos"
                 or "estoque_mais_lucrativos" or "estoque_menos_lucrativos"
                 or "estoque_negativo" or "estoque_minimo" or "estoque_validade"
-                or "estoque_validade_lotes"
+                or "estoque_validade_lotes" or "estoque_consistencia_lotes"
                 => p.RelatoriosAcesso,
 
             "usuarios" or "auditoria" => p.SistemaUsuarios,
