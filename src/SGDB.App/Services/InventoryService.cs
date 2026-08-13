@@ -126,7 +126,8 @@ public static class InventoryService
         using var cmd = conn.CreateCommand();
         var sql = """
             SELECT i.id, i.session_id, i.product_id, IFNULL(p.code,''), IFNULL(p.barcode,''), IFNULL(p.name,''),
-                   IFNULL(p.unit,'UN'), i.theoretical_qty, i.counted_qty, i.notes
+                   IFNULL(p.unit,'UN'), i.theoretical_qty, i.counted_qty, i.notes,
+                   i.counted_at, i.count_baseline_qty
             FROM inventory_items i
             LEFT JOIN products p ON p.id = i.product_id
             WHERE i.session_id = $session
@@ -153,6 +154,8 @@ public static class InventoryService
                 TheoreticalQty = reader.GetDouble(7),
                 CountedQty = reader.IsDBNull(8) ? null : reader.GetDouble(8),
                 Notes = reader.IsDBNull(9) ? null : reader.GetString(9),
+                CountedAt = reader.IsDBNull(10) ? null : reader.GetString(10),
+                CountBaselineQty = reader.IsDBNull(11) ? null : reader.GetDouble(11),
             });
         }
         return list;
@@ -171,15 +174,44 @@ public static class InventoryService
             ?? throw new InvalidOperationException("Item de inventário não encontrado.");
         RequireOpen(conn, tx, sessionId);
 
-        using var cmd = conn.CreateCommand();
-        cmd.Transaction = tx;
-        cmd.CommandText = """
-            UPDATE inventory_items SET counted_qty = $qty, notes = $notes WHERE id = $id;
-            """;
-        cmd.Parameters.AddWithValue("$qty", Math.Round(countedQty, 4));
-        cmd.Parameters.AddWithValue("$notes", (object?)notes ?? DBNull.Value);
-        cmd.Parameters.AddWithValue("$id", itemId);
-        cmd.ExecuteNonQuery();
+        int productId;
+        using (var sel = conn.CreateCommand())
+        {
+            sel.Transaction = tx;
+            sel.CommandText = "SELECT product_id FROM inventory_items WHERE id = $id LIMIT 1;";
+            sel.Parameters.AddWithValue("$id", itemId);
+            productId = Convert.ToInt32(sel.ExecuteScalar()
+                ?? throw new InvalidOperationException("Item de inventário não encontrado."));
+        }
+
+        double currentStock;
+        using (var stockCmd = conn.CreateCommand())
+        {
+            stockCmd.Transaction = tx;
+            stockCmd.CommandText = "SELECT IFNULL(stock, 0) FROM products WHERE id = $id LIMIT 1;";
+            stockCmd.Parameters.AddWithValue("$id", productId);
+            var raw = stockCmd.ExecuteScalar()
+                ?? throw new InvalidOperationException("Produto não encontrado.");
+            currentStock = Convert.ToDouble(raw);
+        }
+
+        using (var cmd = conn.CreateCommand())
+        {
+            cmd.Transaction = tx;
+            cmd.CommandText = """
+                UPDATE inventory_items
+                SET counted_qty = $qty,
+                    notes = $notes,
+                    count_baseline_qty = $baseline,
+                    counted_at = datetime('now','localtime')
+                WHERE id = $id;
+                """;
+            cmd.Parameters.AddWithValue("$qty", Math.Round(countedQty, 4));
+            cmd.Parameters.AddWithValue("$notes", (object?)notes ?? DBNull.Value);
+            cmd.Parameters.AddWithValue("$baseline", Math.Round(currentStock, 4));
+            cmd.Parameters.AddWithValue("$id", itemId);
+            cmd.ExecuteNonQuery();
+        }
 
         tx.Commit();
     }
@@ -230,9 +262,6 @@ public static class InventoryService
 
         RequireOpen(conn, tx, sessionId);
 
-        var openedAt = GetSessionCreatedAt(conn, tx, sessionId)
-            ?? throw new InvalidOperationException("Inventário não encontrado.");
-
         var rows = new List<(int ProductId, double Counted)>();
         using (var cmd = conn.CreateCommand())
         {
@@ -248,7 +277,7 @@ public static class InventoryService
                 rows.Add((reader.GetInt32(0), reader.GetDouble(1)));
         }
 
-        var conflicts = DetectConcurrencyConflicts(conn, tx, sessionId, openedAt);
+        var conflicts = DetectConcurrencyConflicts(conn, tx, sessionId);
         if (conflicts.Count > 0)
             throw new InventoryConcurrencyException(conflicts);
 
@@ -298,14 +327,14 @@ public static class InventoryService
     }
 
     /// <summary>
-    /// Detecta produtos contados cujo stock divergiu do theoretical ou tiveram movement
-    /// desde a abertura da sessão. Sem schema novo (ETAPA 60C).
+    /// ETAPA 60D — conflito relativo à última contagem (count_baseline_qty / counted_at).
+    /// Itens contados sem baseline/timestamp exigem recontagem (legado).
+    /// Movements: created_at &gt; counted_at (não &gt;=).
     /// </summary>
     private static List<InventoryConcurrencyConflict> DetectConcurrencyConflicts(
         SqliteConnection conn,
         SqliteTransaction tx,
-        int sessionId,
-        string openedAt)
+        int sessionId)
     {
         using var cmd = conn.CreateCommand();
         cmd.Transaction = tx;
@@ -315,11 +344,15 @@ public static class InventoryService
                    IFNULL(p.name, ''),
                    i.theoretical_qty,
                    IFNULL(p.stock, 0),
-                   CASE WHEN EXISTS (
+                   i.count_baseline_qty,
+                   i.counted_at,
+                   CASE
+                     WHEN i.counted_at IS NOT NULL AND EXISTS (
                        SELECT 1 FROM movements m
                        WHERE m.product_id = i.product_id
-                         AND m.created_at >= $opened
-                   ) THEN 1 ELSE 0 END
+                         AND m.created_at > i.counted_at
+                     ) THEN 1 ELSE 0
+                   END
             FROM inventory_items i
             LEFT JOIN products p ON p.id = i.product_id
             WHERE i.session_id = $session
@@ -327,7 +360,6 @@ public static class InventoryService
             ORDER BY IFNULL(p.name, ''), i.product_id;
             """;
         cmd.Parameters.AddWithValue("$session", sessionId);
-        cmd.Parameters.AddWithValue("$opened", openedAt);
 
         var conflicts = new List<InventoryConcurrencyConflict>();
         using var reader = cmd.ExecuteReader();
@@ -335,9 +367,16 @@ public static class InventoryService
         {
             var theoretical = reader.GetDouble(3);
             var current = reader.GetDouble(4);
-            var hasMovement = reader.GetInt32(5) != 0;
-            var stockDiverged = Math.Abs(current - theoretical) > InventoryConcurrencyException.StockTolerance;
-            if (!stockDiverged && !hasMovement)
+            var baselineNull = reader.IsDBNull(5);
+            var countedAtNull = reader.IsDBNull(6);
+            var baseline = baselineNull ? (double?)null : reader.GetDouble(5);
+            var countedAt = countedAtNull ? null : reader.GetString(6);
+            var hasMovement = reader.GetInt32(7) != 0;
+            var requiresRecount = baselineNull || countedAtNull;
+            var stockDiverged = !requiresRecount
+                && Math.Abs(current - baseline!.Value) > InventoryConcurrencyException.StockTolerance;
+
+            if (!requiresRecount && !stockDiverged && !hasMovement)
                 continue;
 
             conflicts.Add(new InventoryConcurrencyConflict
@@ -347,19 +386,14 @@ public static class InventoryService
                 ProductName = reader.GetString(2),
                 TheoreticalQty = theoretical,
                 CurrentStock = current,
-                HasMovementSinceOpen = hasMovement,
+                CountBaselineQty = baseline,
+                CountedAt = countedAt,
+                RequiresRecount = requiresRecount,
+                StockDivergedFromBaseline = stockDiverged,
+                HasMovementSinceCount = hasMovement,
             });
         }
         return conflicts;
-    }
-
-    private static string? GetSessionCreatedAt(SqliteConnection conn, SqliteTransaction tx, int sessionId)
-    {
-        using var cmd = conn.CreateCommand();
-        cmd.Transaction = tx;
-        cmd.CommandText = "SELECT created_at FROM inventory_sessions WHERE id = $id LIMIT 1;";
-        cmd.Parameters.AddWithValue("$id", sessionId);
-        return cmd.ExecuteScalar() as string;
     }
 
     public static void Cancel(int sessionId)

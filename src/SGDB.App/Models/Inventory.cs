@@ -33,6 +33,10 @@ public sealed class InventoryItem
     public double TheoreticalQty { get; init; }
     public double? CountedQty { get; init; }
     public string? Notes { get; init; }
+    /// <summary>Momento da última contagem (ETAPA 60D). Null = legado / recontagem necessária.</summary>
+    public string? CountedAt { get; init; }
+    /// <summary>products.stock no momento da última contagem.</summary>
+    public double? CountBaselineQty { get; init; }
 
     public double? Difference => CountedQty is double c ? Math.Round(c - TheoreticalQty, 3) : null;
     public bool IsCounted => CountedQty is not null;
@@ -78,7 +82,7 @@ public sealed class InventoryConsolidateResult
     public double TotalNegativeQty { get; init; }
 }
 
-/// <summary>Produto contado cujo estoque mudou após a abertura da sessão de inventário.</summary>
+/// <summary>Produto contado com conflito relativo à última contagem (ETAPA 60D).</summary>
 public sealed class InventoryConcurrencyConflict
 {
     public int ProductId { get; init; }
@@ -86,12 +90,20 @@ public sealed class InventoryConcurrencyConflict
     public string ProductName { get; init; } = "";
     public double TheoreticalQty { get; init; }
     public double CurrentStock { get; init; }
-    public bool HasMovementSinceOpen { get; init; }
+    public double? CountBaselineQty { get; init; }
+    public string? CountedAt { get; init; }
+    /// <summary>Item contado sem baseline/counted_at (legado) — exige recontagem.</summary>
+    public bool RequiresRecount { get; init; }
+    public bool StockDivergedFromBaseline { get; init; }
+    /// <summary>Houve movement com created_at &gt; counted_at.</summary>
+    public bool HasMovementSinceCount { get; init; }
+    /// <summary>Compatível com testes 60C: movement após a referência temporal do item.</summary>
+    public bool HasMovementSinceOpen => HasMovementSinceCount;
 }
 
 /// <summary>
-/// Consolidação bloqueada: estoque ou movement mudou durante a contagem.
-/// A sessão permanece aberta; nenhum ajuste é aplicado.
+/// Consolidação bloqueada: estoque ou movement mudou após a última contagem do item,
+/// ou o item legado precisa ser recontado. Sessão permanece aberta.
 /// </summary>
 public sealed class InventoryConcurrencyException : InvalidOperationException
 {
@@ -111,7 +123,7 @@ public sealed class InventoryConcurrencyException : InvalidOperationException
         {
             "Não foi possível consolidar o inventário.",
             "",
-            "Houve movimentação de estoque durante a contagem.",
+            "Houve movimentação de estoque durante a contagem, ou algum item precisa ser recontado.",
             "",
             "Produtos afetados:",
         };
@@ -120,10 +132,14 @@ public sealed class InventoryConcurrencyException : InvalidOperationException
             var label = string.IsNullOrWhiteSpace(c.ProductCode)
                 ? c.ProductName
                 : $"{c.ProductCode} — {c.ProductName}";
-            lines.Add($"- {label}");
+            if (c.RequiresRecount)
+                lines.Add($"- {label} (este item precisa ser recontado antes da consolidação)");
+            else
+                lines.Add($"- {label}");
         }
         lines.Add("");
-        lines.Add("Para evitar sobrescrever vendas/compras, cancele este inventário e abra uma nova contagem.");
+        lines.Add("Reconte os produtos abaixo e registre novamente.");
+        lines.Add("Depois tente consolidar outra vez.");
         return string.Join(Environment.NewLine, lines);
     }
 }

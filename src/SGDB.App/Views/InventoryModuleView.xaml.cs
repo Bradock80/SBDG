@@ -291,7 +291,7 @@ public partial class InventoryModuleView : UserControl
         }
         catch (InventoryConcurrencyException ex)
         {
-            MessageBox.Show(ex.Message, "Inventário — movimentação durante a contagem",
+            MessageBox.Show(ex.Message, "Inventário — recontagem necessária",
                 MessageBoxButton.OK, MessageBoxImage.Warning);
             Refresh();
         }

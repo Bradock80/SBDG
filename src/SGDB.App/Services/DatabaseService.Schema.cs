@@ -398,6 +398,9 @@ public static partial class DatabaseService
                 FOREIGN KEY (product_id) REFERENCES products(id)
             );
             """);
+        var itemCols = GetTableColumns(conn, "inventory_items");
+        AddColumnIfMissing(conn, "inventory_items", ref itemCols, "counted_at", "TEXT");
+        AddColumnIfMissing(conn, "inventory_items", ref itemCols, "count_baseline_qty", "REAL");
         ExecuteSql(conn, "CREATE INDEX IF NOT EXISTS idx_inventory_sessions_status ON inventory_sessions(status);");
         ExecuteSql(conn, "CREATE INDEX IF NOT EXISTS idx_inventory_items_session ON inventory_items(session_id);");
         ExecuteSql(conn, "CREATE INDEX IF NOT EXISTS idx_inventory_items_product ON inventory_items(product_id);");

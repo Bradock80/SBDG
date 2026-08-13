@@ -36,6 +36,7 @@ public class InventoryConsolidateConcurrencyTests
         var id = TestDataHelper.SeedSimpleProduct(100, 5, 2, "V001", "Com Venda");
         var session = InventoryService.CreateSession();
         InventoryService.SetCounted(ItemId(session.Id, id), 95);
+        Thread.Sleep(1100);
         TestDataHelper.FinalizeSimpleCashSale(id, qty: 10, unitPrice: 5, cashReceived: 50);
 
         var ex = Assert.Throws<InventoryConcurrencyException>(() => InventoryService.Consolidate(session.Id));
@@ -54,6 +55,7 @@ public class InventoryConsolidateConcurrencyTests
         var supplierId = SeedSupplier();
         var session = InventoryService.CreateSession();
         InventoryService.SetCounted(ItemId(session.Id, id), 100);
+        Thread.Sleep(1100);
 
         PurchaseService.Create(new PurchaseInput
         {
@@ -87,6 +89,7 @@ public class InventoryConsolidateConcurrencyTests
         var id = TestDataHelper.SeedSimpleProduct(100, 5, 2, "A001", "Com Ajuste");
         var session = InventoryService.CreateSession();
         InventoryService.SetCounted(ItemId(session.Id, id), 95);
+        Thread.Sleep(1100);
         StockService.Adjust(id, StockAdjustMode.Saldo, newStock: 80);
 
         var ex = Assert.Throws<InventoryConcurrencyException>(() => InventoryService.Consolidate(session.Id));
@@ -104,6 +107,7 @@ public class InventoryConsolidateConcurrencyTests
         var id = TestDataHelper.SeedSimpleProduct(100, 5, 2, "C001", "Ida Volta");
         var session = InventoryService.CreateSession();
         InventoryService.SetCounted(ItemId(session.Id, id), 95);
+        Thread.Sleep(1100);
 
         var sale = TestDataHelper.FinalizeSimpleCashSale(id, qty: 10, unitPrice: 5, cashReceived: 50);
         PdvService.CancelSale(sale.SaleId);
@@ -200,6 +204,7 @@ public class InventoryConsolidateConcurrencyTests
         var id = TestDataHelper.SeedSimpleProduct(100, 5, 2, "X001", "Conflito");
         var session = InventoryService.CreateSession();
         InventoryService.SetCounted(ItemId(session.Id, id), 90);
+        Thread.Sleep(1100);
         StockService.Adjust(id, StockAdjustMode.Entrada, quantity: 5);
         var movBefore = CountAllMovements();
 
@@ -222,6 +227,7 @@ public class InventoryConsolidateConcurrencyTests
         var session = InventoryService.CreateSession();
         InventoryService.SetCounted(ItemId(session.Id, a), 90);
         InventoryService.SetCounted(ItemId(session.Id, b), 40);
+        Thread.Sleep(1100);
         StockService.Adjust(a, StockAdjustMode.Saldo, newStock: 88);
         SetStockWithoutMovement(b, 55);
 
@@ -232,7 +238,7 @@ public class InventoryConsolidateConcurrencyTests
         Assert.Contains(ex.Conflicts, c => c.ProductId == b && !c.HasMovementSinceOpen);
         Assert.Contains("Multi A", ex.Message);
         Assert.Contains("Multi B", ex.Message);
-        Assert.Contains("cancele este inventário", ex.Message);
+        Assert.Contains("Reconte os produtos", ex.Message);
         Assert.Equal("aberta", GetSessionStatus(session.Id));
     }
 
