@@ -230,6 +230,9 @@ public static class InventoryService
 
         RequireOpen(conn, tx, sessionId);
 
+        var openedAt = GetSessionCreatedAt(conn, tx, sessionId)
+            ?? throw new InvalidOperationException("Inventário não encontrado.");
+
         var rows = new List<(int ProductId, double Counted)>();
         using (var cmd = conn.CreateCommand())
         {
@@ -244,6 +247,10 @@ public static class InventoryService
             while (reader.Read())
                 rows.Add((reader.GetInt32(0), reader.GetDouble(1)));
         }
+
+        var conflicts = DetectConcurrencyConflicts(conn, tx, sessionId, openedAt);
+        if (conflicts.Count > 0)
+            throw new InventoryConcurrencyException(conflicts);
 
         var adjusted = 0;
         double totalPositive = 0, totalNegative = 0;
@@ -288,6 +295,71 @@ public static class InventoryService
             TotalPositiveQty = Math.Round(totalPositive, 3),
             TotalNegativeQty = Math.Round(totalNegative, 3),
         };
+    }
+
+    /// <summary>
+    /// Detecta produtos contados cujo stock divergiu do theoretical ou tiveram movement
+    /// desde a abertura da sessão. Sem schema novo (ETAPA 60C).
+    /// </summary>
+    private static List<InventoryConcurrencyConflict> DetectConcurrencyConflicts(
+        SqliteConnection conn,
+        SqliteTransaction tx,
+        int sessionId,
+        string openedAt)
+    {
+        using var cmd = conn.CreateCommand();
+        cmd.Transaction = tx;
+        cmd.CommandText = """
+            SELECT i.product_id,
+                   IFNULL(p.code, ''),
+                   IFNULL(p.name, ''),
+                   i.theoretical_qty,
+                   IFNULL(p.stock, 0),
+                   CASE WHEN EXISTS (
+                       SELECT 1 FROM movements m
+                       WHERE m.product_id = i.product_id
+                         AND m.created_at >= $opened
+                   ) THEN 1 ELSE 0 END
+            FROM inventory_items i
+            LEFT JOIN products p ON p.id = i.product_id
+            WHERE i.session_id = $session
+              AND i.counted_qty IS NOT NULL
+            ORDER BY IFNULL(p.name, ''), i.product_id;
+            """;
+        cmd.Parameters.AddWithValue("$session", sessionId);
+        cmd.Parameters.AddWithValue("$opened", openedAt);
+
+        var conflicts = new List<InventoryConcurrencyConflict>();
+        using var reader = cmd.ExecuteReader();
+        while (reader.Read())
+        {
+            var theoretical = reader.GetDouble(3);
+            var current = reader.GetDouble(4);
+            var hasMovement = reader.GetInt32(5) != 0;
+            var stockDiverged = Math.Abs(current - theoretical) > InventoryConcurrencyException.StockTolerance;
+            if (!stockDiverged && !hasMovement)
+                continue;
+
+            conflicts.Add(new InventoryConcurrencyConflict
+            {
+                ProductId = reader.GetInt32(0),
+                ProductCode = reader.GetString(1),
+                ProductName = reader.GetString(2),
+                TheoreticalQty = theoretical,
+                CurrentStock = current,
+                HasMovementSinceOpen = hasMovement,
+            });
+        }
+        return conflicts;
+    }
+
+    private static string? GetSessionCreatedAt(SqliteConnection conn, SqliteTransaction tx, int sessionId)
+    {
+        using var cmd = conn.CreateCommand();
+        cmd.Transaction = tx;
+        cmd.CommandText = "SELECT created_at FROM inventory_sessions WHERE id = $id LIMIT 1;";
+        cmd.Parameters.AddWithValue("$id", sessionId);
+        return cmd.ExecuteScalar() as string;
     }
 
     public static void Cancel(int sessionId)

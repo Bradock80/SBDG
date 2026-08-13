@@ -289,6 +289,12 @@ public partial class InventoryModuleView : UserControl
             Refresh();
             ResetCountDefault();
         }
+        catch (InventoryConcurrencyException ex)
+        {
+            MessageBox.Show(ex.Message, "Inventário — movimentação durante a contagem",
+                MessageBoxButton.OK, MessageBoxImage.Warning);
+            Refresh();
+        }
         catch (Exception ex)
         {
             MessageBox.Show(ex.Message, "Inventário", MessageBoxButton.OK, MessageBoxImage.Warning);

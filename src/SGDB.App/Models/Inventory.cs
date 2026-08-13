@@ -77,3 +77,53 @@ public sealed class InventoryConsolidateResult
     public double TotalPositiveQty { get; init; }
     public double TotalNegativeQty { get; init; }
 }
+
+/// <summary>Produto contado cujo estoque mudou após a abertura da sessão de inventário.</summary>
+public sealed class InventoryConcurrencyConflict
+{
+    public int ProductId { get; init; }
+    public string ProductCode { get; init; } = "";
+    public string ProductName { get; init; } = "";
+    public double TheoreticalQty { get; init; }
+    public double CurrentStock { get; init; }
+    public bool HasMovementSinceOpen { get; init; }
+}
+
+/// <summary>
+/// Consolidação bloqueada: estoque ou movement mudou durante a contagem.
+/// A sessão permanece aberta; nenhum ajuste é aplicado.
+/// </summary>
+public sealed class InventoryConcurrencyException : InvalidOperationException
+{
+    public const double StockTolerance = 0.0009;
+
+    public IReadOnlyList<InventoryConcurrencyConflict> Conflicts { get; }
+
+    public InventoryConcurrencyException(IReadOnlyList<InventoryConcurrencyConflict> conflicts)
+        : base(BuildMessage(conflicts))
+    {
+        Conflicts = conflicts;
+    }
+
+    public static string BuildMessage(IReadOnlyList<InventoryConcurrencyConflict> conflicts)
+    {
+        var lines = new List<string>
+        {
+            "Não foi possível consolidar o inventário.",
+            "",
+            "Houve movimentação de estoque durante a contagem.",
+            "",
+            "Produtos afetados:",
+        };
+        foreach (var c in conflicts)
+        {
+            var label = string.IsNullOrWhiteSpace(c.ProductCode)
+                ? c.ProductName
+                : $"{c.ProductCode} — {c.ProductName}";
+            lines.Add($"- {label}");
+        }
+        lines.Add("");
+        lines.Add("Para evitar sobrescrever vendas/compras, cancele este inventário e abra uma nova contagem.");
+        return string.Join(Environment.NewLine, lines);
+    }
+}
