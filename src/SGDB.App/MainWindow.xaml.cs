@@ -16,6 +16,11 @@ public partial class MainWindow : Window
     private readonly DispatcherTimer _stockAlertTimer = new() { Interval = TimeSpan.FromMinutes(2) };
     private readonly DispatcherTimer _preContaAlertTimer = new() { Interval = TimeSpan.FromSeconds(2.5) };
     private bool _handlingPreContaAlert;
+    /// <summary>
+    /// True durante logout com nova sessão: fecha esta MainWindow sem Application.Shutdown
+    /// (ShutdownMode=OnExplicitShutdown exige Shutdown explícito no fechamento definitivo / X).
+    /// </summary>
+    private bool _isLoggingOut;
 
     private int? _pagarPurchaseId;
 
@@ -58,6 +63,11 @@ public partial class MainWindow : Window
             BackupSchedulerService.Stop();
             DeckCompanionHost.Current?.Dispose();
             StoreNetworkHost.Current?.Dispose();
+
+            // X / fechamento definitivo: encerra o processo.
+            // Logout (nova MainWindow já criada): não Shutdown.
+            if (!_isLoggingOut)
+                System.Windows.Application.Current?.Shutdown();
         };
     }
 
@@ -981,6 +991,7 @@ public partial class MainWindow : Window
             var main = new MainWindow(next);
             System.Windows.Application.Current.MainWindow = main;
             main.Show();
+            _isLoggingOut = true;
             Close();
             return;
         }
