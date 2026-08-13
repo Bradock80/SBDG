@@ -8,6 +8,19 @@ namespace SGDB.Services;
 /// </summary>
 public static class DeckCompanionSaleHelper
 {
+    /// <summary>
+    /// Payload quando term/scan resolve cigarro com PrecoAvulso e ainda sem mode.
+    /// </summary>
+    public sealed class ModeRequiredInfo
+    {
+        public int ProductId { get; init; }
+        public string Name { get; init; } = "";
+        public double Qty { get; init; }
+        public double PrecoAvulso { get; init; }
+        public double PrecoMaco { get; init; }
+        public bool AllowsAvulso { get; init; } = true;
+    }
+
     public static object MapProductForApi(Product p)
     {
         ArgumentNullException.ThrowIfNull(p);
@@ -34,6 +47,42 @@ public static class DeckCompanionSaleHelper
             precoAvulso,
             precoMaco,
             fatorEmbalagem = fator > 0 ? fator : (double?)null,
+        };
+    }
+
+    /// <summary>
+    /// Term/scan: se cigarro com PrecoAvulso e ainda sem mode → modeRequired.
+    /// Caso contrário null → Host deve seguir AddFromScan (comum, CX, cigarro sem avulso).
+    /// </summary>
+    public static ModeRequiredInfo? TryGetModeRequiredForTerm(string term, double qty)
+    {
+        if (string.IsNullOrWhiteSpace(term))
+            return null;
+
+        var scan = PdvService.ResolveScan(term);
+        if (scan?.Product is null)
+            return null;
+
+        var product = scan.Product;
+        if (!ProductClassificationHelper.IsCigarette(product.Name, product.GroupName))
+            return null;
+
+        var extra = ProductExtra.Parse(product.ExtraJson);
+        if (!PdvService.AllowsCigaretteAvulso(extra))
+            return null;
+
+        var precoAvulso = ProductPriceHelper.RoundPrice(extra.PrecoAvulso);
+        var precoMaco = ResolvePackPrice(product, extra, isCig: true);
+        var q = qty > 0 ? qty : 1;
+
+        return new ModeRequiredInfo
+        {
+            ProductId = product.Id,
+            Name = product.Name,
+            Qty = q,
+            PrecoAvulso = precoAvulso,
+            PrecoMaco = precoMaco,
+            AllowsAvulso = true,
         };
     }
 

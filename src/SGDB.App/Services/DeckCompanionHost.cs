@@ -425,6 +425,26 @@ public sealed class DeckCompanionHost : IDisposable
                             var term = body.GetString("term") ?? "";
                             if (string.IsNullOrWhiteSpace(term))
                                 throw new OpenTabException("Informe o produto.");
+
+                            // Cigarro com PrecoAvulso: pedir modalidade antes de inserir.
+                            var modeReq = DeckCompanionSaleHelper.TryGetModeRequiredForTerm(term, qty);
+                            if (modeReq is not null)
+                            {
+                                WriteJson(ex, 200, new
+                                {
+                                    ok = true,
+                                    modeRequired = true,
+                                    productId = modeReq.ProductId,
+                                    name = modeReq.Name,
+                                    qty = modeReq.Qty,
+                                    precoAvulso = modeReq.PrecoAvulso,
+                                    precoMaco = modeReq.PrecoMaco,
+                                    allowsAvulso = modeReq.AllowsAvulso,
+                                });
+                                return;
+                            }
+
+                            // Comum / CX / cigarro sem avulso: fluxo histórico.
                             item = OpenTabService.AddFromScan(tabId, term, qty);
                         }
 

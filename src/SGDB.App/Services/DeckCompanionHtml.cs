@@ -490,12 +490,26 @@ async function postAddItem(body){
   const data = await api('/api/decks/' + state.deckId + '/items', {
     method:'POST', body: JSON.stringify(body)
   });
+  // Term/scan cigarro com avulso: Host pede modalidade (não inseriu ainda).
+  if (data.modeRequired) {
+    if (data.qty != null && data.qty !== '')
+      $('prodQty').value = String(data.qty);
+    openModeModal({
+      id: data.productId,
+      name: data.name,
+      allowsAvulso: !!data.allowsAvulso,
+      precoAvulso: data.precoAvulso,
+      precoMaco: data.precoMaco
+    });
+    return data;
+  }
   $('prodSearch').value = '';
   $('prodQty').value = '1';
   state.selectedProduct = null;
   $('suggest').classList.add('hidden');
   showOk('addMsg', 'Lançado: ' + (data.item?.name || 'item'));
   await refreshDeck();
+  return data;
 }
 
 async function addItem(){
@@ -514,7 +528,7 @@ async function addItem(){
     }
     const term = ($('prodSearch').value||'').trim();
     if (!term) { showErr('addErr','Busque e escolha um produto.'); return; }
-    // Scan/term legado: sem escolha Avulso nesta etapa.
+    // Term/scan: Host pode responder modeRequired para cigarro com avulso.
     await postAddItem({ term, qty });
   } catch(e) { showErr('addErr', e.message); }
 }
