@@ -6,8 +6,9 @@ using SGDB.Utils;
 namespace SGDB.Tests;
 
 /// <summary>
-/// ETAPA 61B — Caracterização compra / lotes / estorno (comportamento atual).
-/// NÃO especifica a regra futura correta; documenta o que o código faz hoje.
+/// ETAPA 61B/61D — Compra / lotes / estorno.
+/// Os testes que documentavam o bug FEFO no cancelamento foram substituídos
+/// pela expectativa correta da 61D (estorno exato da origem).
 /// </summary>
 [Collection(TempDatabaseCollection.Name)]
 public class PurchaseLotCancelCharacterizationTests
@@ -71,7 +72,7 @@ public class PurchaseLotCancelCharacterizationTests
     }
 
     [Fact]
-    public void CancelPurchase_CurrentBehavior_DeductsFefoInsteadOfOriginalLot()
+    public void CancelPurchase_WithTrackedOrigin_DeductsOnlyOriginalLot()
     {
         using var db = TempDatabase.Create();
         TestDataHelper.SetSessionRole("admin");
@@ -93,14 +94,15 @@ public class PurchaseLotCancelCharacterizationTests
 
         PurchaseService.Cancel(purchaseB);
 
-        // Comportamento atual: DeductFefo tira 20 começando pelo A (mais perto), não só do B.
+        // 61D: estorno exato do lote B. A permanece 10 (bug 61B era A=0, B=10).
         Assert.Equal(10, TestDataHelper.GetProductStock(productId));
-        Assert.Equal(0, GetLotQty(productId, "A"));
-        Assert.Equal(10, GetLotQty(productId, "B")); // B restante — estorno NÃO esgotou o lote da compra B
+        Assert.Equal(10, GetLotQty(productId, "A"));
+        Assert.Equal(0, GetLotQty(productId, "B"));
+        Assert.Equal("cancelada", GetPurchaseStatus(purchaseB));
     }
 
     [Fact]
-    public void CancelPurchase_CurrentBehavior_AfterSaleBetweenPurchaseAndCancel_UsesFefo()
+    public void CancelPurchase_AfterSaleConsumesLotA_PreservesRemainingA_AndClearsB()
     {
         using var db = TempDatabase.Create();
         TestDataHelper.SetSessionRole("admin");
@@ -123,14 +125,14 @@ public class PurchaseLotCancelCharacterizationTests
 
         PurchaseService.Cancel(purchaseB);
 
-        // DeductFefo 20: esgota A(5) e tira 15 de B → A=0, B=5, stock=5
+        // 61D: venda FEFO tirou 5 de A; cancelar B zera só B. Bug 61B era A=0, B=5, stock=5.
         Assert.Equal(5, TestDataHelper.GetProductStock(productId));
-        Assert.Equal(0, GetLotQty(productId, "A"));
-        Assert.Equal(5, GetLotQty(productId, "B"));
+        Assert.Equal(5, GetLotQty(productId, "A"));
+        Assert.Equal(0, GetLotQty(productId, "B"));
     }
 
     [Fact]
-    public void CancelPurchase_CurrentBehavior_WhenLotPartiallySold_CanLeaveNegativeGlobalAndUseOtherLots()
+    public void CancelPurchase_WhenOwnLotPartiallySold_BlocksEntireCancel()
     {
         using var db = TempDatabase.Create();
         TestDataHelper.SetSessionRole("admin");
@@ -143,17 +145,17 @@ public class PurchaseLotCancelCharacterizationTests
         Assert.Equal(12, TestDataHelper.GetProductStock(productId));
         Assert.Equal(12, GetLotQty(productId, "B"));
 
-        PurchaseService.Cancel(purchaseB);
+        var ex = Assert.Throws<InvalidOperationException>(() => PurchaseService.Cancel(purchaseB));
+        Assert.Contains("já foi vendida ou movimentada", ex.Message, StringComparison.OrdinalIgnoreCase);
 
-        // Global: 12 - 20 = -8 (sem guard de estoque insuficiente).
-        Assert.Equal(-8, TestDataHelper.GetProductStock(productId));
-        // FEFO só tinha 12 no lote B → esgota e ignora restante.
-        Assert.Equal(0, GetLotQty(productId, "B"));
-        Assert.Equal(1, CountMovements(productId, "estorno_compra", purchaseB));
+        Assert.Equal(12, TestDataHelper.GetProductStock(productId));
+        Assert.Equal(12, GetLotQty(productId, "B"));
+        Assert.Equal("fechada", GetPurchaseStatus(purchaseB));
+        Assert.Equal(0, CountMovements(productId, "estorno_compra", purchaseB));
     }
 
     [Fact]
-    public void CancelPurchase_CurrentBehavior_CanLeaveNegativeGlobalStock()
+    public void CancelPurchase_WhenGlobalStockInsufficient_BlocksAndKeepsStock()
     {
         using var db = TempDatabase.Create();
         TestDataHelper.SetSessionRole("admin");
@@ -164,13 +166,16 @@ public class PurchaseLotCancelCharacterizationTests
         Assert.Equal(120, TestDataHelper.GetProductStock(productId));
         SetStockDirect(productId, 7);
 
-        PurchaseService.Cancel(purchaseId);
+        var ex = Assert.Throws<InvalidOperationException>(() => PurchaseService.Cancel(purchaseId));
+        Assert.Contains("estoque negativo", ex.Message, StringComparison.OrdinalIgnoreCase);
 
-        Assert.Equal(-13, TestDataHelper.GetProductStock(productId));
+        Assert.Equal(7, TestDataHelper.GetProductStock(productId));
+        Assert.Equal("fechada", GetPurchaseStatus(purchaseId));
+        Assert.Equal(0, CountMovements(productId, "estorno_compra", purchaseId));
     }
 
     [Fact]
-    public void CancelPurchase_CurrentBehavior_LotsInsufficient_DeductsAvailableAndContinues()
+    public void CancelPurchase_WithoutLotOrigin_DoesNotDeductUnrelatedLots()
     {
         using var db = TempDatabase.Create();
         TestDataHelper.SetSessionRole("admin");
@@ -179,7 +184,7 @@ public class PurchaseLotCancelCharacterizationTests
 
         var purchaseId = CreateClosedPurchase(supplierId, productId, "LOTES INSUF", 20, lot: null, expiry: null);
         Assert.Equal(20, TestDataHelper.GetProductStock(productId));
-        // Receive não altera global — simula lotes < qty do estorno.
+        // Receive não altera global — lote X não pertence a esta compra.
         ProductLotService.Receive(new ProductLotReceiveInput
         {
             ProductId = productId,
@@ -192,12 +197,12 @@ public class PurchaseLotCancelCharacterizationTests
         PurchaseService.Cancel(purchaseId);
 
         Assert.Equal(0, TestDataHelper.GetProductStock(productId));
-        Assert.Equal(0, SumLots(productId)); // DeductFefo baixou 8 e ignorou o resto
+        Assert.Equal(8, SumLots(productId)); // 61D: sem FEFO no estorno; X permanece
         Assert.Equal("cancelada", GetPurchaseStatus(purchaseId));
     }
 
     [Fact]
-    public void Purchase_ExpiryWithoutLotNumber_CreatesLot_AndCancelUsesFefo()
+    public void Purchase_ExpiryWithoutLotNumber_CreatesLot_AndCancelUsesExactOrigin()
     {
         using var db = TempDatabase.Create();
         TestDataHelper.SetSessionRole("admin");

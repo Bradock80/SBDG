@@ -145,6 +145,118 @@ public static class ProductLotService
         // Se ainda sobrar (estoque legado sem lote), não cria lote negativo — só baixa o stock.
     }
 
+    /// <summary>
+    /// Baixa quantidade exata de um lote físico. Não usa FEFO e não recorre a outro lote.
+    /// Se productLotId não existir, tenta a chave produto+lote+validade somente quando houver
+    /// exatamente uma linha (lote agregado sem ambiguidade).
+    /// </summary>
+    public static void DeductExact(
+        SqliteConnection conn,
+        SqliteTransaction tx,
+        int productId,
+        int? productLotId,
+        string? lotNumber,
+        DateTime? expiryDate,
+        double qty)
+    {
+        qty = Math.Round(Math.Abs(qty), 4);
+        if (productId <= 0 || qty < 0.0001)
+            return;
+
+        var resolvedId = ResolveExactLotId(conn, tx, productId, productLotId, lotNumber, expiryDate);
+        double available;
+        using (var cmd = conn.CreateCommand())
+        {
+            cmd.Transaction = tx;
+            cmd.CommandText = """
+                SELECT quantity FROM product_lots
+                WHERE id = $id AND product_id = $pid
+                LIMIT 1;
+                """;
+            cmd.Parameters.AddWithValue("$id", resolvedId);
+            cmd.Parameters.AddWithValue("$pid", productId);
+            var o = cmd.ExecuteScalar();
+            if (o is null or DBNull)
+                throw new InvalidOperationException(
+                    "Não é possível cancelar: o lote originado por esta compra não foi encontrado. Não é seguro adivinhar outro lote.");
+            available = Convert.ToDouble(o);
+        }
+
+        if (available + 1e-4 < qty)
+        {
+            var lot = string.IsNullOrWhiteSpace(lotNumber) ? "(sem número)" : lotNumber.Trim();
+            throw new InvalidOperationException(
+                $"Não é possível cancelar: parte do estoque desta compra já foi vendida ou movimentada (lote {lot}: disponível {available:0.####}, origem {qty:0.####}).");
+        }
+
+        var left = Math.Round(available - qty, 4);
+        using var upd = conn.CreateCommand();
+        upd.Transaction = tx;
+        if (left < 0.0001)
+        {
+            upd.CommandText = "DELETE FROM product_lots WHERE id = $id;";
+            upd.Parameters.AddWithValue("$id", resolvedId);
+        }
+        else
+        {
+            upd.CommandText = "UPDATE product_lots SET quantity = $qty WHERE id = $id;";
+            upd.Parameters.AddWithValue("$qty", left);
+            upd.Parameters.AddWithValue("$id", resolvedId);
+        }
+        upd.ExecuteNonQuery();
+    }
+
+    public static int ResolveExactLotId(
+        SqliteConnection conn,
+        SqliteTransaction tx,
+        int productId,
+        int? productLotId,
+        string? lotNumber,
+        DateTime? expiryDate)
+    {
+        if (productLotId is int id && id > 0)
+        {
+            using var byId = conn.CreateCommand();
+            byId.Transaction = tx;
+            byId.CommandText = "SELECT product_id FROM product_lots WHERE id = $id LIMIT 1;";
+            byId.Parameters.AddWithValue("$id", id);
+            var o = byId.ExecuteScalar();
+            if (o is not null and not DBNull)
+            {
+                if (Convert.ToInt32(o) != productId)
+                    throw new InvalidOperationException(
+                        "Não é possível cancelar: o lote registrado não pertence ao produto da compra.");
+                return id;
+            }
+        }
+
+        var lot = (lotNumber ?? "").Trim();
+        var expiry = expiryDate?.Date.ToString("yyyy-MM-dd");
+        var matches = new List<int>();
+        using (var find = conn.CreateCommand())
+        {
+            find.Transaction = tx;
+            find.CommandText = """
+                SELECT id FROM product_lots
+                WHERE product_id = $pid
+                  AND IFNULL(lot_number,'') = $lot
+                  AND IFNULL(expiry_date,'') = IFNULL($exp,'')
+                """;
+            find.Parameters.AddWithValue("$pid", productId);
+            find.Parameters.AddWithValue("$lot", lot);
+            find.Parameters.AddWithValue("$exp", (object?)expiry ?? DBNull.Value);
+            using var reader = find.ExecuteReader();
+            while (reader.Read())
+                matches.Add(reader.GetInt32(0));
+        }
+
+        if (matches.Count == 1)
+            return matches[0];
+
+        throw new InvalidOperationException(
+            "Não é possível cancelar: o lote originado por esta compra não foi encontrado com segurança. Não é seguro adivinhar outro lote.");
+    }
+
     /// <summary>Devolve quantidade ao lote de validade mais próxima (ou cria lote sem número).</summary>
     public static void RestoreToNearestLot(
         SqliteConnection conn, SqliteTransaction tx, int productId, double qty)

@@ -429,7 +429,7 @@ public static class PurchaseService
             {
                 using var close = conn.CreateCommand();
                 close.Transaction = tx;
-                close.CommandText = "UPDATE purchases SET status = 'fechada' WHERE id = $id;";
+                close.CommandText = "UPDATE purchases SET status = 'fechada', lot_origin_recorded = 1 WHERE id = $id;";
                 close.Parameters.AddWithValue("$id", id);
                 close.ExecuteNonQuery();
                 PayableService.SyncFromPurchase(conn, tx, id);
@@ -516,7 +516,7 @@ public static class PurchaseService
         {
             using var close = conn.CreateCommand();
             close.Transaction = tx;
-            close.CommandText = "UPDATE purchases SET status = 'fechada' WHERE id = $id;";
+            close.CommandText = "UPDATE purchases SET status = 'fechada', lot_origin_recorded = 1 WHERE id = $id;";
             close.Parameters.AddWithValue("$id", id);
             close.ExecuteNonQuery();
             PayableService.SyncFromPurchase(conn, tx, id);
@@ -596,10 +596,7 @@ public static class PurchaseService
 
         if (status == "fechada")
         {
-            var items = LoadItemsForStock(conn, tx, id);
-            ReversePurchaseCostEffects(conn, tx, items);
-            ApplyStock(conn, tx, id, items, reverse: true);
-            PayableService.RemoveUnpaidTitlesForPurchase(conn, tx, id);
+            ReverseClosedPurchaseEffects(conn, tx, id);
         }
 
         using var cmd = conn.CreateCommand();
@@ -641,10 +638,7 @@ public static class PurchaseService
         if (status != "fechada")
             throw new InvalidOperationException("Somente compras fechadas podem ser reabertas.");
 
-        var items = LoadItemsForStock(conn, tx, id);
-        ReversePurchaseCostEffects(conn, tx, items);
-        ApplyStock(conn, tx, id, items, reverse: true);
-        PayableService.RemoveUnpaidTitlesForPurchase(conn, tx, id);
+        ReverseClosedPurchaseEffects(conn, tx, id);
 
         using var cmd = conn.CreateCommand();
         cmd.Transaction = tx;
@@ -654,6 +648,131 @@ public static class PurchaseService
         tx.Commit();
 
         AuditService.Log("compra_reabrir", "purchase", id.ToString(), "Reaberta para correção");
+    }
+
+    /// <summary>
+    /// Estorno atômico de compra fechada: valida origem/estoque, depois aplica custo, global, lotes exatos e títulos.
+    /// Compras anteriores à rastreabilidade (lot_origin_recorded=0) são bloqueadas.
+    /// </summary>
+    private static void ReverseClosedPurchaseEffects(
+        SqliteConnection conn, SqliteTransaction tx, int purchaseId)
+    {
+        PayableService.ThrowIfPaidInstallmentsForPurchase(conn, tx, purchaseId);
+
+        var lotOriginRecorded = 0;
+        using (var meta = conn.CreateCommand())
+        {
+            meta.Transaction = tx;
+            meta.CommandText = """
+                SELECT IFNULL(lot_origin_recorded, 0)
+                FROM purchases WHERE id = $id LIMIT 1;
+                """;
+            meta.Parameters.AddWithValue("$id", purchaseId);
+            lotOriginRecorded = Convert.ToInt32(meta.ExecuteScalar() ?? 0);
+        }
+
+        if (lotOriginRecorded == 0)
+            throw new InvalidOperationException(
+                "Não é possível cancelar esta compra: ela foi lançada antes da rastreabilidade de lotes. A origem exata do estoque não está registrada. Ajuste estoque/lotes manualmente se necessário.");
+
+        var items = LoadItemsForStock(conn, tx, purchaseId);
+        var origins = LoadPurchaseItemLotsInTx(conn, tx, purchaseId);
+
+        ValidateExactReverse(conn, tx, items, origins);
+
+        ReversePurchaseCostEffects(conn, tx, items);
+        ApplyStock(conn, tx, purchaseId, items, reverse: true);
+        foreach (var origin in origins)
+        {
+            ProductLotService.DeductExact(
+                conn, tx,
+                origin.ProductId,
+                origin.ProductLotId,
+                origin.LotNumber,
+                origin.ExpiryDate,
+                origin.Quantity);
+        }
+
+        PayableService.RemoveUnpaidTitlesForPurchase(conn, tx, purchaseId);
+    }
+
+    private static void ValidateExactReverse(
+        SqliteConnection conn,
+        SqliteTransaction tx,
+        List<PurchaseItemInput> items,
+        IReadOnlyList<PurchaseItemLot> origins)
+    {
+        var needByLot = new Dictionary<int, (int ProductId, string Lot, DateTime? Exp, double Qty)>();
+        foreach (var origin in origins)
+        {
+            var resolved = ProductLotService.ResolveExactLotId(
+                conn, tx, origin.ProductId, origin.ProductLotId, origin.LotNumber, origin.ExpiryDate);
+            if (!needByLot.TryGetValue(resolved, out var acc))
+                acc = (origin.ProductId, origin.LotNumber, origin.ExpiryDate, 0);
+            acc.Qty += origin.Quantity;
+            needByLot[resolved] = acc;
+        }
+
+        foreach (var (lotId, acc) in needByLot)
+        {
+            using var lotCmd = conn.CreateCommand();
+            lotCmd.Transaction = tx;
+            lotCmd.CommandText = "SELECT quantity FROM product_lots WHERE id = $id LIMIT 1;";
+            lotCmd.Parameters.AddWithValue("$id", lotId);
+            var o = lotCmd.ExecuteScalar();
+            if (o is null or DBNull)
+                throw new InvalidOperationException(
+                    "Não é possível cancelar: o lote originado por esta compra não foi encontrado. Não é seguro adivinhar outro lote.");
+            var available = Convert.ToDouble(o);
+            if (available + 1e-4 < acc.Qty)
+            {
+                var lot = string.IsNullOrWhiteSpace(acc.Lot) ? "(sem número)" : acc.Lot;
+                throw new InvalidOperationException(
+                    $"Não é possível cancelar: parte do estoque desta compra já foi vendida ou movimentada (lote {lot}: disponível {available:0.####}, origem {acc.Qty:0.####}).");
+            }
+        }
+
+        var needByProduct = new Dictionary<int, double>();
+        foreach (var item in items)
+        {
+            if (item.ProductId <= 0 || item.Quantity <= 0.0001)
+                continue;
+            needByProduct[item.ProductId] = needByProduct.GetValueOrDefault(item.ProductId) + item.Quantity;
+        }
+
+        foreach (var (productId, need) in needByProduct)
+        {
+            using var stockCmd = conn.CreateCommand();
+            stockCmd.Transaction = tx;
+            stockCmd.CommandText = """
+                SELECT IFNULL(stock,0) + IFNULL(stock_fridge,0)
+                FROM products WHERE id = $id LIMIT 1;
+                """;
+            stockCmd.Parameters.AddWithValue("$id", productId);
+            var o = stockCmd.ExecuteScalar();
+            if (o is null or DBNull)
+                throw new InvalidOperationException("Não é possível cancelar: produto da compra não foi encontrado.");
+            var available = Convert.ToDouble(o);
+            if (available + 1e-4 < need)
+                throw new InvalidOperationException(
+                    $"Não é possível cancelar: estoque atual ({available:0.####}) é menor que a quantidade da compra ({need:0.####}). O estorno deixaria o estoque negativo.");
+        }
+    }
+
+    private static List<PurchaseItemLot> LoadPurchaseItemLotsInTx(
+        SqliteConnection conn, SqliteTransaction tx, int purchaseId)
+    {
+        using var cmd = conn.CreateCommand();
+        cmd.Transaction = tx;
+        cmd.CommandText = """
+            SELECT id, purchase_item_id, purchase_id, product_id,
+                   IFNULL(lot_number,''), expiry_date, quantity, product_lot_id, IFNULL(created_at,'')
+            FROM purchase_item_lots
+            WHERE purchase_id = $id
+            ORDER BY id;
+            """;
+        cmd.Parameters.AddWithValue("$id", purchaseId);
+        return ReadPurchaseItemLots(cmd).ToList();
     }
 
     /// <summary>
@@ -922,7 +1041,7 @@ public static class PurchaseService
                 }
                 else
                 {
-                    ProductLotService.DeductFefo(conn, tx, item.ProductId, qty);
+                    // Estorno exato é aplicado em ReverseClosedPurchaseEffects (não FEFO).
                 }
             }
         }

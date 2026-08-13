@@ -623,24 +623,28 @@ public static class PayableService
     /// Remove títulos a pagar da compra (somente se nenhuma parcela estiver paga).
     /// Usado ao cancelar/reabrir compra fechada.
     /// </summary>
+    public static void ThrowIfPaidInstallmentsForPurchase(
+        SqliteConnection conn, SqliteTransaction tx, int purchaseId)
+    {
+        using var paid = conn.CreateCommand();
+        paid.Transaction = tx;
+        paid.CommandText = """
+            SELECT 1
+            FROM payable_installments pi
+            JOIN payable_titles t ON t.id = pi.title_id
+            WHERE t.purchase_id = $id AND lower(IFNULL(pi.status,'')) = 'pago'
+            LIMIT 1;
+            """;
+        paid.Parameters.AddWithValue("$id", purchaseId);
+        if (paid.ExecuteScalar() is not null)
+            throw new PayableException(
+                "Há parcela paga vinculada a esta compra. Estorne a baixa no Contas a Pagar (F7) antes de reabrir/cancelar.");
+    }
+
     public static void RemoveUnpaidTitlesForPurchase(
         SqliteConnection conn, SqliteTransaction tx, int purchaseId)
     {
-        using (var paid = conn.CreateCommand())
-        {
-            paid.Transaction = tx;
-            paid.CommandText = """
-                SELECT 1
-                FROM payable_installments pi
-                JOIN payable_titles t ON t.id = pi.title_id
-                WHERE t.purchase_id = $id AND lower(IFNULL(pi.status,'')) = 'pago'
-                LIMIT 1;
-                """;
-            paid.Parameters.AddWithValue("$id", purchaseId);
-            if (paid.ExecuteScalar() is not null)
-                throw new PayableException(
-                    "Há parcela paga vinculada a esta compra. Estorne a baixa no Contas a Pagar (F7) antes de reabrir/cancelar.");
-        }
+        ThrowIfPaidInstallmentsForPurchase(conn, tx, purchaseId);
 
         // Bancos legados: FK das parcelas é NO ACTION (sem CASCADE).
         // Precisa apagar parcelas antes dos títulos.

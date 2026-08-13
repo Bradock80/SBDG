@@ -8,7 +8,7 @@ namespace SGDB.Tests;
 
 /// <summary>
 /// ETAPA 61C — Persistência da origem exata dos lotes da compra.
-/// Não altera o cancelamento (FEFO permanece).
+/// O cancelamento exato da origem é coberto na 61D.
 /// </summary>
 [Collection(TempDatabaseCollection.Name)]
 public class PurchaseItemLotOriginTests
@@ -323,7 +323,7 @@ public class PurchaseItemLotOriginTests
     }
 
     [Fact]
-    public void CancelPurchase_StillUsesDeductFefo_OriginRowsRemain()
+    public void CancelPurchase_WithTrackedOrigin_DeductsOnlyOriginalLot_OriginRowsRemain()
     {
         using var db = TempDatabase.Create();
         TestDataHelper.SetSessionRole("admin");
@@ -343,9 +343,9 @@ public class PurchaseItemLotOriginTests
         PurchaseService.Cancel(purchaseB);
 
         Assert.Equal(10, TestDataHelper.GetProductStock(productId));
-        Assert.Equal(0, GetLotQty(productId, "A"));
-        Assert.Equal(10, GetLotQty(productId, "B"));
-        // Origem da compra B permanece (61C não muda estorno).
+        Assert.Equal(10, GetLotQty(productId, "A"));
+        Assert.Equal(0, GetLotQty(productId, "B"));
+        // Histórico de origem permanece após o estorno exato.
         var origin = Assert.Single(PurchaseService.ListPurchaseItemLots(purchaseB));
         Assert.Equal(20, origin.Quantity);
         Assert.Equal("B", origin.LotNumber);

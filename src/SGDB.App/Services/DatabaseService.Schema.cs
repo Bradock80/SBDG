@@ -470,6 +470,7 @@ public static partial class DatabaseService
                 status TEXT NOT NULL DEFAULT 'aberta',
                 total REAL NOT NULL DEFAULT 0,
                 gerar_estoque INTEGER NOT NULL DEFAULT 1,
+                lot_origin_recorded INTEGER NOT NULL DEFAULT 0,
                 notes TEXT,
                 created_at TEXT NOT NULL DEFAULT (datetime('now')),
                 FOREIGN KEY (supplier_id) REFERENCES people(id)

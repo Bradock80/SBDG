@@ -134,6 +134,7 @@ public static partial class DatabaseService
         AddColumnIfMissing(conn, "purchases", ref columns, "status", "TEXT NOT NULL DEFAULT 'aberta'");
         AddColumnIfMissing(conn, "purchases", ref columns, "total", "REAL NOT NULL DEFAULT 0");
         AddColumnIfMissing(conn, "purchases", ref columns, "gerar_estoque", "INTEGER NOT NULL DEFAULT 1");
+        AddColumnIfMissing(conn, "purchases", ref columns, "lot_origin_recorded", "INTEGER NOT NULL DEFAULT 0");
         AddColumnIfMissing(conn, "purchases", ref columns, "notes", "TEXT");
         AddColumnIfMissing(conn, "purchases", ref columns, "created_at", "TEXT DEFAULT (datetime('now','localtime'))");
 
