@@ -7,6 +7,8 @@ namespace SGDB.Services;
 
 public sealed class PurchaseItemInput
 {
+    /// <summary>Preenchido após INSERT em purchase_items (mesma transação).</summary>
+    public int Id { get; set; }
     public int ProductId { get; set; }
     public required string ProductName { get; set; }
     public double Quantity { get; set; }
@@ -35,6 +37,12 @@ public sealed record ProductLastEntry(double Quantity, string EntryDate, int Pur
 
 public static class PurchaseService
 {
+    /// <summary>
+    /// Somente testes: invocado imediatamente antes de gravar purchase_item_lots.
+    /// Deve permanecer null em produção. Sem regra por productId.
+    /// </summary>
+    public static Action? TestBeforeInsertPurchaseItemLot { get; set; }
+
     /// <summary>Última entrada do produto pela data de entrada da compra.</summary>
     public static ProductLastEntry? GetLastEntry(int productId)
     {
@@ -105,6 +113,73 @@ public static class PurchaseService
 
         return map;
     }
+
+    public static IReadOnlyList<PurchaseItemLot> ListPurchaseItemLots(int purchaseId)
+    {
+        if (purchaseId <= 0)
+            return [];
+
+        using var conn = DatabaseService.OpenConnection();
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText = """
+            SELECT id, purchase_item_id, purchase_id, product_id,
+                   IFNULL(lot_number,''), expiry_date, quantity, product_lot_id, IFNULL(created_at,'')
+            FROM purchase_item_lots
+            WHERE purchase_id = $id
+            ORDER BY id;
+            """;
+        cmd.Parameters.AddWithValue("$id", purchaseId);
+        return ReadPurchaseItemLots(cmd);
+    }
+
+    public static IReadOnlyList<PurchaseItemLot> ListPurchaseItemLotsByItem(int purchaseItemId)
+    {
+        if (purchaseItemId <= 0)
+            return [];
+
+        using var conn = DatabaseService.OpenConnection();
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText = """
+            SELECT id, purchase_item_id, purchase_id, product_id,
+                   IFNULL(lot_number,''), expiry_date, quantity, product_lot_id, IFNULL(created_at,'')
+            FROM purchase_item_lots
+            WHERE purchase_item_id = $id
+            ORDER BY id;
+            """;
+        cmd.Parameters.AddWithValue("$id", purchaseItemId);
+        return ReadPurchaseItemLots(cmd);
+    }
+
+    private static IReadOnlyList<PurchaseItemLot> ReadPurchaseItemLots(SqliteCommand cmd)
+    {
+        var list = new List<PurchaseItemLot>();
+        using var reader = cmd.ExecuteReader();
+        while (reader.Read())
+        {
+            DateTime? expiry = null;
+            if (!reader.IsDBNull(5))
+            {
+                var iso = reader.GetString(5);
+                if (DateTime.TryParse(iso, out var d))
+                    expiry = d.Date;
+            }
+
+            list.Add(new PurchaseItemLot
+            {
+                Id = reader.GetInt32(0),
+                PurchaseItemId = reader.GetInt32(1),
+                PurchaseId = reader.GetInt32(2),
+                ProductId = reader.GetInt32(3),
+                LotNumber = reader.IsDBNull(4) ? "" : reader.GetString(4),
+                ExpiryDate = expiry,
+                Quantity = reader.GetDouble(6),
+                ProductLotId = reader.IsDBNull(7) ? null : reader.GetInt32(7),
+                CreatedAt = reader.IsDBNull(8) ? "" : reader.GetString(8),
+            });
+        }
+        return list;
+    }
+
 
     public static string FormatLastEntryDisplay(ProductLastEntry? entry, string? unit = "UN")
     {
@@ -703,6 +778,7 @@ public static class PurchaseService
             cmd.CommandText = """
                 INSERT INTO purchase_items (purchase_id, product_id, product_name, quantity, unit_price, subtotal)
                 VALUES ($pid, $product, $name, $qty, $price, $sub);
+                SELECT last_insert_rowid();
                 """;
             var sub = item.Quantity * item.UnitPrice;
             cmd.Parameters.AddWithValue("$pid", purchaseId);
@@ -711,8 +787,48 @@ public static class PurchaseService
             cmd.Parameters.AddWithValue("$qty", item.Quantity);
             cmd.Parameters.AddWithValue("$price", item.UnitPrice);
             cmd.Parameters.AddWithValue("$sub", sub);
-            cmd.ExecuteNonQuery();
+            item.Id = Convert.ToInt32(cmd.ExecuteScalar());
         }
+    }
+
+    private static bool HasLotOrigin(PurchaseItemInput item) =>
+        !string.IsNullOrWhiteSpace(item.LotNumber) || item.ExpiryDate is not null;
+
+    private static void InsertPurchaseItemLot(
+        SqliteConnection conn,
+        SqliteTransaction tx,
+        PurchaseItemInput item,
+        int purchaseId,
+        double physicalQty,
+        int? productLotId)
+    {
+        if (item.Id <= 0 || purchaseId <= 0 || item.ProductId <= 0)
+            return;
+
+        TestBeforeInsertPurchaseItemLot?.Invoke();
+
+        var lot = (item.LotNumber ?? "").Trim();
+        var expiry = item.ExpiryDate?.Date.ToString("yyyy-MM-dd");
+
+        using var cmd = conn.CreateCommand();
+        cmd.Transaction = tx;
+        cmd.CommandText = """
+            INSERT INTO purchase_item_lots (
+                purchase_item_id, purchase_id, product_id, lot_number, expiry_date,
+                quantity, product_lot_id, created_at
+            ) VALUES (
+                $item, $purchase, $product, $lot, $exp,
+                $qty, $lotid, datetime('now','localtime')
+            );
+            """;
+        cmd.Parameters.AddWithValue("$item", item.Id);
+        cmd.Parameters.AddWithValue("$purchase", purchaseId);
+        cmd.Parameters.AddWithValue("$product", item.ProductId);
+        cmd.Parameters.AddWithValue("$lot", lot);
+        cmd.Parameters.AddWithValue("$exp", (object?)expiry ?? DBNull.Value);
+        cmd.Parameters.AddWithValue("$qty", Math.Round(physicalQty, 4));
+        cmd.Parameters.AddWithValue("$lotid", productLotId is int lid and > 0 ? lid : DBNull.Value);
+        cmd.ExecuteNonQuery();
     }
 
     private static void ApplyStock(SqliteConnection conn, SqliteTransaction tx, int purchaseId, List<PurchaseItemInput> items, bool reverse)
@@ -788,9 +904,9 @@ public static class PurchaseService
                 if (!reverse)
                 {
                     var lotNote = note;
-                    if (!string.IsNullOrWhiteSpace(item.LotNumber) || item.ExpiryDate is not null)
+                    if (HasLotOrigin(item))
                     {
-                        ProductLotService.Receive(conn, tx, new ProductLotReceiveInput
+                        var productLotId = ProductLotService.Receive(conn, tx, new ProductLotReceiveInput
                         {
                             ProductId = item.ProductId,
                             Quantity = qty,
@@ -800,6 +916,8 @@ public static class PurchaseService
                             UnitCost = item.UnitPrice > 0 ? item.UnitPrice : cost,
                             Notes = lotNote,
                         });
+                        InsertPurchaseItemLot(
+                            conn, tx, item, purchaseId, qty, productLotId > 0 ? productLotId : null);
                     }
                 }
                 else

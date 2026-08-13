@@ -21,11 +21,15 @@ public static class ProductLotService
         tx.Commit();
     }
 
-    public static void Receive(
+    /// <summary>
+    /// Recebe quantidade no lote (merge por produto + lote + validade).
+    /// Retorna o id da linha em product_lots; 0 se não houve recebimento.
+    /// </summary>
+    public static int Receive(
         SqliteConnection conn, SqliteTransaction tx, ProductLotReceiveInput input)
     {
         if (input.ProductId <= 0 || input.Quantity <= 0.0001)
-            return;
+            return 0;
 
         var lot = (input.LotNumber ?? "").Trim();
         var expiry = input.ExpiryDate?.Date.ToString("yyyy-MM-dd");
@@ -66,7 +70,7 @@ public static class ProductLotService
                 upd.Parameters.AddWithValue("$notes", (object?)input.Notes ?? DBNull.Value);
                 upd.Parameters.AddWithValue("$id", id);
                 upd.ExecuteNonQuery();
-                return;
+                return id;
             }
         }
 
@@ -78,6 +82,7 @@ public static class ProductLotService
             ) VALUES (
               $pid, $lot, $exp, $qty, $purchase, $cost, $notes, datetime('now','localtime')
             );
+            SELECT last_insert_rowid();
             """;
         ins.Parameters.AddWithValue("$pid", input.ProductId);
         ins.Parameters.AddWithValue("$lot", lot);
@@ -86,7 +91,7 @@ public static class ProductLotService
         ins.Parameters.AddWithValue("$purchase", input.PurchaseId is int pid ? pid : DBNull.Value);
         ins.Parameters.AddWithValue("$cost", input.UnitCost);
         ins.Parameters.AddWithValue("$notes", (object?)input.Notes ?? DBNull.Value);
-        ins.ExecuteNonQuery();
+        return Convert.ToInt32(ins.ExecuteScalar());
     }
 
     /// <summary>Baixa FEFO: lotes com validade mais próxima primeiro; sem validade por último.</summary>

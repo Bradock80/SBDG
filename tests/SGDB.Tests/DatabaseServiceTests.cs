@@ -57,6 +57,7 @@ public class DatabaseServiceTests
             "cash_movements",
             "purchases",
             "purchase_items",
+            "purchase_item_lots",
             "movements",
             "open_tabs",
             "open_tab_items",

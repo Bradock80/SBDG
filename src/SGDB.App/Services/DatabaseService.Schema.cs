@@ -63,6 +63,7 @@ public static partial class DatabaseService
         EnsureInventoryTables(conn);
         EnsurePeopleTable(conn);
         EnsurePurchasesTable(conn);
+        EnsurePurchaseItemLotsTable(conn);
         EnsurePayablesTable(conn);
         EnsureCashTable(conn);
         EnsureSalesTable(conn);
@@ -488,6 +489,34 @@ public static partial class DatabaseService
             """);
         ExecuteSql(conn, "CREATE INDEX IF NOT EXISTS idx_purchases_status ON purchases(status);");
         ExecuteSql(conn, "CREATE INDEX IF NOT EXISTS idx_purchases_number ON purchases(number);");
+    }
+
+    /// <summary>
+    /// Origem exata do lote recebido em cada item de compra.
+    /// Independente do merge em product_lots (mesmo lote/validade).
+    /// </summary>
+    private static void EnsurePurchaseItemLotsTable(SqliteConnection conn)
+    {
+        ExecuteSql(conn, """
+            CREATE TABLE IF NOT EXISTS purchase_item_lots (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                purchase_item_id INTEGER NOT NULL,
+                purchase_id INTEGER NOT NULL,
+                product_id INTEGER NOT NULL,
+                lot_number TEXT NOT NULL DEFAULT '',
+                expiry_date TEXT,
+                quantity REAL NOT NULL DEFAULT 0,
+                product_lot_id INTEGER,
+                created_at TEXT NOT NULL DEFAULT (datetime('now','localtime')),
+                FOREIGN KEY (purchase_item_id) REFERENCES purchase_items(id) ON DELETE CASCADE,
+                FOREIGN KEY (purchase_id) REFERENCES purchases(id) ON DELETE CASCADE,
+                FOREIGN KEY (product_id) REFERENCES products(id),
+                FOREIGN KEY (product_lot_id) REFERENCES product_lots(id) ON DELETE SET NULL
+            );
+            """);
+        ExecuteSql(conn, "CREATE INDEX IF NOT EXISTS idx_purchase_item_lots_purchase ON purchase_item_lots(purchase_id);");
+        ExecuteSql(conn, "CREATE INDEX IF NOT EXISTS idx_purchase_item_lots_item ON purchase_item_lots(purchase_item_id);");
+        ExecuteSql(conn, "CREATE INDEX IF NOT EXISTS idx_purchase_item_lots_product ON purchase_item_lots(product_id);");
     }
 
     private static void EnsurePayablesTable(SqliteConnection conn)

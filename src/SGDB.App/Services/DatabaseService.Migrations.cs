@@ -26,6 +26,7 @@ public static partial class DatabaseService
         EnsurePriceTablesTable(conn);
         EnsureMovementsTable(conn);
         EnsureProductLotsTable(conn);
+        EnsurePurchaseItemLotsTable(conn);
         EnsureBankTables(conn);
         EnsureVasilhameTables(conn);
         EnsureAuditLogTable(conn);
