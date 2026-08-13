@@ -2,8 +2,8 @@
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="Cigarro — Avulso ou Maço"
-        Width="520" Height="420"
-        MinWidth="460" MinHeight="360"
+        Width="660" Height="460"
+        MinWidth="600" MinHeight="420"
         WindowStartupLocation="CenterOwner"
         ResizeMode="NoResize"
         Background="#C8C8C8"
@@ -14,6 +14,34 @@
             <ResourceDictionary.MergedDictionaries>
                 <ResourceDictionary Source="/Themes/PdvTheme.xaml"/>
             </ResourceDictionary.MergedDictionaries>
+            <!-- Estilo local: NÃO usar PdvPayActionBtn (62×62 do teclado de pagamento). -->
+            <Style x:Key="CigaretteModeChoiceBtn" TargetType="Button">
+                <Setter Property="MinWidth" Value="220"/>
+                <Setter Property="MinHeight" Value="150"/>
+                <Setter Property="Padding" Value="18"/>
+                <Setter Property="HorizontalAlignment" Value="Stretch"/>
+                <Setter Property="VerticalAlignment" Value="Stretch"/>
+                <Setter Property="HorizontalContentAlignment" Value="Center"/>
+                <Setter Property="VerticalContentAlignment" Value="Center"/>
+                <Setter Property="Background" Value="#F5F5F5"/>
+                <Setter Property="BorderBrush" Value="#888888"/>
+                <Setter Property="BorderThickness" Value="1"/>
+                <Setter Property="Cursor" Value="Hand"/>
+                <Setter Property="FocusVisualStyle" Value="{x:Null}"/>
+                <Style.Triggers>
+                    <Trigger Property="IsMouseOver" Value="True">
+                        <Setter Property="Background" Value="#EEEEEE"/>
+                        <Setter Property="BorderBrush" Value="#555555"/>
+                    </Trigger>
+                    <Trigger Property="IsPressed" Value="True">
+                        <Setter Property="Background" Value="#E0E0E0"/>
+                    </Trigger>
+                    <Trigger Property="IsKeyboardFocused" Value="True">
+                        <Setter Property="BorderBrush" Value="#333333"/>
+                        <Setter Property="BorderThickness" Value="2"/>
+                    </Trigger>
+                </Style.Triggers>
+            </Style>
         </ResourceDictionary>
     </Window.Resources>
 
@@ -27,56 +55,72 @@
 
             <Border Grid.Row="0" Style="{StaticResource PdvPayTitleBar}">
                 <Grid>
-                    <TextBlock Text="Modalidade de venda" Style="{StaticResource PdvPayTitleText}"/>
+                    <TextBlock Text="Escolha a forma de venda" Style="{StaticResource PdvPayTitleText}"/>
                     <Button Content="×" Style="{StaticResource PdvCloseButton}" HorizontalAlignment="Right"
                             Click="Cancel_Click" ToolTip="Cancelar (Esc)"/>
                 </Grid>
             </Border>
 
-            <StackPanel Grid.Row="1" Margin="20,16" VerticalAlignment="Center">
-                <TextBlock Text="Produto" FontSize="13" Foreground="#555555" HorizontalAlignment="Center"/>
-                <TextBlock x:Name="ProductNameText"
-                           FontSize="22" FontWeight="SemiBold"
-                           TextWrapping="Wrap" TextAlignment="Center"
-                           Margin="0,4,0,18"/>
+            <Grid Grid.Row="1" Margin="24,18">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="*"/>
+                </Grid.RowDefinitions>
 
-                <Grid>
+                <StackPanel Grid.Row="0" Margin="0,0,0,16">
+                    <TextBlock Text="Produto" FontSize="13" Foreground="#555555" HorizontalAlignment="Center"/>
+                    <TextBlock x:Name="ProductNameText"
+                               FontSize="21" FontWeight="SemiBold"
+                               TextWrapping="Wrap" TextAlignment="Center"
+                               MaxHeight="56" TextTrimming="CharacterEllipsis"
+                               Margin="0,4,0,0"/>
+                </StackPanel>
+
+                <Grid Grid.Row="1" VerticalAlignment="Stretch">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="*"/>
-                        <ColumnDefinition Width="12"/>
+                        <ColumnDefinition Width="20"/>
                         <ColumnDefinition Width="*"/>
                     </Grid.ColumnDefinitions>
 
-                    <Button Grid.Column="0" Style="{StaticResource PdvPayActionBtn}"
-                            MinHeight="110" Click="Avulso_Click"
-                            ToolTip="Tecla A">
-                        <StackPanel>
-                            <TextBlock Text="AVULSO" FontSize="22" FontWeight="Bold" HorizontalAlignment="Center"/>
-                            <TextBlock x:Name="AvulsoPriceText" FontSize="18" Margin="0,8,0,0"
-                                       HorizontalAlignment="Center"/>
-                            <TextBlock Text="(A)" FontSize="12" Foreground="#666666"
-                                       HorizontalAlignment="Center" Margin="0,6,0,0"/>
+                    <Button Grid.Column="0" Style="{StaticResource CigaretteModeChoiceBtn}"
+                            Click="Avulso_Click" ToolTip="Tecla A">
+                        <StackPanel HorizontalAlignment="Center">
+                            <TextBlock Text="AVULSO" FontSize="25" FontWeight="Bold"
+                                       TextAlignment="Center" HorizontalAlignment="Center"/>
+                            <TextBlock x:Name="AvulsoPriceText"
+                                       FontSize="22" FontWeight="SemiBold"
+                                       Margin="0,12,0,0"
+                                       TextAlignment="Center" HorizontalAlignment="Center"
+                                       TextWrapping="Wrap"/>
+                            <TextBlock Text="[ A ]" FontSize="15" Foreground="#555555"
+                                       FontWeight="SemiBold"
+                                       HorizontalAlignment="Center" Margin="0,14,0,0"/>
                         </StackPanel>
                     </Button>
 
-                    <Button Grid.Column="2" Style="{StaticResource PdvPayActionBtn}"
-                            MinHeight="110" Click="Maco_Click"
-                            ToolTip="Tecla M">
-                        <StackPanel>
-                            <TextBlock Text="MAÇO" FontSize="22" FontWeight="Bold" HorizontalAlignment="Center"/>
-                            <TextBlock x:Name="MacoPriceText" FontSize="18" Margin="0,8,0,0"
-                                       HorizontalAlignment="Center"/>
-                            <TextBlock Text="(M)" FontSize="12" Foreground="#666666"
-                                       HorizontalAlignment="Center" Margin="0,6,0,0"/>
+                    <Button Grid.Column="2" Style="{StaticResource CigaretteModeChoiceBtn}"
+                            Click="Maco_Click" ToolTip="Tecla M">
+                        <StackPanel HorizontalAlignment="Center">
+                            <TextBlock Text="MAÇO" FontSize="25" FontWeight="Bold"
+                                       TextAlignment="Center" HorizontalAlignment="Center"/>
+                            <TextBlock x:Name="MacoPriceText"
+                                       FontSize="22" FontWeight="SemiBold"
+                                       Margin="0,12,0,0"
+                                       TextAlignment="Center" HorizontalAlignment="Center"
+                                       TextWrapping="Wrap"/>
+                            <TextBlock Text="[ M ]" FontSize="15" Foreground="#555555"
+                                       FontWeight="SemiBold"
+                                       HorizontalAlignment="Center" Margin="0,14,0,0"/>
                         </StackPanel>
                     </Button>
                 </Grid>
-            </StackPanel>
+            </Grid>
 
             <Border Grid.Row="2" Background="#ECECEC" BorderBrush="#AAAAAA"
-                    BorderThickness="0,1,0,0" Padding="14,10">
-                <TextBlock Text="A = Avulso · M = Maço · Esc = cancelar"
-                           FontSize="13" FontWeight="SemiBold" Foreground="#555555"
+                    BorderThickness="0,1,0,0" Padding="14,12">
+                <TextBlock Text="ESC = Cancelar   ·   A = Avulso   ·   M = Maço"
+                           FontSize="14" FontWeight="SemiBold" Foreground="#555555"
                            HorizontalAlignment="Center"/>
             </Border>
         </Grid>
