@@ -4,9 +4,10 @@ using SGDB.Models;
 namespace SGDB.Services;
 
 /// <summary>
-/// Inventário físico: abre uma sessão de contagem (todos os produtos ativos ou de um
-/// grupo), registra as quantidades contadas e, ao consolidar, ajusta o saldo de cada
-/// produto via <see cref="StockService.Adjust"/> (modo Saldo), gerando as movimentações.
+/// Inventário físico do DEPÓSITO: abre uma sessão de contagem (todos os produtos ativos ou de um
+/// grupo), registra as quantidades contadas no depósito e, ao consolidar, ajusta
+/// <c>products.stock</c> via <see cref="StockService.Adjust"/> (modo Saldo).
+/// <c>stock_fridge</c> não é alterado.
 /// </summary>
 public static class InventoryService
 {
@@ -127,7 +128,8 @@ public static class InventoryService
         var sql = """
             SELECT i.id, i.session_id, i.product_id, IFNULL(p.code,''), IFNULL(p.barcode,''), IFNULL(p.name,''),
                    IFNULL(p.unit,'UN'), i.theoretical_qty, i.counted_qty, i.notes,
-                   i.counted_at, i.count_baseline_qty
+                   i.counted_at, i.count_baseline_qty,
+                   IFNULL(p.stock_fridge, 0), IFNULL(p.stock_fridge_min, 0), IFNULL(p.stock, 0)
             FROM inventory_items i
             LEFT JOIN products p ON p.id = i.product_id
             WHERE i.session_id = $session
@@ -156,6 +158,9 @@ public static class InventoryService
                 Notes = reader.IsDBNull(9) ? null : reader.GetString(9),
                 CountedAt = reader.IsDBNull(10) ? null : reader.GetString(10),
                 CountBaselineQty = reader.IsDBNull(11) ? null : reader.GetDouble(11),
+                StockFridge = reader.GetDouble(12),
+                StockFridgeMin = (int)Math.Round(reader.GetDouble(13)),
+                CurrentStock = reader.GetDouble(14),
             });
         }
         return list;

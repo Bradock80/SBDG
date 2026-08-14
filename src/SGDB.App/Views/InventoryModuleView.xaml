@@ -48,7 +48,7 @@
 
             <Border Grid.Row="0" Padding="10,6" Background="#F0F0F0" BorderBrush="#C8C4BC" BorderThickness="0,0,0,1">
                 <Grid>
-                    <TextBlock Text="Inventário / Auditoria de Estoque" FontWeight="SemiBold" FontSize="13"/>
+                    <TextBlock Text="Inventário / Auditoria do Depósito" FontWeight="SemiBold" FontSize="13"/>
                     <Button Style="{StaticResource ModuleTabCloseStyle}" HorizontalAlignment="Right" Click="Close_Click"/>
                 </Grid>
             </Border>
@@ -88,7 +88,8 @@
 
                         <!-- Produto comum: qtd física -->
                         <StackPanel x:Name="CommonCountPanel" Orientation="Horizontal" VerticalAlignment="Center">
-                            <TextBlock Text="Qtd contada" VerticalAlignment="Center" Margin="0,0,10,0" FontSize="12" Foreground="#64748B"/>
+                            <TextBlock Text="Qtd no depósito" VerticalAlignment="Center" Margin="0,0,10,0" FontSize="12" Foreground="#64748B"
+                                       ToolTip="Quantidade contada no DEPÓSITO. Não incluir geladeira."/>
                             <TextBox x:Name="CountBox" Width="90" Height="32" Padding="8,0" Text="1"
                                      VerticalContentAlignment="Center" TextAlignment="Right" Margin="0,0,10,0"
                                      KeyDown="CountBox_KeyDown"/>
@@ -105,15 +106,18 @@
                             <TextBox x:Name="LooseBox" Width="70" Height="32" Padding="8,0" Text="0"
                                      VerticalContentAlignment="Center" TextAlignment="Right" Margin="0,0,10,0"
                                      TextChanged="PackLoose_TextChanged" KeyDown="PackLoose_KeyDown"/>
-                            <TextBlock x:Name="PhysicalTotalText" Text="Total físico: 0 UN" VerticalAlignment="Center"
-                                       Margin="0,0,10,0" FontSize="12" FontWeight="SemiBold" Foreground="#1E293B"/>
+                            <TextBlock x:Name="PhysicalTotalText" Text="Depósito: 0 UN" VerticalAlignment="Center"
+                                       Margin="0,0,10,0" FontSize="12" FontWeight="SemiBold" Foreground="#1E293B"
+                                       ToolTip="Maços + avulsos = quantidade do DEPÓSITO (não inclui geladeira)."/>
                         </StackPanel>
 
                         <Button Content="Registrar (Enter)" Style="{StaticResource SgdbOutlineButtonStyle}"
                                 Height="32" Padding="12,6" Click="Register_Click"/>
                     </StackPanel>
-                    <TextBlock x:Name="StockHintText" Margin="0,6,0,0" FontSize="11" Foreground="#475569"
-                               Visibility="Collapsed"/>
+                    <TextBlock Margin="0,8,0,0" FontSize="11" Foreground="#B45309" TextWrapping="Wrap"
+                               Text="Conte somente o estoque do DEPÓSITO. Não inclua a quantidade da geladeira."/>
+                    <TextBlock x:Name="StockHintText" Margin="0,4,0,0" FontSize="11" Foreground="#334155"
+                               TextWrapping="Wrap" Visibility="Collapsed"/>
                 </StackPanel>
             </Border>
 
@@ -133,13 +137,36 @@
                                         HeaderStyle="{StaticResource TextHeader}"/>
                     <DataGridTextColumn Header="Un" Binding="{Binding Unit}" Width="45"
                                         HeaderStyle="{StaticResource TextHeader}"/>
-                    <DataGridTextColumn Header="Teórico" Binding="{Binding TheoreticalDisplay}" Width="90"
-                                        HeaderStyle="{StaticResource NumHeader}"
-                                        ElementStyle="{StaticResource NumColText}"/>
-                    <DataGridTextColumn Header="Contado" Binding="{Binding CountedDisplay}" Width="90"
-                                        HeaderStyle="{StaticResource NumHeader}"
-                                        ElementStyle="{StaticResource NumColText}"/>
-                    <DataGridTemplateColumn Header="Dif." Width="90" HeaderStyle="{StaticResource NumHeader}">
+                    <DataGridTextColumn Header="Depósito" Binding="{Binding TheoreticalDisplay}" Width="88"
+                                        ElementStyle="{StaticResource NumColText}">
+                        <DataGridTextColumn.HeaderStyle>
+                            <Style TargetType="DataGridColumnHeader" BasedOn="{StaticResource NumHeader}">
+                                <Setter Property="ToolTip" Value="Depósito teórico (congelado na abertura)."/>
+                            </Style>
+                        </DataGridTextColumn.HeaderStyle>
+                    </DataGridTextColumn>
+                    <DataGridTextColumn Header="Geladeira" Binding="{Binding FridgeDisplay}" Width="80"
+                                        ElementStyle="{StaticResource NumColText}">
+                        <DataGridTextColumn.HeaderStyle>
+                            <Style TargetType="DataGridColumnHeader" BasedOn="{StaticResource NumHeader}">
+                                <Setter Property="ToolTip" Value="Geladeira atual (informativo). Não entra na contagem."/>
+                            </Style>
+                        </DataGridTextColumn.HeaderStyle>
+                    </DataGridTextColumn>
+                    <DataGridTextColumn Header="Contado" Binding="{Binding CountedDisplay}" Width="88"
+                                        ElementStyle="{StaticResource NumColText}">
+                        <DataGridTextColumn.HeaderStyle>
+                            <Style TargetType="DataGridColumnHeader" BasedOn="{StaticResource NumHeader}">
+                                <Setter Property="ToolTip" Value="Quantidade contada no DEPÓSITO."/>
+                            </Style>
+                        </DataGridTextColumn.HeaderStyle>
+                    </DataGridTextColumn>
+                    <DataGridTemplateColumn Header="Dif." Width="80">
+                        <DataGridTemplateColumn.HeaderStyle>
+                            <Style TargetType="DataGridColumnHeader" BasedOn="{StaticResource NumHeader}">
+                                <Setter Property="ToolTip" Value="Contado − depósito teórico."/>
+                            </Style>
+                        </DataGridTemplateColumn.HeaderStyle>
                         <DataGridTemplateColumn.CellTemplate>
                             <DataTemplate>
                                 <TextBlock Text="{Binding DifferenceDisplay}" TextAlignment="Right"

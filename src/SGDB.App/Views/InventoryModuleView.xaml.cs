@@ -57,8 +57,8 @@ public partial class InventoryModuleView : UserControl
             return;
         }
 
-        SessionText.Text =
-            $"Inventário #{_session.Id} · {_session.StatusDisplay} · Grupo: {_session.GroupDisplay} · aberto em {_session.CreatedAt}";
+            SessionText.Text =
+                $"Inventário #{_session.Id} · {_session.StatusDisplay} · Grupo: {_session.GroupDisplay} · aberto em {_session.CreatedAt} · somente depósito";
         _allRows = InventoryService.ListItems(_session.Id).ToList();
         _rows = _allRows;
         if (_onlyDivergences)
@@ -98,7 +98,8 @@ public partial class InventoryModuleView : UserControl
             ResetCountDefault();
             SearchBox.Focus();
             MessageBox.Show(
-                $"Inventário #{_session.Id} aberto com {_allRows.Count} produto(s).\nEstoque teórico congelado — bipe ou informe as contagens.",
+                $"Inventário #{_session.Id} aberto com {_allRows.Count} produto(s).\n" +
+                "Contagem SOMENTE do DEPÓSITO — não incluir a geladeira.",
                 "Inventário", MessageBoxButton.OK, MessageBoxImage.Information);
         }
         catch (Exception ex)
@@ -275,8 +276,8 @@ public partial class InventoryModuleView : UserControl
         if (_session is null) return;
         var div = InventoryService.ListDivergences(_session.Id);
         var msg = div.Count > 0
-            ? $"Há {div.Count} divergência(s).\nConsolidar aplica o saldo contado no estoque. Continuar?"
-            : "Consolidar inventário e aplicar saldos contados?";
+            ? $"Há {div.Count} divergência(s) no depósito.\nConsolidar aplica o saldo contado no DEPÓSITO. Continuar?"
+            : "Consolidar inventário e aplicar os saldos contados no DEPÓSITO?";
         if (MessageBox.Show(msg, "Inventário", MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes)
             return;
         try
@@ -337,18 +338,23 @@ public partial class InventoryModuleView : UserControl
         }
 
         // Cigarro com counted decimal legado: modo físico normal (não trunca silenciosamente).
-        ShowCommonCountUi(row.IsCounted
-            ? "Contagem com decimal — use Qtd contada (unidades físicas)."
-            : null);
+        var extra = row.IsCounted
+            ? "Contagem com decimal — use Qtd no depósito (unidades físicas)."
+            : null;
+        ShowCommonCountUi(row, extra);
         CountBox.Text = row.IsCounted ? row.CountedDisplay : "1";
     }
 
-    private void ShowCommonCountUi(string? hint = null)
+    private void ShowCommonCountUi(InventoryItem? row = null, string? extra = null)
     {
         _cigarettePackMode = false;
         _activePackFactor = 0;
         CommonCountPanel.Visibility = Visibility.Visible;
         CigaretteCountPanel.Visibility = Visibility.Collapsed;
+
+        var hint = row is null
+            ? extra
+            : string.IsNullOrWhiteSpace(extra) ? row.WarehouseHint : $"{row.WarehouseHint}\n{extra}";
         if (string.IsNullOrWhiteSpace(hint))
         {
             StockHintText.Visibility = Visibility.Collapsed;
@@ -370,7 +376,10 @@ public partial class InventoryModuleView : UserControl
 
         var theoretical = row.TheoreticalQty;
         var theoText = FormatStockLine(theoretical, factor);
-        StockHintText.Text = $"Estoque atual (teórico): {theoText}";
+        var hint = $"Contagem do depósito: {theoText}";
+        if (row.UsesFridge)
+            hint += $"\nGeladeira atual: {row.StockFridge:G} UN. Não incluir na contagem.";
+        StockHintText.Text = hint;
         StockHintText.Visibility = Visibility.Visible;
 
         if (row.CountedQty is double counted && InventoryPhysicalQuantityCalculator.IsWholeNumber(counted))
@@ -508,24 +517,24 @@ public partial class InventoryModuleView : UserControl
     {
         if (!_cigarettePackMode || _activePackFactor < 2)
         {
-            PhysicalTotalText.Text = "Total físico: —";
+            PhysicalTotalText.Text = "Depósito: —";
             return;
         }
 
         if (!TryReadPackLoose(out var packs, out var loose, out _))
         {
-            PhysicalTotalText.Text = "Total físico: —";
+            PhysicalTotalText.Text = "Depósito: —";
             return;
         }
 
         try
         {
             var total = InventoryPhysicalQuantityCalculator.Calculate(packs, loose, _activePackFactor);
-            PhysicalTotalText.Text = $"Total físico: {total:0.####} UN";
+            PhysicalTotalText.Text = $"Depósito: {total:0.####} UN";
         }
         catch
         {
-            PhysicalTotalText.Text = "Total físico: —";
+            PhysicalTotalText.Text = "Depósito: —";
         }
     }
 

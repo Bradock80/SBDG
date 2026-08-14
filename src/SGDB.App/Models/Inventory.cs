@@ -37,6 +37,26 @@ public sealed class InventoryItem
     public string? CountedAt { get; init; }
     /// <summary>products.stock no momento da última contagem.</summary>
     public double? CountBaselineQty { get; init; }
+    /// <summary>Geladeira atual (informativo). Não entra no snapshot nem no F9.</summary>
+    public double StockFridge { get; init; }
+    /// <summary>Mínimo da geladeira — define se o produto usa o recurso.</summary>
+    public int StockFridgeMin { get; init; }
+    /// <summary>products.stock atual (informativo). TheoreticalQty continua o snapshot.</summary>
+    public double CurrentStock { get; init; }
+
+    public bool UsesFridge => StockFridgeMin > 0 || StockFridge > 0.0001;
+    public double StoreTotalCurrent => Math.Round(CurrentStock + StockFridge, 3);
+    public string FridgeDisplay => UsesFridge ? StockFridge.ToString("N3") : "—";
+    public string WarehouseHint
+    {
+        get
+        {
+            var depot = $"Depósito teórico: {TheoreticalQty:G}";
+            if (!UsesFridge)
+                return depot;
+            return $"{depot}  ·  Geladeira atual: {StockFridge:G}  ·  Total atual: {StoreTotalCurrent:G}";
+        }
+    }
 
     public double? Difference => CountedQty is double c ? Math.Round(c - TheoreticalQty, 3) : null;
     public bool IsCounted => CountedQty is not null;
