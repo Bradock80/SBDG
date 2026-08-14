@@ -72,7 +72,9 @@ public static class StockIoService
 
     private static bool IsTransferOnly(string operation) =>
         operation.Contains("transferencia", StringComparison.OrdinalIgnoreCase)
-        || operation.Contains("Transferência", StringComparison.OrdinalIgnoreCase);
+        || operation.Contains("Transferência", StringComparison.OrdinalIgnoreCase)
+        || operation.Contains("retorno_geladeira", StringComparison.OrdinalIgnoreCase)
+        || operation.Contains("Retorno geladeira", StringComparison.OrdinalIgnoreCase);
 
     private static void LoadFromMovements(
         Microsoft.Data.Sqlite.SqliteConnection conn,
@@ -391,6 +393,7 @@ public static class StockIoService
             "estorno_compra" => "Estorno Compra",
             "ajuste_manual" or "entrada_manual" or "saida_manual" => "Ajuste Manual",
             "transferencia_geladeira" => "Transferência Geladeira",
+            "retorno_geladeira" => "Retorno geladeira → depósito",
             "perda" or "avaria" => "Perda/Avaria",
             "" => isEntry ? "Entrada" : "Saída",
             _ => CultureTitle(operation ?? (isEntry ? "Entrada" : "Saída")),

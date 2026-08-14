@@ -383,11 +383,16 @@
                                             <TextBox x:Name="TotalStockBox" Grid.Column="1" Style="{StaticResource WpdvInput}"
                                                      IsReadOnly="True" Background="#E8E8E0"/>
                                         </Grid>
-                                        <Button x:Name="TransferFridgeBtn" Content="Transferir p/ Geladeira"
-                                                Margin="108,2,0,6" Padding="8,4" FontSize="11"
-                                                HorizontalAlignment="Left"
-                                                Visibility="Collapsed" Click="TransferFridge_Click"
-                                                ToolTip="Move do depósito para a geladeira (não altera o total)."/>
+                                        <StackPanel Orientation="Horizontal" Margin="108,2,0,6">
+                                            <Button x:Name="TransferFridgeBtn" Content="Transferir p/ Geladeira"
+                                                    Padding="8,4" FontSize="11"
+                                                    Visibility="Collapsed" Click="TransferFridge_Click"
+                                                    ToolTip="Move do depósito para a geladeira (não altera o total)."/>
+                                            <Button x:Name="ReturnFridgeBtn" Content="Retornar p/ Depósito"
+                                                    Margin="8,0,0,0" Padding="8,4" FontSize="11"
+                                                    Visibility="Collapsed" Click="ReturnFridge_Click"
+                                                    ToolTip="Move da geladeira para o depósito (não altera o total)."/>
+                                        </StackPanel>
                                         <Grid Style="{StaticResource FormFieldRow}">
                                             <Grid.ColumnDefinitions>
                                                 <ColumnDefinition Width="Auto" SharedSizeGroup="LblCol"/>

@@ -718,6 +718,9 @@ public partial class ProductFormWindow : Window
         FridgePanel.Visibility = uses ? Visibility.Visible : Visibility.Collapsed;
         TotalStockPanel.Visibility = uses ? Visibility.Visible : Visibility.Collapsed;
         TransferFridgeBtn.Visibility = uses && _productId is > 0 ? Visibility.Visible : Visibility.Collapsed;
+        ReturnFridgeBtn.Visibility = uses && _productId is > 0 && fridge > 0.0001
+            ? Visibility.Visible
+            : Visibility.Collapsed;
         StockLabel.Text = uses ? "Depósito" : "Estoque Atual";
         TotalStockBox.Text = ProductPriceHelper.FormatBr(warehouse + fridge);
     }
@@ -760,6 +763,59 @@ public partial class ProductFormWindow : Window
             }
 
             MessageBox.Show("Transferência concluída.", "Geladeira",
+                MessageBoxButton.OK, MessageBoxImage.Information);
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show(ex.Message, "Geladeira", MessageBoxButton.OK, MessageBoxImage.Warning);
+        }
+    }
+
+    private void ReturnFridge_Click(object sender, RoutedEventArgs e)
+    {
+        if (_productId is not int pid)
+        {
+            MessageBox.Show("Salve o produto antes de retornar.", "Geladeira",
+                MessageBoxButton.OK, MessageBoxImage.Information);
+            return;
+        }
+
+        try
+        {
+            ProductService.Update(pid, BuildInput());
+
+            var fridge = ProductPriceHelper.ParseBr(StockFridgeBox.Text);
+            if (fridge < 0.0001)
+                throw new InvalidOperationException(
+                    "Geladeira sem saldo. Nada a retornar para o depósito.");
+
+            var qtyText = PromptQuantity(
+                "Retornar para o depósito",
+                $"Quanto tirar da geladeira? (disponível: {ProductPriceHelper.FormatBr(fridge)})",
+                ProductPriceHelper.FormatBr(fridge));
+            if (qtyText is null)
+                return;
+
+            var qty = ProductPriceHelper.ParseBr(qtyText);
+            var confirm = MessageBox.Show(
+                $"Retornar {ProductPriceHelper.FormatBr(qty)} unidades da geladeira para o depósito?",
+                "Geladeira",
+                MessageBoxButton.YesNo,
+                MessageBoxImage.Question);
+            if (confirm != MessageBoxResult.Yes)
+                return;
+
+            StockService.TransferFridgeToWarehouse(pid, qty);
+
+            var updated = ProductService.GetById(pid);
+            if (updated is not null)
+            {
+                StockBox.Text = ProductPriceHelper.FormatBr(updated.Stock);
+                StockFridgeBox.Text = ProductPriceHelper.FormatBr(updated.StockFridge);
+                RefreshFridgeUi();
+            }
+
+            MessageBox.Show("Retorno concluído.", "Geladeira",
                 MessageBoxButton.OK, MessageBoxImage.Information);
         }
         catch (Exception ex)

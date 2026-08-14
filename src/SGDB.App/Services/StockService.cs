@@ -287,6 +287,70 @@ public static class StockService
         };
     }
 
+    /// <summary>
+    /// Somente testes: invocado após o UPDATE e antes do movement em
+    /// <see cref="TransferFridgeToWarehouse"/>. Deve permanecer null em produção.
+    /// </summary>
+    public static Action<int>? TestBeforeFridgeReturnMovement { get; set; }
+
+    /// <summary>
+    /// Move quantidade da geladeira (stock_fridge) para o depósito (stock).
+    /// Não altera o estoque total nem os lotes.
+    /// </summary>
+    public static StockAdjustResult TransferFridgeToWarehouse(int productId, double quantity)
+    {
+        StoreNetworkMode.EnsureLocalMutationAllowed("retorno geladeira");
+        if (!double.IsFinite(quantity) || quantity <= 0)
+            throw new InvalidOperationException("Informe a quantidade a retornar.");
+        quantity = Math.Round(quantity, 4);
+        if (quantity < 0.0001)
+            throw new InvalidOperationException("Informe a quantidade a retornar.");
+
+        using var conn = DatabaseService.OpenConnection();
+        using var tx = conn.BeginTransaction();
+
+        var row = GetProductFridge(conn, tx, productId)
+            ?? throw new InvalidOperationException("Produto não encontrado.");
+
+        if (quantity > row.StockFridge + 1e-9)
+            throw new InvalidOperationException(
+                $"Quantidade ({quantity:N3}) maior que a geladeira ({row.StockFridge:N3}).");
+
+        using (var upd = conn.CreateCommand())
+        {
+            upd.Transaction = tx;
+            upd.CommandText = """
+                UPDATE products
+                SET stock = stock + $qty,
+                    stock_fridge = IFNULL(stock_fridge, 0) - $qty
+                WHERE id = $id;
+                """;
+            upd.Parameters.AddWithValue("$qty", quantity);
+            upd.Parameters.AddWithValue("$id", productId);
+            upd.ExecuteNonQuery();
+        }
+
+        TestBeforeFridgeReturnMovement?.Invoke(productId);
+
+        var stockBefore = row.Stock + row.StockFridge;
+        var movId = InsertMovement(conn, tx, productId, "entrada", quantity, row.CostPrice,
+            $"Retorno geladeira→depósito ({quantity:G})",
+            stockBefore: stockBefore, stockAfter: stockBefore,
+            operation: "retorno_geladeira",
+            unit: null);
+        tx.Commit();
+
+        return new StockAdjustResult
+        {
+            ProductId = productId,
+            StockBefore = row.Stock,
+            StockAfter = row.Stock + quantity,
+            MovementType = "return_fridge",
+            Quantity = quantity,
+            MovementId = movId,
+        };
+    }
+
     /// <summary>Baixa de venda: geladeira primeiro; resto do depósito. Opcional por produto.</summary>
     public static void ApplySaleDeduction(
         SqliteConnection conn, SqliteTransaction tx, int productId, double qty,
