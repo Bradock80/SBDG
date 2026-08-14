@@ -62,8 +62,14 @@ public static class DemoDataService
                 continue;
             }
 
-            ProductService.Create(product);
+            var desiredStock = product.Stock;
+            var created = ProductService.Create(product);
             productsCreated++;
+            if (desiredStock > 0.0001)
+            {
+                StockService.Adjust(created.Id, StockAdjustMode.Saldo, newStock: desiredStock,
+                    notes: "Saldo inicial (dados demonstração)");
+            }
         }
 
         return new SeedResult

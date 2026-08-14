@@ -558,13 +558,14 @@ public static class ProductService
 
         using var conn = DatabaseService.OpenConnection();
         using var cmd = conn.CreateCommand();
+        // Quantidade física nasce zerada. Entrada só por compra / ajuste / inventário.
         cmd.CommandText = """
             INSERT INTO products (
                 code, barcode, name, group_name, unit, cost_price, sale_price,
                 min_stock, stock, stock_fridge, stock_fridge_min, location, extra_json, active, created_at
             ) VALUES (
                 $code, $barcode, $name, $group_name, $unit, $cost_price, $sale_price,
-                $min_stock, $stock, $stock_fridge, $stock_fridge_min, $location, $extra_json, $active,
+                $min_stock, 0, 0, $stock_fridge_min, $location, $extra_json, $active,
                 datetime('now','localtime')
             );
             SELECT last_insert_rowid();
@@ -715,6 +716,7 @@ public static class ProductService
 
         using var conn = DatabaseService.OpenConnection();
         using var cmd = conn.CreateCommand();
+        // Cadastro não altera quantidade física (stock / stock_fridge).
         cmd.CommandText = """
             UPDATE products SET
                 code = $code,
@@ -725,8 +727,6 @@ public static class ProductService
                 cost_price = $cost_price,
                 sale_price = $sale_price,
                 min_stock = $min_stock,
-                stock = $stock,
-                stock_fridge = $stock_fridge,
                 stock_fridge_min = $stock_fridge_min,
                 location = $location,
                 extra_json = $extra_json,
@@ -746,8 +746,6 @@ public static class ProductService
         var changes = new Dictionary<string, object>();
         if (Math.Abs(existing.SalePrice - data.SalePrice) > 0.001)
             changes["preco_venda"] = new { de = existing.SalePrice, para = data.SalePrice };
-        if (Math.Abs(existing.Stock - data.Stock) > 0.001)
-            changes["estoque"] = new { de = existing.Stock, para = data.Stock };
         if (Math.Abs(existing.CostPrice - data.CostPrice) > 0.001)
             changes["preco_custo"] = new { de = existing.CostPrice, para = data.CostPrice };
         if (changes.Count == 0)
@@ -756,8 +754,6 @@ public static class ProductService
         var parts = new List<string>();
         if (changes.ContainsKey("preco_venda"))
             parts.Add($"preço R$ {existing.SalePrice:N2} → R$ {data.SalePrice:N2}");
-        if (changes.ContainsKey("estoque"))
-            parts.Add($"estoque {existing.Stock:G} → {data.Stock:G}");
         if (changes.ContainsKey("preco_custo"))
             parts.Add($"custo R$ {existing.CostPrice:N2} → R$ {data.CostPrice:N2}");
 
@@ -1243,8 +1239,6 @@ public static class ProductService
         cmd.Parameters.AddWithValue("$cost_price", data.CostPrice);
         cmd.Parameters.AddWithValue("$sale_price", data.SalePrice);
         cmd.Parameters.AddWithValue("$min_stock", data.MinStock);
-        cmd.Parameters.AddWithValue("$stock", data.Stock);
-        cmd.Parameters.AddWithValue("$stock_fridge", data.StockFridge);
         cmd.Parameters.AddWithValue("$stock_fridge_min", data.StockFridgeMin);
         cmd.Parameters.AddWithValue("$location", (object?)data.Location ?? DBNull.Value);
         cmd.Parameters.AddWithValue("$extra_json", data.Extra.ToJson());

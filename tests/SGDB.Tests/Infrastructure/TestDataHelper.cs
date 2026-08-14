@@ -72,6 +72,67 @@ internal static class TestDataHelper
         return Convert.ToDouble(cmd.ExecuteScalar());
     }
 
+    public static double GetProductFridge(int productId)
+    {
+        using var conn = DatabaseService.OpenConnection();
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText = "SELECT IFNULL(stock_fridge, 0) FROM products WHERE id = $id;";
+        cmd.Parameters.AddWithValue("$id", productId);
+        return Convert.ToDouble(cmd.ExecuteScalar());
+    }
+
+    public static void SetProductFridge(int productId, double fridge)
+    {
+        using var conn = DatabaseService.OpenConnection();
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText = "UPDATE products SET stock_fridge = $fridge WHERE id = $id;";
+        cmd.Parameters.AddWithValue("$fridge", fridge);
+        cmd.Parameters.AddWithValue("$id", productId);
+        cmd.ExecuteNonQuery();
+    }
+
+    public static int CountMovements(int productId)
+    {
+        using var conn = DatabaseService.OpenConnection();
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText = "SELECT COUNT(*) FROM movements WHERE product_id = $id;";
+        cmd.Parameters.AddWithValue("$id", productId);
+        return Convert.ToInt32(cmd.ExecuteScalar());
+    }
+
+    public static double SumLots(int productId)
+    {
+        using var conn = DatabaseService.OpenConnection();
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText = "SELECT IFNULL(SUM(quantity), 0) FROM product_lots WHERE product_id = $id;";
+        cmd.Parameters.AddWithValue("$id", productId);
+        return Convert.ToDouble(cmd.ExecuteScalar());
+    }
+
+    public static ProductInput CatalogInputFrom(Product product, Action<ProductInput>? tweak = null)
+    {
+        var extra = ProductExtra.Parse(product.ExtraJson);
+        var input = new ProductInput
+        {
+            Code = product.Code,
+            Barcode = product.Barcode,
+            Name = product.Name,
+            GroupName = product.GroupName,
+            Unit = product.Unit,
+            CostPrice = product.CostPrice,
+            SalePrice = product.SalePrice,
+            MinStock = product.MinStock,
+            Stock = product.Stock,
+            StockFridge = product.StockFridge,
+            StockFridgeMin = product.StockFridgeMin,
+            Location = product.Location,
+            Extra = extra,
+            Active = product.Active,
+        };
+        tweak?.Invoke(input);
+        return input;
+    }
+
     public static PdvFinalizeResult FinalizeSimpleCashSale(
         int productId, double qty, double unitPrice, double cashReceived)
     {

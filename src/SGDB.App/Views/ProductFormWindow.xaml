@@ -349,7 +349,8 @@
                                             </Grid.ColumnDefinitions>
                                             <TextBlock x:Name="StockLabel" Text="Estoque Atual" Style="{StaticResource FormColLabel}"/>
                                             <TextBox x:Name="StockBox" Grid.Column="1" Style="{StaticResource WpdvInput}"
-                                                     ToolTip="Depósito/câmara. Sem geladeira = estoque total. Com geladeira = só o que está fora dela."
+                                                     IsReadOnly="True" Background="#E8E8E0"
+                                                     ToolTip="Somente leitura. Depósito/câmara. Altere o saldo por Ajuste, Compra ou Inventário."
                                                      LostFocus="FridgeFields_Changed"/>
                                         </Grid>
                                         <Grid x:Name="FridgePanel" Style="{StaticResource FormFieldRow}" Visibility="Collapsed">
@@ -360,6 +361,8 @@
                                             <TextBlock Text="Qtd Geladeira" Style="{StaticResource FormColLabel}"
                                                        ToolTip="Quanto está gelando / à venda no frio."/>
                                             <TextBox x:Name="StockFridgeBox" Grid.Column="1" Style="{StaticResource WpdvInput}"
+                                                     IsReadOnly="True" Background="#E8E8E0"
+                                                     ToolTip="Somente leitura. Use Transferir p/ Geladeira ou Retornar p/ Depósito."
                                                      LostFocus="FridgeFields_Changed"/>
                                         </Grid>
                                         <Grid Style="{StaticResource FormFieldRow}">
