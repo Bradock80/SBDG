@@ -745,17 +745,27 @@ public static class PurchaseService
             using var stockCmd = conn.CreateCommand();
             stockCmd.Transaction = tx;
             stockCmd.CommandText = """
-                SELECT IFNULL(stock,0) + IFNULL(stock_fridge,0)
+                SELECT IFNULL(stock,0), IFNULL(stock_fridge,0)
                 FROM products WHERE id = $id LIMIT 1;
                 """;
             stockCmd.Parameters.AddWithValue("$id", productId);
-            var o = stockCmd.ExecuteScalar();
-            if (o is null or DBNull)
+            using var reader = stockCmd.ExecuteReader();
+            if (!reader.Read())
                 throw new InvalidOperationException("Não é possível cancelar: produto da compra não foi encontrado.");
-            var available = Convert.ToDouble(o);
-            if (available + 1e-4 < need)
+            var warehouse = reader.GetDouble(0);
+            var fridge = reader.GetDouble(1);
+            reader.Close();
+
+            if (warehouse + 1e-4 >= need)
+                continue;
+
+            var total = warehouse + fridge;
+            if (total + 1e-4 >= need)
                 throw new InvalidOperationException(
-                    $"Não é possível cancelar: estoque atual ({available:0.####}) é menor que a quantidade da compra ({need:0.####}). O estorno deixaria o estoque negativo.");
+                    "Não é possível cancelar esta compra porque parte da quantidade está na geladeira.\n\nRetorne a quantidade necessária da geladeira para o estoque antes de cancelar a compra.");
+
+            throw new InvalidOperationException(
+                $"Não é possível cancelar: estoque atual ({total:0.####}) é menor que a quantidade da compra ({need:0.####}). O estorno deixaria o estoque negativo.");
         }
     }
 
