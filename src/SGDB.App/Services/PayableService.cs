@@ -463,8 +463,6 @@ public static class PayableService
         StoreNetworkMode.EnsureLocalMutationAllowed("baixar parcela a pagar");
         if (string.IsNullOrEmpty(DateBrHelper.ToIso(input.PaidDate)))
             throw new PayableException("Informe a data do pagamento (DD/MM/AAAA).");
-        if (input.PaidAmount < 0)
-            throw new PayableException("Informe o valor pago.");
 
         var paidIso = DateBrHelper.ToIso(input.PaidDate)!;
 
@@ -473,6 +471,26 @@ public static class PayableService
 
         var inst = GetInstallment(conn, tx, installmentId)
             ?? throw new PayableException("Parcela não encontrada.");
+        if (IsPaidStatus(inst.Status))
+            throw new PayableException(
+                "Esta parcela já está paga. Estorne a baixa antes de realizar uma nova baixa.");
+
+        var amount = RoundMoney(inst.Amount, "valor da parcela");
+        var discount = RoundMoney(input.Discount, "desconto");
+        var interest = RoundMoney(input.Interest, "juros");
+        var multa = RoundMoney(input.Multa, "multa");
+        var paid = RoundMoney(input.PaidAmount, "valor pago");
+        if (paid < 0)
+            throw new PayableException("Informe o valor pago.");
+
+        var due = ProductPriceHelper.RoundPrice(amount - discount + interest + multa);
+        EnsureFiniteMoney(due, "valor devido");
+        if (due < 0)
+            throw new PayableException("O desconto, juros e multa resultam em valor devido inválido.");
+
+        if (MoneyCents(paid) != MoneyCents(due))
+            throw new PayableException(
+                "Para quitar esta parcela, o valor pago deve ser " + ProductPriceHelper.MoneyBr(due) + ".");
 
         using (var upd = conn.CreateCommand())
         {
@@ -491,11 +509,11 @@ public static class PayableService
                 WHERE id = $id;
                 """;
             upd.Parameters.AddWithValue("$id", installmentId);
-            upd.Parameters.AddWithValue("$paid", ProductPriceHelper.RoundPrice(input.PaidAmount));
+            upd.Parameters.AddWithValue("$paid", paid);
             upd.Parameters.AddWithValue("$date", paidIso);
-            upd.Parameters.AddWithValue("$disc", ProductPriceHelper.RoundPrice(input.Discount));
-            upd.Parameters.AddWithValue("$juros", ProductPriceHelper.RoundPrice(input.Interest));
-            upd.Parameters.AddWithValue("$multa", ProductPriceHelper.RoundPrice(input.Multa));
+            upd.Parameters.AddWithValue("$disc", discount);
+            upd.Parameters.AddWithValue("$juros", interest);
+            upd.Parameters.AddWithValue("$multa", multa);
             upd.Parameters.AddWithValue("$notes",
                 string.IsNullOrWhiteSpace(input.Notes) ? DBNull.Value : input.Notes.Trim());
             upd.Parameters.AddWithValue("$conta",
@@ -505,8 +523,12 @@ public static class PayableService
         }
 
         var paymentType = string.IsNullOrWhiteSpace(input.PaymentType) ? inst.PaymentType : input.PaymentType.Trim();
-        CashService.RegisterPayableCashPayment(conn, tx, installmentId, inst.SupplierName,
-            ProductPriceHelper.RoundPrice(input.PaidAmount), paidIso, paymentType);
+        // Desconto integral (devido 0): quita sem saída de caixa.
+        if (MoneyCents(paid) > 0)
+        {
+            CashService.RegisterPayableCashPayment(conn, tx, installmentId, inst.SupplierName,
+                paid, paidIso, paymentType);
+        }
 
         tx.Commit();
     }
@@ -849,6 +871,23 @@ public static class PayableService
     /// <summary>Gestão antigo gravava PAGO/PENDENTE em maiúsculas.</summary>
     private static bool IsPaidStatus(string? status) =>
         string.Equals((status ?? "").Trim(), "pago", StringComparison.OrdinalIgnoreCase);
+
+    private static void EnsureFiniteMoney(double value, string campo)
+    {
+        if (double.IsNaN(value) || double.IsInfinity(value))
+            throw new PayableException("Valor inválido em " + campo + ".");
+    }
+
+    private static double RoundMoney(double value, string campo)
+    {
+        EnsureFiniteMoney(value, campo);
+        var rounded = ProductPriceHelper.RoundPrice(value);
+        EnsureFiniteMoney(rounded, campo);
+        return rounded;
+    }
+
+    private static long MoneyCents(double rounded) =>
+        (long)Math.Round(rounded * 100.0, MidpointRounding.AwayFromZero);
 
     private static string TitleSituacao(IReadOnlyList<PayableInstallmentDetail> insts, DateTime today)
     {
