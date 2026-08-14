@@ -341,6 +341,8 @@ public static class ProductService
     /// </summary>
     public static int BackfillFixDoubleDividedUnitCosts()
     {
+        if (StoreNetworkMode.IsClient)
+            return 0;
         var updated = 0;
         foreach (var product in List(ativo: "ativos"))
         {
@@ -438,6 +440,8 @@ public static class ProductService
     /// </summary>
     public static int BackfillFixCigarettePrices()
     {
+        if (StoreNetworkMode.IsClient)
+            return 0;
         var updated = 0;
         using var conn = DatabaseService.OpenConnection();
 
@@ -614,6 +618,8 @@ public static class ProductService
     /// <summary>Limpa nomes sujos de embalagem em todo o cadastro (uma vez por versão).</summary>
     public static int SanitizeAllCatalogNamesOnce(string versionKey = "product_name_sanitize_v6")
     {
+        if (StoreNetworkMode.IsClient)
+            return 0;
         if (AppSettingsService.GetSetting(versionKey) == "1")
             return 0;
 
@@ -639,15 +645,10 @@ public static class ProductService
     /// </summary>
     public static int NormalizePackUnitsToUnOnce(string versionKey = "product_unit_un_v1")
     {
+        if (StoreNetworkMode.IsClient)
+            return 0;
         if (AppSettingsService.GetSetting(versionKey) == "1")
             return 0;
-
-        // Ajuste no banco da loja (servidor). Cliente só marca como feito localmente.
-        if (StoreNetworkMode.IsClient)
-        {
-            AppSettingsService.SetSetting(versionKey, "1");
-            return 0;
-        }
 
         var updated = 0;
         using var conn = DatabaseService.OpenConnection();
