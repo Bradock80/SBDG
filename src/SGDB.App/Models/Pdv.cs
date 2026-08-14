@@ -75,11 +75,20 @@ public class PdvSaleListRow
     public string CreatedAtBr { get; set; } = "";
     public int ItemsCount { get; set; }
     public string PaymentLabel { get; set; } = "";
+    public string? PixIntentStatus { get; set; }
     [System.Text.Json.Serialization.JsonIgnore] public string CustomerDisplay => string.IsNullOrWhiteSpace(CustomerName) ? "—" : CustomerName!;
     [System.Text.Json.Serialization.JsonIgnore] public string SellerDisplay => string.IsNullOrWhiteSpace(SellerName) ? "—" : SellerName!;
-    [System.Text.Json.Serialization.JsonIgnore] public string FormaDisplay => string.IsNullOrWhiteSpace(PaymentType) ? "—" : PaymentType;
+    [System.Text.Json.Serialization.JsonIgnore]
+    public string FormaDisplay =>
+        string.Equals(PixIntentStatus, "refund_pending", StringComparison.OrdinalIgnoreCase)
+            ? "PIX — estorno pendente"
+            : string.IsNullOrWhiteSpace(PaymentType) ? "—" : PaymentType;
     [System.Text.Json.Serialization.JsonIgnore] public string TotalDisplay => ProductPriceHelper.MoneyBr(Total);
-    [System.Text.Json.Serialization.JsonIgnore] public string StatusDisplay => Cancelled ? "Canc." : "OK";
+    [System.Text.Json.Serialization.JsonIgnore]
+    public string StatusDisplay =>
+        string.Equals(PixIntentStatus, "refund_pending", StringComparison.OrdinalIgnoreCase)
+            ? "PIX pend."
+            : Cancelled ? "Canc." : "OK";
     [System.Text.Json.Serialization.JsonIgnore] public string StatusKey => Cancelled ? "cancelled" : "ok";
     [System.Text.Json.Serialization.JsonIgnore]
     public string SessionDateBr

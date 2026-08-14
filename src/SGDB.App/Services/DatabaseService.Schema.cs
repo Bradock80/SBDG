@@ -67,6 +67,7 @@ public static partial class DatabaseService
         EnsurePayablesTable(conn);
         EnsureCashTable(conn);
         EnsureSalesTable(conn);
+        EnsurePixIntentsTable(conn);
         EnsureFiadoTable(conn);
         EnsurePaymentMethodFeesTable(conn);
         EnsureOpenTabsTables(conn);
@@ -700,6 +701,27 @@ public static partial class DatabaseService
             """);
         ExecuteSql(conn, "CREATE INDEX IF NOT EXISTS idx_sales_session_date ON sales(session_date);");
         ExecuteSql(conn, "CREATE INDEX IF NOT EXISTS idx_sale_items_sale ON sale_items(sale_id);");
+    }
+
+    private static void EnsurePixIntentsTable(SqliteConnection conn)
+    {
+        ExecuteSql(conn, """
+            CREATE TABLE IF NOT EXISTS pix_intents (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                sale_id INTEGER,
+                mp_payment_id INTEGER NOT NULL UNIQUE,
+                idempotency_key TEXT,
+                amount REAL NOT NULL DEFAULT 0,
+                status TEXT NOT NULL,
+                created_at TEXT NOT NULL DEFAULT (datetime('now','localtime')),
+                approved_at TEXT,
+                cancelled_at TEXT,
+                refunded_at TEXT,
+                last_error TEXT
+            );
+            """);
+        ExecuteSql(conn, "CREATE INDEX IF NOT EXISTS idx_pix_intents_sale ON pix_intents(sale_id);");
+        ExecuteSql(conn, "CREATE INDEX IF NOT EXISTS idx_pix_intents_status ON pix_intents(status);");
     }
 
     private static void EnsureSaleExchangeTables(SqliteConnection conn)

@@ -393,6 +393,9 @@ public static class FiadoService
             throw new FiadoException("Nenhuma venda fiado sem cliente para cancelar.");
 
         foreach (var saleId in toDiscard)
+            PixSaleReverseService.ReverseForSale(saleId);
+
+        foreach (var saleId in toDiscard)
         {
             using (var upd = conn.CreateCommand())
             {
@@ -476,6 +479,9 @@ public static class FiadoService
             throw new FiadoException("Este cliente não tem fiado para excluir.");
 
         var totalCleared = ProductPriceHelper.RoundPrice(sales.Sum(s => s.Charge));
+
+        foreach (var sale in sales)
+            PixSaleReverseService.ReverseForSale(sale.Id);
 
         foreach (var sale in sales)
         {

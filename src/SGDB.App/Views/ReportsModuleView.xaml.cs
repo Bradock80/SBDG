@@ -507,6 +507,7 @@ public partial class ReportsModuleView : UserControl
             {
                 SaleId = row.Id,
             });
+            PixSaleReverseService.ShowOperatorAlert(Window.GetWindow(this));
             LoadVendasPdv();
         }
         catch (Exception ex) when (ex is PdvException or CashOperationException)

@@ -23,7 +23,8 @@ public static class PdvQueryService
             SELECT s.id, s.session_date, s.total, s.payment_type, s.cancelled, s.created_at, s.cash_received, s.change_amount,
                    p.name AS customer_name,
                    (SELECT COUNT(*) FROM sale_items si WHERE si.sale_id = s.id) AS items_count,
-                   sel.name AS seller_name
+                   sel.name AS seller_name,
+                   (SELECT pi.status FROM pix_intents pi WHERE pi.sale_id = s.id ORDER BY pi.id DESC LIMIT 1) AS pix_status
             FROM sales s
             LEFT JOIN people p ON p.id = s.customer_id
             LEFT JOIN sellers sel ON sel.id = s.seller_id
@@ -59,6 +60,7 @@ public static class PdvQueryService
                 ItemsCount = reader.GetInt32(9),
                 SellerName = reader.IsDBNull(10) ? null : reader.GetString(10),
                 PaymentLabel = FormatPaymentLabel(paymentType, cashRecv, change),
+                PixIntentStatus = reader.IsDBNull(11) ? null : reader.GetString(11),
             });
         }
         return rows;

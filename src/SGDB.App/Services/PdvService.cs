@@ -442,6 +442,22 @@ public static class PdvService
         var d = (sessionDate ?? DateTime.Today).Date;
         CashService.RequireOperational(conn, d);
 
+        using (var pre = conn.CreateCommand())
+        {
+            pre.CommandText = "SELECT id, session_date, cancelled FROM sales WHERE id = $id LIMIT 1;";
+            pre.Parameters.AddWithValue("$id", saleId);
+            using var preReader = pre.ExecuteReader();
+            if (!preReader.Read())
+                throw new PdvException("Venda não encontrada.");
+            if (preReader.GetInt32(2) != 0)
+                throw new PdvException("Venda já cancelada.");
+            var saleDate = DateTime.Parse(preReader.GetString(1)).Date;
+            if (saleDate != d)
+                throw new PdvException("Só é possível cancelar vendas de hoje com o caixa aberto.");
+        }
+
+        PixSaleReverseService.ReverseForSale(saleId);
+
         using var tx = conn.BeginTransaction();
         using var cmd = conn.CreateCommand();
         cmd.Transaction = tx;
@@ -452,11 +468,7 @@ public static class PdvService
             throw new PdvException("Venda não encontrada.");
         if (reader.GetInt32(2) != 0)
             throw new PdvException("Venda já cancelada.");
-        var saleDate = DateTime.Parse(reader.GetString(1)).Date;
         reader.Close();
-
-        if (saleDate != d)
-            throw new PdvException("Só é possível cancelar vendas de hoje com o caixa aberto.");
 
         double saleTotal;
         using (var totalCmd = conn.CreateCommand())

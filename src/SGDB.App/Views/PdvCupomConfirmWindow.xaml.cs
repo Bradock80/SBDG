@@ -165,7 +165,7 @@ public partial class PdvCupomConfirmWindow : Window
                 "Voltar para as formas de pagamento?\n\n" +
                 "• Os itens permanecem no carrinho\n" +
                 "• Esta venda será estornada do caixa\n" +
-                "• Se já pagou via PIX, trate a devolução no Mercado Pago se necessário",
+                "• Se já pagou via PIX QR, o sistema tenta o estorno no Mercado Pago",
                 "Alterar pagamento",
                 MessageBoxButton.YesNo,
                 MessageBoxImage.Question) != MessageBoxResult.Yes)

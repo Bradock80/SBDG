@@ -483,6 +483,7 @@ public partial class PdvVendasConsultaWindow : Window
             });
             MessageBox.Show($"Venda #{_currentDetail.Id} cancelada.", "Consulta vendas",
                 MessageBoxButton.OK, MessageBoxImage.Information);
+            PixSaleReverseService.ShowOperatorAlert(this);
             RefreshList();
         }
         catch (Exception ex) when (ex is PdvException or CashOperationException)

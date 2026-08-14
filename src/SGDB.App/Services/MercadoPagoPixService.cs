@@ -18,88 +18,127 @@ public sealed class MercadoPagoPixCharge
 
 public static class MercadoPagoPixService
 {
-    private static readonly HttpClient Http = CreateClient();
+    public static IMercadoPagoPixGateway Gateway { get; set; } = new HttpMercadoPagoPixGateway();
 
-    private static HttpClient CreateClient()
-    {
-        var c = new HttpClient { Timeout = TimeSpan.FromSeconds(30) };
-        c.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
-        return c;
-    }
-
-    public static async Task<MercadoPagoPixCharge> CreatePixAsync(
+    public static Task<MercadoPagoPixCharge> CreatePixAsync(
         double amount,
         string description,
         string? payerEmail = null,
-        CancellationToken ct = default)
-    {
-        var token = MercadoPagoCredentials.TryLoadAccessToken()
-            ?? throw new InvalidOperationException("Access Token do Mercado Pago não configurado.");
+        CancellationToken ct = default) =>
+        Gateway.CreatePixAsync(
+            amount, description, Guid.NewGuid().ToString("N"), payerEmail, ct);
 
-        amount = Math.Round(Math.Max(0.01, amount), 2, MidpointRounding.AwayFromZero);
-        var email = NormalizeEmail(payerEmail);
-        var body = new Dictionary<string, object?>
+    public static Task<MercadoPagoPixCharge> GetPaymentAsync(long paymentId, CancellationToken ct = default) =>
+        Gateway.GetPaymentAsync(paymentId, ct);
+
+    public static Task CancelPaymentAsync(long paymentId, CancellationToken ct = default) =>
+        Gateway.CancelPaymentAsync(paymentId, ct);
+
+    public static Task RefundPaymentAsync(long paymentId, CancellationToken ct = default) =>
+        Gateway.RefundPaymentAsync(paymentId, Guid.NewGuid().ToString("N"), ct);
+
+    private sealed class HttpMercadoPagoPixGateway : IMercadoPagoPixGateway
+    {
+        private static readonly HttpClient Http = CreateClient();
+
+        private static HttpClient CreateClient()
         {
-            ["transaction_amount"] = amount,
-            ["description"] = string.IsNullOrWhiteSpace(description) ? "Venda PDV" : description.Trim(),
-            ["payment_method_id"] = "pix",
-            ["payer"] = new Dictionary<string, object?>
+            var c = new HttpClient { Timeout = TimeSpan.FromSeconds(30) };
+            c.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+            return c;
+        }
+
+        public async Task<MercadoPagoPixCharge> CreatePixAsync(
+            double amount,
+            string description,
+            string idempotencyKey,
+            string? payerEmail,
+            CancellationToken ct)
+        {
+            var token = MercadoPagoCredentials.TryLoadAccessToken()
+                ?? throw new InvalidOperationException("Access Token do Mercado Pago não configurado.");
+
+            amount = Math.Round(Math.Max(0.01, amount), 2, MidpointRounding.AwayFromZero);
+            var email = NormalizeEmail(payerEmail);
+            var body = new Dictionary<string, object?>
             {
-                ["email"] = email,
-            },
-        };
+                ["transaction_amount"] = amount,
+                ["description"] = string.IsNullOrWhiteSpace(description) ? "Venda PDV" : description.Trim(),
+                ["payment_method_id"] = "pix",
+                ["payer"] = new Dictionary<string, object?>
+                {
+                    ["email"] = email,
+                },
+            };
 
-        using var req = new HttpRequestMessage(HttpMethod.Post, "https://api.mercadopago.com/v1/payments");
-        req.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
-        req.Headers.TryAddWithoutValidation("X-Idempotency-Key", Guid.NewGuid().ToString("N"));
-        req.Content = new StringContent(JsonSerializer.Serialize(body), Encoding.UTF8, "application/json");
+            using var req = new HttpRequestMessage(HttpMethod.Post, "https://api.mercadopago.com/v1/payments");
+            req.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+            req.Headers.TryAddWithoutValidation("X-Idempotency-Key",
+                string.IsNullOrWhiteSpace(idempotencyKey) ? Guid.NewGuid().ToString("N") : idempotencyKey);
+            req.Content = new StringContent(JsonSerializer.Serialize(body), Encoding.UTF8, "application/json");
 
-        using var resp = await Http.SendAsync(req, ct).ConfigureAwait(false);
-        var json = await resp.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
-        if (!resp.IsSuccessStatusCode)
-            throw new InvalidOperationException(FormatApiError(resp.StatusCode, json));
-
-        return ParseCharge(json);
-    }
-
-    public static async Task<MercadoPagoPixCharge> GetPaymentAsync(long paymentId, CancellationToken ct = default)
-    {
-        var token = MercadoPagoCredentials.TryLoadAccessToken()
-            ?? throw new InvalidOperationException("Access Token do Mercado Pago não configurado.");
-
-        using var req = new HttpRequestMessage(HttpMethod.Get, $"https://api.mercadopago.com/v1/payments/{paymentId}");
-        req.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
-
-        using var resp = await Http.SendAsync(req, ct).ConfigureAwait(false);
-        var json = await resp.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
-        if (!resp.IsSuccessStatusCode)
-            throw new InvalidOperationException(FormatApiError(resp.StatusCode, json));
-
-        return ParseCharge(json);
-    }
-
-    public static async Task CancelPaymentAsync(long paymentId, CancellationToken ct = default)
-    {
-        var token = MercadoPagoCredentials.TryLoadAccessToken();
-        if (string.IsNullOrEmpty(token) || paymentId <= 0)
-            return;
-
-        var body = """{"status":"cancelled"}""";
-        using var req = new HttpRequestMessage(HttpMethod.Put, $"https://api.mercadopago.com/v1/payments/{paymentId}");
-        req.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
-        req.Content = new StringContent(body, Encoding.UTF8, "application/json");
-        try
-        {
             using var resp = await Http.SendAsync(req, ct).ConfigureAwait(false);
-            _ = resp;
+            var json = await resp.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
+            if (!resp.IsSuccessStatusCode)
+                throw new InvalidOperationException(FormatApiError(resp.StatusCode, json));
+
+            return ParseCharge(json);
         }
-        catch
+
+        public async Task<MercadoPagoPixCharge> GetPaymentAsync(long paymentId, CancellationToken ct)
         {
-            // best-effort
+            var token = MercadoPagoCredentials.TryLoadAccessToken()
+                ?? throw new InvalidOperationException("Access Token do Mercado Pago não configurado.");
+
+            using var req = new HttpRequestMessage(HttpMethod.Get, $"https://api.mercadopago.com/v1/payments/{paymentId}");
+            req.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+            using var resp = await Http.SendAsync(req, ct).ConfigureAwait(false);
+            var json = await resp.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
+            if (!resp.IsSuccessStatusCode)
+                throw new InvalidOperationException(FormatApiError(resp.StatusCode, json));
+
+            return ParseCharge(json);
+        }
+
+        public async Task CancelPaymentAsync(long paymentId, CancellationToken ct)
+        {
+            var token = MercadoPagoCredentials.TryLoadAccessToken()
+                ?? throw new InvalidOperationException("Access Token do Mercado Pago não configurado.");
+            if (paymentId <= 0)
+                throw new InvalidOperationException("payment_id inválido.");
+
+            var body = """{"status":"cancelled"}""";
+            using var req = new HttpRequestMessage(HttpMethod.Put, $"https://api.mercadopago.com/v1/payments/{paymentId}");
+            req.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+            req.Content = new StringContent(body, Encoding.UTF8, "application/json");
+            using var resp = await Http.SendAsync(req, ct).ConfigureAwait(false);
+            var json = await resp.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
+            if (!resp.IsSuccessStatusCode)
+                throw new InvalidOperationException(FormatApiError(resp.StatusCode, json));
+        }
+
+        public async Task RefundPaymentAsync(long paymentId, string idempotencyKey, CancellationToken ct)
+        {
+            var token = MercadoPagoCredentials.TryLoadAccessToken()
+                ?? throw new InvalidOperationException("Access Token do Mercado Pago não configurado.");
+            if (paymentId <= 0)
+                throw new InvalidOperationException("payment_id inválido.");
+
+            using var req = new HttpRequestMessage(
+                HttpMethod.Post, $"https://api.mercadopago.com/v1/payments/{paymentId}/refunds");
+            req.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+            req.Headers.TryAddWithoutValidation("X-Idempotency-Key",
+                string.IsNullOrWhiteSpace(idempotencyKey) ? Guid.NewGuid().ToString("N") : idempotencyKey);
+            req.Content = new StringContent("{}", Encoding.UTF8, "application/json");
+            using var resp = await Http.SendAsync(req, ct).ConfigureAwait(false);
+            var json = await resp.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
+            if (!resp.IsSuccessStatusCode)
+                throw new InvalidOperationException(FormatApiError(resp.StatusCode, json));
         }
     }
 
-    private static MercadoPagoPixCharge ParseCharge(string json)
+    internal static MercadoPagoPixCharge ParseCharge(string json)
     {
         using var doc = JsonDocument.Parse(json);
         var root = doc.RootElement;

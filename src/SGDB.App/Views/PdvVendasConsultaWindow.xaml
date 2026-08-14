@@ -69,11 +69,11 @@
                                                     ElementStyle="{StaticResource ConsultaCellText}"/>
                                 <DataGridTextColumn Header="Vendedor" Binding="{Binding SellerDisplay}" Width="90"
                                                     ElementStyle="{StaticResource ConsultaCellText}"/>
-                                <DataGridTextColumn Header="Forma" Binding="{Binding FormaDisplay}" Width="88"
+                                <DataGridTextColumn Header="Forma" Binding="{Binding FormaDisplay}" Width="140"
                                                     ElementStyle="{StaticResource ConsultaCellText}"/>
                                 <DataGridTextColumn Header="Total" Binding="{Binding TotalDisplay}" Width="78"
                                                     ElementStyle="{StaticResource ConsultaCellText}"/>
-                                <DataGridTextColumn Header="St." Binding="{Binding StatusDisplay}" Width="44"
+                                <DataGridTextColumn Header="St." Binding="{Binding StatusDisplay}" Width="72"
                                                     ElementStyle="{StaticResource ConsultaCellText}"/>
                             </DataGrid.Columns>
                         </DataGrid>

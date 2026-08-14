@@ -1,3 +1,4 @@
+using System.ComponentModel;
 using System.IO;
 using System.Windows;
 using System.Windows.Input;
@@ -10,29 +11,35 @@ namespace SGDB.Views;
 
 public partial class PdvPixQrWindow : Window
 {
-    private readonly double _amount;
-    private readonly string _description;
+    private readonly PixCheckoutCoordinator _checkout;
     private readonly CancellationTokenSource _cts = new();
-    private long _paymentId;
-    private bool _closingOk;
     private DispatcherTimer? _pollTimer;
-    private int _pollErrors;
+    private bool _allowClose;
+    private bool _closingInProgress;
 
-    public long? PaymentId => _paymentId > 0 ? _paymentId : null;
-    public bool PaidConfirmed { get; private set; }
-
-    /// <summary>True se o PIX foi detectado pelo QR (API), não só confirmação manual.</summary>
-    public bool PaidViaQrCode { get; private set; }
+    public long? PaymentId => _checkout.PaymentId;
+    public bool PaidConfirmed => _checkout.PaidConfirmed;
+    public bool PaidViaQrCode => _checkout.PaidConfirmed;
 
     public PdvPixQrWindow(double amount, string? description = null)
     {
-        _amount = ProductPriceHelper.RoundPrice(amount);
-        _description = string.IsNullOrWhiteSpace(description)
-            ? $"Venda PDV R$ {_amount:N2}"
+        var desc = string.IsNullOrWhiteSpace(description)
+            ? $"Venda PDV R$ {ProductPriceHelper.RoundPrice(amount):N2}"
             : description.Trim();
+        _checkout = new PixCheckoutCoordinator(ProductPriceHelper.RoundPrice(amount), desc);
         InitializeComponent();
-        ValorText.Text = $"R$ {_amount:N2}";
+        ValorText.Text = $"R$ {ProductPriceHelper.RoundPrice(amount):N2}";
+        ApplyUi();
         Loaded += async (_, _) => await StartAsync();
+    }
+
+    private void ApplyUi()
+    {
+        StatusText.Text = _checkout.UiStatus;
+        HintText.Text = _checkout.UiHint;
+        StatusText.Foreground = _checkout.PaidConfirmed
+            ? System.Windows.Media.Brushes.LightGreen
+            : System.Windows.Media.Brushes.Gold;
     }
 
     private async Task StartAsync()
@@ -40,26 +47,20 @@ public partial class PdvPixQrWindow : Window
         try
         {
             StatusText.Text = "Gerando cobrança PIX…";
-            var charge = await MercadoPagoPixService.CreatePixAsync(
-                _amount, _description, ct: _cts.Token);
-
-            if (_cts.IsCancellationRequested)
-                return;
-
-            _paymentId = charge.PaymentId;
-            CopiaColaBox.Text = charge.QrCode;
-            ShowQr(charge.QrCodeBase64);
-
-            if (string.Equals(charge.Status, "approved", StringComparison.OrdinalIgnoreCase))
+            await _checkout.StartAsync(_cts.Token);
+            var charge = _checkout.LastCharge;
+            if (charge is not null)
             {
-                FinishPaid();
-                return;
+                CopiaColaBox.Text = charge.QrCode;
+                ShowQr(charge.QrCodeBase64);
             }
 
-            StatusText.Text = "Aguardando pagamento…";
-            HintText.Text = charge.ExpiresAt is DateTime exp
-                ? $"Válido até {exp:HH:mm}. Cliente lê o QR no app do banco."
-                : "Peça ao cliente para abrir o app do banco e ler o QR Code.";
+            ApplyUi();
+            if (_checkout.PaidConfirmed)
+            {
+                await FinishPaidAsync();
+                return;
+            }
 
             _pollTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(2.5) };
             _pollTimer.Tick += async (_, _) => await PollOnceAsync();
@@ -71,7 +72,7 @@ public partial class PdvPixQrWindow : Window
         }
         catch (Exception ex)
         {
-            StatusText.Text = "Não foi possível gerar o QR";
+            StatusText.Text = PixMpStatus.WaitingMessage;
             HintText.Text = ex.Message;
             QrPlaceholder.Text = "Erro";
             MessageBox.Show(ex.Message, "PIX Mercado Pago", MessageBoxButton.OK, MessageBoxImage.Warning);
@@ -80,41 +81,61 @@ public partial class PdvPixQrWindow : Window
 
     private async Task PollOnceAsync()
     {
-        if (_paymentId <= 0 || _cts.IsCancellationRequested || PaidConfirmed)
+        if (_closingInProgress || _checkout.PaidConfirmed || _cts.IsCancellationRequested)
             return;
 
+        var ok = await _checkout.TryConfirmFromApiAsync(_cts.Token);
+        ApplyUi();
+        if (ok)
+            await FinishPaidAsync();
+    }
+
+    private async void Verify_Click(object sender, RoutedEventArgs e)
+    {
+        BtnVerify.IsEnabled = false;
         try
         {
-            var charge = await MercadoPagoPixService.GetPaymentAsync(_paymentId, _cts.Token);
-            _pollErrors = 0;
-            var st = (charge.Status ?? "").ToLowerInvariant();
-            if (st == "approved")
+            var ok = await _checkout.TryConfirmFromApiAsync(_cts.Token);
+            ApplyUi();
+            if (ok)
             {
-                FinishPaid();
+                await FinishPaidAsync();
                 return;
             }
 
-            if (st is "cancelled" or "rejected" or "expired")
-            {
-                _pollTimer?.Stop();
-                StatusText.Text = $"Pagamento {st}";
-                HintText.Text = string.IsNullOrWhiteSpace(charge.StatusDetail)
-                    ? "Gere novamente ou cancele a venda."
-                    : charge.StatusDetail;
-                return;
-            }
-
-            StatusText.Text = "Aguardando pagamento…";
+            MessageBox.Show(
+                "O Mercado Pago ainda não confirmou este PIX (status diferente de approved).\n\n" +
+                "Não entregue a mercadoria. Aguarde ou peça ao cliente para concluir o pagamento.",
+                "PIX aguardando",
+                MessageBoxButton.OK,
+                MessageBoxImage.Information);
         }
-        catch (OperationCanceledException)
+        finally
         {
-            // ignore
+            if (IsVisible && !_checkout.PaidConfirmed)
+                BtnVerify.IsEnabled = true;
+        }
+    }
+
+    private async Task FinishPaidAsync()
+    {
+        _pollTimer?.Stop();
+        BtnVerify.IsEnabled = false;
+        ApplyUi();
+        try
+        {
+            await Task.Delay(400);
         }
         catch
         {
-            _pollErrors++;
-            if (_pollErrors >= 3)
-                StatusText.Text = "Aguardando… (falha temporária na consulta)";
+            // ignore
+        }
+
+        _allowClose = true;
+        if (IsVisible)
+        {
+            DialogResult = true;
+            Close();
         }
     }
 
@@ -130,7 +151,6 @@ public partial class PdvPixQrWindow : Window
 
         try
         {
-            // MP às vezes manda com prefixo data:image/png;base64,
             var raw = base64;
             var idx = raw.IndexOf("base64,", StringComparison.OrdinalIgnoreCase);
             if (idx >= 0)
@@ -153,33 +173,6 @@ public partial class PdvPixQrWindow : Window
         }
     }
 
-    private async void FinishPaid()
-    {
-        _pollTimer?.Stop();
-        PaidConfirmed = true;
-        PaidViaQrCode = true;
-        _closingOk = true;
-        StatusText.Text = "Pagamento confirmado!";
-        HintText.Text = "PIX via QR Code aprovado. Finalizando a venda…";
-        StatusText.Foreground = System.Windows.Media.Brushes.LightGreen;
-        BtnManual.IsEnabled = false;
-
-        try
-        {
-            await Task.Delay(800);
-        }
-        catch
-        {
-            // ignore
-        }
-
-        if (IsVisible)
-        {
-            DialogResult = true;
-            Close();
-        }
-    }
-
     private void Copy_Click(object sender, RoutedEventArgs e)
     {
         if (string.IsNullOrWhiteSpace(CopiaColaBox.Text))
@@ -195,49 +188,51 @@ public partial class PdvPixQrWindow : Window
         }
     }
 
-    private void Manual_Click(object sender, RoutedEventArgs e)
-    {
-        var ask = MessageBox.Show(
-            "Confirma que o PIX já caiu na conta Mercado Pago?\n\nUse só se o cliente já pagou.",
-            "Confirmar PIX manual",
-            MessageBoxButton.YesNo,
-            MessageBoxImage.Question,
-            MessageBoxResult.No);
-        if (ask != MessageBoxResult.Yes)
-            return;
-
-        PaidConfirmed = true;
-        _closingOk = true;
-        DialogResult = true;
-        Close();
-    }
-
-    private async void Cancel_Click(object sender, RoutedEventArgs e)
-    {
-        await CancelAndCloseAsync();
-    }
-
-    private async Task CancelAndCloseAsync()
-    {
-        _pollTimer?.Stop();
-        _cts.Cancel();
-        if (_paymentId > 0 && !PaidConfirmed)
-        {
-            try { await MercadoPagoPixService.CancelPaymentAsync(_paymentId); }
-            catch { /* ignore */ }
-        }
-        _closingOk = false;
-        DialogResult = false;
-        Close();
-    }
+    private async void Cancel_Click(object sender, RoutedEventArgs e) =>
+        await RequestAbortAndCloseAsync();
 
     private async void Window_PreviewKeyDown(object sender, KeyEventArgs e)
     {
         if (e.Key == Key.Escape)
         {
             e.Handled = true;
-            await CancelAndCloseAsync();
+            await RequestAbortAndCloseAsync();
         }
+    }
+
+    private async void Window_Closing(object sender, CancelEventArgs e)
+    {
+        if (_allowClose)
+            return;
+        e.Cancel = true;
+        await RequestAbortAndCloseAsync();
+    }
+
+    private async Task RequestAbortAndCloseAsync()
+    {
+        if (_allowClose || _closingInProgress)
+            return;
+        _closingInProgress = true;
+        _pollTimer?.Stop();
+        try
+        {
+            await _checkout.AbortAsync(_cts.Token);
+        }
+        catch
+        {
+            // persistência do erro fica no intent
+        }
+
+        _allowClose = true;
+        try
+        {
+            DialogResult = false;
+        }
+        catch (InvalidOperationException)
+        {
+            // janela ainda não modal
+        }
+        Close();
     }
 
     private void Window_Closed(object? sender, EventArgs e)
@@ -245,7 +240,5 @@ public partial class PdvPixQrWindow : Window
         _pollTimer?.Stop();
         _cts.Cancel();
         _cts.Dispose();
-        if (!_closingOk && DialogResult != true)
-            DialogResult = false;
     }
 }

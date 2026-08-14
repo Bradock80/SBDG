@@ -1681,15 +1681,11 @@ public partial class PdvPaymentWindow : Window
                 PixPaidAmount = pixAmount;
                 PixPaymentId = dlg.PaymentId;
 
-                // Mensagem só no fluxo do QR automático (Mercado Pago ativo).
-                var via = dlg.PaidViaQrCode
-                    ? "via QR Code"
-                    : "via QR Code (confirmação manual)";
                 var idLine = dlg.PaymentId is long pid
                     ? $"\nID Mercado Pago: {pid}"
                     : "";
                 MessageBox.Show(
-                    $"Pagamento PIX confirmado {via}!\n\n" +
+                    "PIX CONFIRMADO PELO MERCADO PAGO.\n\n" +
                     $"Valor recebido: R$ {pixAmount:N2}" + idLine +
                     "\n\nA venda será finalizada.",
                     "PIX confirmado",

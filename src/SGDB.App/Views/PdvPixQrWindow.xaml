@@ -8,6 +8,7 @@
         Background="#0F172A"
         FontFamily="Segoe UI"
         PreviewKeyDown="Window_PreviewKeyDown"
+        Closing="Window_Closing"
         Closed="Window_Closed">
     <Grid Margin="20">
         <Grid.RowDefinitions>
@@ -54,8 +55,8 @@
         <StackPanel Grid.Row="5" Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,14,0,0">
             <Button Content="Copiar código" Padding="14,8" Margin="0,0,8,0"
                     Click="Copy_Click"/>
-            <Button x:Name="BtnManual" Content="Já recebi (manual)" Padding="14,8" Margin="0,0,8,0"
-                    Click="Manual_Click" ToolTip="Use só se o PIX já caiu e a consulta não atualizou"/>
+            <Button x:Name="BtnVerify" Content="Verificar pagamento agora" Padding="14,8" Margin="0,0,8,0"
+                    Click="Verify_Click" ToolTip="Consulta o status real no Mercado Pago. Só libera a venda se estiver approved."/>
             <Button Content="Cancelar (Esc)" Padding="14,8" Click="Cancel_Click"/>
         </StackPanel>
     </Grid>

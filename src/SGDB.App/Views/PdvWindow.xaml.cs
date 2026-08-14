@@ -646,6 +646,9 @@ public partial class PdvWindow : Window
                     SellerId = pay.SellerId,
                 });
 
+                if (pay.PixPaymentId is long pixId)
+                    PixIntentService.AttachSale(pixId, result.SaleId);
+
                 PeripheralService.TryOpenCashDrawerAfterCashSale(pay.Payments);
 
                 AuditService.LogJson("venda", "venda", result.SaleId.ToString(),
@@ -702,16 +705,7 @@ public partial class PdvWindow : Window
                         return;
                     }
 
-                    if (pay.PixPaidAmount > 0.009)
-                    {
-                        MessageBox.Show(
-                            $"Atenção: já houve PIX de R$ {pay.PixPaidAmount:N2} nesta tentativa.\n" +
-                            "Se for cobrar de novo, devolva o PIX anterior no Mercado Pago " +
-                            "ou use outra forma sem gerar novo QR.",
-                            "PIX já recebido",
-                            MessageBoxButton.OK,
-                            MessageBoxImage.Information);
-                    }
+                    PixSaleReverseService.ShowOperatorAlert(this);
 
                     // Recalcula subtotal (carrinho intacto) e volta às formas de pagamento.
                     subtotal = ProductPriceHelper.RoundPrice(_cart.Sum(c => c.Subtotal));
@@ -739,11 +733,23 @@ public partial class PdvWindow : Window
     {
         if (pay.PixPaidAmount > 0.009)
         {
+            if (pay.PixPaymentId is long pixId)
+            {
+                try
+                {
+                    PixCheckoutCoordinator.RefundApprovedWithoutSaleAsync(pixId).GetAwaiter().GetResult();
+                }
+                catch
+                {
+                    // intent fica com last_error
+                }
+            }
+
             var pid = pay.PixPaymentId is long id ? $"\nPagamento Mercado Pago #{id}" : "";
             MessageBox.Show(
                 $"{message}\n\n" +
                 $"ATENÇÃO: o cliente JÁ PAGOU R$ {pay.PixPaidAmount:N2} via PIX e a venda não foi registrada." + pid +
-                "\n\nResolva o problema acima e lance a venda novamente, ou devolva o valor pelo Mercado Pago.",
+                "\n\nFoi solicitado o estorno no Mercado Pago. Confira se o valor voltou ao cliente.",
                 "PDV — PIX recebido, venda não registrada",
                 MessageBoxButton.OK,
                 MessageBoxImage.Error);
