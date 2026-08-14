@@ -33,8 +33,29 @@
                         <TextBox x:Name="SearchBox" Height="32" Padding="8,0" FontSize="13"
                                  VerticalContentAlignment="Center" CharacterCasing="Upper"
                                  TextChanged="SearchBox_TextChanged"/>
-                        <TextBlock Margin="0,6,0,10" FontSize="11" Foreground="#64748B" TextWrapping="Wrap"
+                        <TextBlock x:Name="HelpText" Margin="0,6,0,10" FontSize="11" Foreground="#64748B" TextWrapping="Wrap"
                                    Text="Localize o produto, escolha o tipo de ajuste e use Aplicar ou F9. Na entrada, informe o custo unitário para atualizar a média (Preço Custo)."/>
+
+                        <Grid Margin="0,0,0,10">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="160"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+                            <StackPanel Margin="0,0,10,0">
+                                <TextBlock Text="Local" FontSize="11" Foreground="#64748B" Margin="0,0,0,4"/>
+                                <ComboBox x:Name="LocationBox" Height="30"
+                                          SelectionChanged="LocationBox_SelectionChanged">
+                                    <ComboBoxItem Content="Depósito" Tag="warehouse" IsSelected="True"/>
+                                    <ComboBoxItem Content="Geladeira" Tag="fridge"/>
+                                </ComboBox>
+                            </StackPanel>
+                            <Border x:Name="FridgeHintBorder" Grid.Column="1" Padding="8,6"
+                                    Background="#FFF7ED" BorderBrush="#FDBA74" BorderThickness="1"
+                                    Visibility="Collapsed" VerticalAlignment="Stretch">
+                                <TextBlock TextWrapping="Wrap" FontSize="11" Foreground="#9A3412" VerticalAlignment="Center"
+                                           Text="Use este ajuste apenas para diferença física da geladeira. Para mover mercadoria entre Depósito e Geladeira, use Transferência."/>
+                            </Border>
+                        </Grid>
 
                         <Border x:Name="ProdutoPanel" Background="#FFFDF8" BorderBrush="#C5D4E8" BorderThickness="1"
                                 Padding="10,8" Margin="0,0,0,10" Visibility="Collapsed">
@@ -65,11 +86,11 @@
                                 </StackPanel>
 
                                 <StackPanel Grid.Row="1" Grid.Column="0" Margin="0,0,12,8">
-                                    <TextBlock Text="Est. atual" FontSize="10" Foreground="#64748B"/>
+                                    <TextBlock x:Name="DEstoqueLabel" Text="Est. atual" FontSize="10" Foreground="#64748B"/>
                                     <TextBlock x:Name="DEstoque" FontSize="14" FontWeight="Bold" Foreground="#166534" Text="—"/>
                                 </StackPanel>
                                 <StackPanel Grid.Row="1" Grid.Column="1" Margin="0,0,12,8">
-                                    <TextBlock Text="Est. mín" FontSize="10" Foreground="#64748B"/>
+                                    <TextBlock x:Name="DMinLabel" Text="Est. mín" FontSize="10" Foreground="#64748B"/>
                                     <TextBlock x:Name="DMin" FontSize="13" Foreground="#334155" Text="—"/>
                                 </StackPanel>
                                 <StackPanel Grid.Row="1" Grid.Column="2" Margin="0,0,0,8">
@@ -141,7 +162,7 @@
                             </StackPanel>
 
                             <StackPanel Grid.Column="4">
-                                <TextBlock Text="Observação (opcional)" FontSize="11" Foreground="#64748B" Margin="0,0,0,4"/>
+                                <TextBlock x:Name="NotesLabel" Text="Observação (opcional)" FontSize="11" Foreground="#64748B" Margin="0,0,0,4"/>
                                 <TextBox x:Name="NotesBox" Height="30" Padding="8,0" FontSize="13"
                                          VerticalContentAlignment="Center" MaxLength="200"/>
                             </StackPanel>

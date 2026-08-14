@@ -203,6 +203,17 @@ public static class StoreNetworkClient
             unitCost,
         })) ?? throw new InvalidOperationException("Falha no ajuste de estoque.");
 
+    public static StockAdjustResult AdjustFridgeStock(
+        int productId, StockAdjustMode mode, double? quantity, double? newStock, string? notes) =>
+        Run(() => SendAsync<StockAdjustResult>(HttpMethod.Post, "api/stock/adjust-fridge", new
+        {
+            productId,
+            mode = mode.ToString(),
+            quantity,
+            newStock,
+            notes,
+        })) ?? throw new InvalidOperationException("Falha no ajuste da geladeira.");
+
     public static IReadOnlyList<Purchase> ListPurchases(
         string? search, string? status, string? dateFrom, string? dateTo)
     {

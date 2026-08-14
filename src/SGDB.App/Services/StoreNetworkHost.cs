@@ -407,6 +407,30 @@ public sealed class StoreNetworkHost : IDisposable
                 return;
             }
 
+            if (path.Equals("/api/stock/adjust-fridge", StringComparison.OrdinalIgnoreCase) && ex.Method == "POST")
+            {
+                var body = ReadJson(ex.Body);
+                if (!body.TryGetInt("productId", out var fridgeProductId))
+                    throw new InvalidOperationException("productId obrigatório.");
+                var fridgeModeRaw = body.GetString("mode") ?? "Entrada";
+                if (!Enum.TryParse<StockAdjustMode>(fridgeModeRaw, true, out var fridgeMode))
+                    fridgeMode = StockAdjustMode.Entrada;
+                double? fridgeQty = null;
+                double? fridgeNovo = null;
+                if (body.TryGetDouble("quantity", out var fq)) fridgeQty = fq;
+                if (body.TryGetDouble("newStock", out var fn)) fridgeNovo = fn;
+                var fridgeNotes = body.GetString("notes");
+                var fridgeResult = StockService.AdjustFridgeLocal(
+                    fridgeProductId, fridgeMode, fridgeQty, fridgeNovo,
+                    string.IsNullOrWhiteSpace(fridgeNotes)
+                        ? null
+                        : $"{fridgeNotes.Trim()} [rede:{origin}]");
+                AuditService.Log("rede_estoque_ajuste_geladeira", "stock", fridgeProductId.ToString(),
+                    $"origem={origin}; mode={fridgeMode}; q={fridgeResult.Quantity}");
+                WriteJson(ex, 200, fridgeResult);
+                return;
+            }
+
             if (path.Equals("/api/purchases", StringComparison.OrdinalIgnoreCase))
             {
                 if (ex.Method == "GET")

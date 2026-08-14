@@ -28,6 +28,16 @@ public partial class StockAdjustModuleView : UserControl
     private static readonly SolidColorBrush PreviewWarn = MakeBrush("#B45309");
     private static readonly SolidColorBrush PreviewErr = MakeBrush("#DC2626");
 
+    private static readonly string[] WarehouseReasons =
+    [
+        "— (livre)", "Inventário", "Avaria", "Perda / Roubo", "Brinde", "Devolução", "Correção",
+    ];
+
+    private static readonly string[] FridgeReasons =
+    [
+        "— selecione —", "Quebra", "Avaria", "Vencimento", "Consumo interno", "Erro de contagem", "Perda", "Outro",
+    ];
+
     public StockAdjustModuleView(StockAdjustMode mode)
     {
         _initialMode = mode;
@@ -38,6 +48,7 @@ public partial class StockAdjustModuleView : UserControl
         Loaded += (_, _) =>
         {
             SelectInitialMode();
+            ApplyLocationUi();
             ClearForm(keepSearch: false);
             FocusSearch();
         };
@@ -95,16 +106,71 @@ public partial class StockAdjustModuleView : UserControl
         }
     }
 
+    private bool IsFridgeLocation =>
+        string.Equals((LocationBox.SelectedItem as ComboBoxItem)?.Tag as string, "fridge",
+            StringComparison.OrdinalIgnoreCase);
+
+    private double OperationStock =>
+        _selected is null ? 0 : (IsFridgeLocation ? _selected.StockFridge : _selected.Stock);
+
+    private void LocationBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (!IsLoaded) return;
+        ApplyLocationUi();
+        if (_selected is not null)
+            BindSelectedProductFields();
+        UpdateQtyLabel();
+        UpdatePreview();
+    }
+
+    private void ApplyLocationUi()
+    {
+        var fridge = IsFridgeLocation;
+        FridgeHintBorder.Visibility = fridge ? Visibility.Visible : Visibility.Collapsed;
+        HelpText.Text = fridge
+            ? "Use este ajuste apenas para diferença física da geladeira. O depósito não muda, o custo médio não é atualizado e lotes não são alterados."
+            : "Localize o produto, escolha o tipo de ajuste e use Aplicar ou F9. Na entrada, informe o custo unitário para atualizar a média (Preço Custo).";
+        NotesLabel.Text = fridge ? "Observação (obrigatória se Outro)" : "Observação (opcional)";
+        FillReasons(fridge);
+        UpdateUnitCostVisibility();
+    }
+
+    private void FillReasons(bool fridge)
+    {
+        var current = (ReasonBox.SelectedItem as ComboBoxItem)?.Content?.ToString();
+        ReasonBox.Items.Clear();
+        foreach (var reason in fridge ? FridgeReasons : WarehouseReasons)
+            ReasonBox.Items.Add(new ComboBoxItem { Content = reason });
+        ReasonBox.SelectedIndex = 0;
+        if (!string.IsNullOrWhiteSpace(current))
+        {
+            foreach (ComboBoxItem item in ReasonBox.Items)
+            {
+                if (string.Equals(item.Content?.ToString(), current, StringComparison.OrdinalIgnoreCase))
+                {
+                    ReasonBox.SelectedItem = item;
+                    break;
+                }
+            }
+        }
+    }
+
     private void UpdateQtyLabel()
     {
         QtyLabel.Text = EffectiveMode == StockAdjustMode.Saldo ? "Novo saldo" : "Quantidade";
         if (_selected is not null && EffectiveMode == StockAdjustMode.Saldo)
-            QtyBox.Text = _selected.Stock.ToString("N3");
+            QtyBox.Text = OperationStock.ToString("N3");
         UpdateUnitCostVisibility();
     }
 
     private void UpdateUnitCostVisibility()
     {
+        if (IsFridgeLocation)
+        {
+            UnitCostPanel.Visibility = Visibility.Collapsed;
+            return;
+        }
+
         var show = EffectiveMode is StockAdjustMode.Entrada
             || (EffectiveMode == StockAdjustMode.Saldo
                 && _selected is not null
@@ -198,61 +264,81 @@ public partial class StockAdjustModuleView : UserControl
             return;
         }
 
-        var before = _selected.Stock;
+        var before = OperationStock;
         double after;
         string label;
         SolidColorBrush color;
         var unitForValue = TryParseUnitCost(out var typedCost) ? typedCost : _selected.CostPrice;
+        var place = IsFridgeLocation ? "Geladeira" : "Estoque";
 
         switch (EffectiveMode)
         {
             case StockAdjustMode.Entrada:
                 after = before + qty;
-                if (TryParseUnitCost(out var entradaCost))
+                if (IsFridgeLocation)
+                {
+                    label = $"{place} após ajuste: {after:N3} {_selected.Unit}  (+{qty:N3}) · depósito permanece {_selected.Stock:N3}";
+                    DValorAjuste.Text = "— (geladeira não altera custo)";
+                }
+                else if (TryParseUnitCost(out var entradaCost))
                 {
                     var avg = ProductPriceHelper.WeightedAverageCost(
                         before, _selected.CostPrice, qty, entradaCost);
                     label =
                         $"Estoque: {after:N3} {_selected.Unit} (+{qty:N3}) · Custo médio → R$ {avg:N2}";
+                    DValorAjuste.Text = $"R$ {qty * unitForValue:N2} (entrada)";
                 }
                 else
                 {
                     label =
                         $"Estoque após ajuste: {after:N3} {_selected.Unit}  (+{qty:N3}) — informe o custo unit. para média";
+                    DValorAjuste.Text = $"R$ {qty * unitForValue:N2} (entrada)";
                 }
                 color = PreviewOk;
-                DValorAjuste.Text = $"R$ {qty * unitForValue:N2} (entrada)";
                 break;
             case StockAdjustMode.Saida:
                 after = before - qty;
                 if (qty > before + 1e-9)
                 {
-                    label = $"Saída maior que o estoque atual ({before:N3}). Não será permitido aplicar.";
+                    label = IsFridgeLocation
+                        ? $"Saída maior que a geladeira atual ({before:N3}). Não será permitido aplicar."
+                        : $"Saída maior que o estoque atual ({before:N3}). Não será permitido aplicar.";
                     color = PreviewErr;
                 }
                 else
                 {
-                    label = $"Estoque após ajuste: {after:N3} {_selected.Unit}  (−{qty:N3})";
+                    label = IsFridgeLocation
+                        ? $"{place} após ajuste: {after:N3} {_selected.Unit}  (−{qty:N3}) · depósito permanece {_selected.Stock:N3}"
+                        : $"Estoque após ajuste: {after:N3} {_selected.Unit}  (−{qty:N3})";
                     color = after < 0 ? PreviewWarn : PreviewOk;
                 }
-                DValorAjuste.Text = $"R$ {qty * _selected.CostPrice:N2} (saída)";
+                DValorAjuste.Text = IsFridgeLocation
+                    ? "— (geladeira não altera custo)"
+                    : $"R$ {qty * _selected.CostPrice:N2} (saída)";
                 break;
             default:
                 after = qty;
                 var delta = after - before;
-                if (delta > 1e-9 && TryParseUnitCost(out var saldoCost))
+                if (!IsFridgeLocation && delta > 1e-9 && TryParseUnitCost(out var saldoCost))
                 {
                     var avg = ProductPriceHelper.WeightedAverageCost(
                         before, _selected.CostPrice, delta, saldoCost);
                     label =
                         $"Estoque: {after:N3} {_selected.Unit} (Δ {delta:+0.###;-0.###;0}) · Custo médio → R$ {avg:N2}";
                 }
+                else if (IsFridgeLocation)
+                {
+                    label =
+                        $"{place}: {after:N3} {_selected.Unit} (Δ {delta:+0.###;-0.###;0}) · depósito permanece {_selected.Stock:N3}";
+                }
                 else
                 {
                     label = $"Estoque após ajuste: {after:N3} {_selected.Unit}  (Δ {delta:+0.###;-0.###;0})";
                 }
                 color = after < 0 ? PreviewWarn : PreviewOk;
-                DValorAjuste.Text = $"R$ {Math.Abs(delta) * unitForValue:N2} (ajuste)";
+                DValorAjuste.Text = IsFridgeLocation
+                    ? "— (geladeira não altera custo)"
+                    : $"R$ {Math.Abs(delta) * unitForValue:N2} (ajuste)";
                 break;
         }
 
@@ -325,25 +411,46 @@ public partial class StockAdjustModuleView : UserControl
     {
         _selected = p;
         ProdutoPanel.Visibility = Visibility.Visible;
-        DCodigo.Text = string.IsNullOrWhiteSpace(p.Code) ? "—" : p.Code;
-        DNome.Text = p.Name;
-        DGrupo.Text = string.IsNullOrWhiteSpace(p.GroupName) ? "—" : p.GroupName;
-        DEstoque.Text = $"{p.Stock:N3} {p.Unit}";
-        DEstoque.Foreground = p.Stock < 0 ? PreviewErr : PreviewOk;
-        DMin.Text = p.MinStock.ToString("N0");
-        DUn.Text = p.Unit;
-        DCusto.Text = $"R$ {p.CostPrice:N2}";
+        BindSelectedProductFields();
         ApplyBtn.IsEnabled = true;
 
-        if (string.IsNullOrWhiteSpace(UnitCostBox.Text) || UnitCostBox.Text == "0,00")
+        if (!IsFridgeLocation && (string.IsNullOrWhiteSpace(UnitCostBox.Text) || UnitCostBox.Text == "0,00"))
             UnitCostBox.Text = ProductPriceHelper.FormatBr(p.CostPrice);
 
         if (EffectiveMode == StockAdjustMode.Saldo)
-            QtyBox.Text = p.Stock.ToString("N3");
+            QtyBox.Text = OperationStock.ToString("N3");
 
         MovGrid.ItemsSource = StockService.ListMovementsByProduct(p.Id);
         UpdateUnitCostVisibility();
         UpdatePreview();
+    }
+
+    private void BindSelectedProductFields()
+    {
+        if (_selected is null) return;
+        var p = _selected;
+        DCodigo.Text = string.IsNullOrWhiteSpace(p.Code) ? "—" : p.Code;
+        DNome.Text = p.Name;
+        DGrupo.Text = string.IsNullOrWhiteSpace(p.GroupName) ? "—" : p.GroupName;
+        DUn.Text = p.Unit;
+        DCusto.Text = $"R$ {p.CostPrice:N2}";
+
+        if (IsFridgeLocation)
+        {
+            DEstoqueLabel.Text = "Estoque atual da Geladeira";
+            DEstoque.Text = $"{p.StockFridge:N3} {p.Unit}";
+            DEstoque.Foreground = p.StockFridge < 0 ? PreviewErr : PreviewOk;
+            DMinLabel.Text = "Depósito (não altera)";
+            DMin.Text = p.Stock.ToString("N3");
+        }
+        else
+        {
+            DEstoqueLabel.Text = "Est. atual";
+            DEstoque.Text = $"{p.Stock:N3} {p.Unit}";
+            DEstoque.Foreground = p.Stock < 0 ? PreviewErr : PreviewOk;
+            DMinLabel.Text = "Est. mín";
+            DMin.Text = p.MinStock.ToString("N0");
+        }
     }
 
     private void ClearSelection()
@@ -351,6 +458,8 @@ public partial class StockAdjustModuleView : UserControl
         _selected = null;
         ProdutoPanel.Visibility = Visibility.Collapsed;
         DCodigo.Text = DNome.Text = DGrupo.Text = DEstoque.Text = DMin.Text = DUn.Text = "—";
+        DEstoqueLabel.Text = IsFridgeLocation ? "Estoque atual da Geladeira" : "Est. atual";
+        DMinLabel.Text = IsFridgeLocation ? "Depósito (não altera)" : "Est. mín";
         DCusto.Text = DValorAjuste.Text = "—";
         PreviewText.Visibility = Visibility.Collapsed;
         ApplyBtn.IsEnabled = false;
@@ -362,11 +471,12 @@ public partial class StockAdjustModuleView : UserControl
     {
         if (!keepSearch)
             SearchBox.Text = "";
+        ClearSelection();
+        LocationBox.SelectedIndex = 0;
         QtyBox.Text = "";
         UnitCostBox.Text = "";
         NotesBox.Text = "";
         ReasonBox.SelectedIndex = 0;
-        ClearSelection();
         if (!keepSearch)
         {
             ProductGrid.ItemsSource = null;
@@ -381,11 +491,20 @@ public partial class StockAdjustModuleView : UserControl
         FocusSearch();
     }
 
-    private string BuildNotes()
+    private string SelectedReason()
     {
         var reason = (ReasonBox.SelectedItem as ComboBoxItem)?.Content?.ToString()?.Trim() ?? "";
         if (reason.StartsWith("—", StringComparison.Ordinal))
-            reason = "";
+            return "";
+        return reason;
+    }
+
+    private bool IsFridgeOutroReason =>
+        string.Equals(SelectedReason(), "Outro", StringComparison.OrdinalIgnoreCase);
+
+    private string BuildNotes()
+    {
+        var reason = SelectedReason();
         var obs = NotesBox.Text?.Trim() ?? "";
         if (string.IsNullOrEmpty(reason))
             return obs;
@@ -407,6 +526,43 @@ public partial class StockAdjustModuleView : UserControl
         {
             if (!TryParseQty(out var value))
                 throw new InvalidOperationException("Informe a quantidade.");
+
+            if (IsFridgeLocation)
+            {
+                if (EffectiveMode == StockAdjustMode.Saida && value > _selected.StockFridge + 1e-9)
+                    throw new InvalidOperationException(
+                        $"Saída ({value:N3}) maior que a geladeira atual ({_selected.StockFridge:N3}).");
+
+                if (IsFridgeOutroReason && string.IsNullOrWhiteSpace(NotesBox.Text))
+                    throw new InvalidOperationException(
+                        "Informe a observação para o motivo Outro.");
+
+                var fridgeNotes = BuildNotes();
+                if (string.IsNullOrWhiteSpace(fridgeNotes))
+                    throw new InvalidOperationException("Informe o motivo do ajuste da geladeira.");
+
+                var fridgeResult = EffectiveMode == StockAdjustMode.Saldo
+                    ? StockService.AdjustFridge(_selected.Id, StockAdjustMode.Saldo, newStock: value, notes: fridgeNotes)
+                    : StockService.AdjustFridge(_selected.Id, EffectiveMode, quantity: value, notes: fridgeNotes);
+
+                var fridgeRefreshed = ProductService.GetById(_selected.Id);
+                if (fridgeRefreshed is not null)
+                    SelectProduct(fridgeRefreshed);
+
+                StatusText.Text = fridgeRefreshed is null
+                    ? $"Aplicado (geladeira): {fridgeResult.StockBefore:N3} → {fridgeResult.StockAfter:N3}"
+                    : $"Aplicado (geladeira): {fridgeResult.StockBefore:N3} → {fridgeResult.StockAfter:N3} · Depósito {fridgeRefreshed.Stock:N3}";
+                NotesBox.Text = "";
+                ReasonBox.SelectedIndex = 0;
+                if (EffectiveMode != StockAdjustMode.Saldo)
+                    QtyBox.Text = "";
+                else if (fridgeRefreshed is not null)
+                    QtyBox.Text = fridgeRefreshed.StockFridge.ToString("N3");
+
+                ReloadSearch();
+                QtyBox.Focus();
+                return;
+            }
 
             if (EffectiveMode == StockAdjustMode.Saida && value > _selected.Stock + 1e-9)
                 throw new InvalidOperationException(

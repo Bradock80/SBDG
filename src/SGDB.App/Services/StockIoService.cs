@@ -392,6 +392,7 @@ public static class StockIoService
             "entrada_compra" => "Entrada Compra",
             "estorno_compra" => "Estorno Compra",
             "ajuste_manual" or "entrada_manual" or "saida_manual" => "Ajuste Manual",
+            "ajuste_geladeira" => "Ajuste da geladeira",
             "transferencia_geladeira" => "Transferência Geladeira",
             "retorno_geladeira" => "Retorno geladeira → depósito",
             "perda" or "avaria" => "Perda/Avaria",

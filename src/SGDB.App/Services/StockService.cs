@@ -178,6 +178,181 @@ public static class StockService
         };
     }
 
+    /// <summary>
+    /// Somente testes: invocado após o UPDATE de stock_fridge e antes do movement em
+    /// <see cref="AdjustFridge"/>. Deve permanecer null em produção.
+    /// </summary>
+    public static Action<int>? TestBeforeFridgeAdjustMovement { get; set; }
+
+    /// <summary>
+    /// Corrige a quantidade física da geladeira (stock_fridge). Não altera o depósito.
+    /// Motivo/observação é obrigatório. Não atualiza custo médio nem lotes.
+    /// </summary>
+    public static StockAdjustResult AdjustFridge(
+        int productId,
+        StockAdjustMode mode,
+        double? quantity = null,
+        double? newStock = null,
+        string? notes = null)
+    {
+        if (StoreNetworkMode.IsClient)
+            return StoreNetworkClient.AdjustFridgeStock(productId, mode, quantity, newStock, notes);
+        return AdjustFridgeLocal(productId, mode, quantity, newStock, notes);
+    }
+
+    public static StockAdjustResult AdjustFridgeLocal(
+        int productId,
+        StockAdjustMode mode,
+        double? quantity = null,
+        double? newStock = null,
+        string? notes = null)
+    {
+        StoreNetworkMode.EnsureLocalMutationAllowed("ajustar geladeira");
+        using var conn = DatabaseService.OpenConnection();
+        using var tx = conn.BeginTransaction();
+        var result = AdjustFridgeCore(conn, tx, productId, mode, quantity, newStock, notes);
+        tx.Commit();
+        return result;
+    }
+
+    /// <summary>
+    /// Ajuste da geladeira na conexão/transação externas. Não abre conexão, não faz Commit nem Rollback.
+    /// </summary>
+    public static StockAdjustResult AdjustFridge(
+        SqliteConnection conn,
+        SqliteTransaction tx,
+        int productId,
+        StockAdjustMode mode,
+        double? quantity = null,
+        double? newStock = null,
+        string? notes = null)
+    {
+        StoreNetworkMode.EnsureLocalMutationAllowed("ajustar geladeira");
+        return AdjustFridgeCore(conn, tx, productId, mode, quantity, newStock, notes);
+    }
+
+    private static StockAdjustResult AdjustFridgeCore(
+        SqliteConnection conn,
+        SqliteTransaction tx,
+        int productId,
+        StockAdjustMode mode,
+        double? quantity,
+        double? newStock,
+        string? notes)
+    {
+        var product = GetProductFridge(conn, tx, productId)
+            ?? throw new InvalidOperationException("Produto não encontrado.");
+
+        var warehouse = product.Stock;
+        var fridgeBefore = product.StockFridge;
+        string movType;
+        double qty;
+        double fridgeAfter;
+
+        if (mode == StockAdjustMode.Saldo)
+        {
+            if (newStock is null)
+                throw new InvalidOperationException("Informe o novo saldo da geladeira.");
+            if (!double.IsFinite(newStock.Value))
+                throw new InvalidOperationException("Informe um saldo válido da geladeira.");
+            if (newStock.Value < 0)
+                throw new InvalidOperationException("O saldo da geladeira não pode ser negativo.");
+
+            var target = Math.Round(newStock.Value, 4);
+            if (target < 0)
+                throw new InvalidOperationException("O saldo da geladeira não pode ser negativo.");
+
+            var delta = Math.Round(target - fridgeBefore, 4);
+            if (delta > -1e-9 && delta < 1e-9)
+            {
+                return new StockAdjustResult
+                {
+                    ProductId = productId,
+                    StockBefore = fridgeBefore,
+                    StockAfter = fridgeBefore,
+                    Quantity = 0,
+                };
+            }
+
+            RequireFridgeReason(notes);
+            movType = delta > 0 ? "entrada" : "saida";
+            qty = delta > 0 ? delta : -delta;
+            fridgeAfter = target;
+        }
+        else if (mode == StockAdjustMode.Entrada)
+        {
+            qty = RequirePositiveFiniteQty(quantity);
+            RequireFridgeReason(notes);
+            movType = "entrada";
+            fridgeAfter = Math.Round(fridgeBefore + qty, 4);
+        }
+        else
+        {
+            qty = RequirePositiveFiniteQty(quantity);
+            RequireFridgeReason(notes);
+            movType = "saida";
+            if (qty > fridgeBefore + 1e-9)
+                throw new InvalidOperationException(
+                    $"Saída ({qty:N3}) maior que a geladeira atual ({fridgeBefore:N3}).");
+            fridgeAfter = Math.Round(fridgeBefore - qty, 4);
+        }
+
+        if (fridgeAfter < -1e-9)
+            throw new InvalidOperationException("O saldo da geladeira não pode ficar negativo.");
+        if (fridgeAfter < 0)
+            fridgeAfter = 0;
+
+        using (var upd = conn.CreateCommand())
+        {
+            upd.Transaction = tx;
+            upd.CommandText = "UPDATE products SET stock_fridge = $fridge WHERE id = $id;";
+            upd.Parameters.AddWithValue("$fridge", fridgeAfter);
+            upd.Parameters.AddWithValue("$id", productId);
+            upd.ExecuteNonQuery();
+        }
+
+        TestBeforeFridgeAdjustMovement?.Invoke(productId);
+
+        var totalBefore = Math.Round(warehouse + fridgeBefore, 4);
+        var totalAfter = Math.Round(warehouse + fridgeAfter, 4);
+        var user = AppSession.CurrentUser is null
+            ? "Sistema"
+            : (AppSession.CurrentUser.Nome ?? AppSession.CurrentUser.Login ?? "Sistema");
+        var finalNotes =
+            $"Ajuste geladeira: {fridgeBefore:G} → {fridgeAfter:G}. Motivo: {notes!.Trim()}. Usuário: {user}";
+
+        var movId = InsertMovement(conn, tx, productId, movType, qty, product.CostPrice, finalNotes,
+            stockBefore: totalBefore, stockAfter: totalAfter,
+            operation: "ajuste_geladeira",
+            unit: null);
+
+        return new StockAdjustResult
+        {
+            ProductId = productId,
+            StockBefore = fridgeBefore,
+            StockAfter = fridgeAfter,
+            MovementType = movType,
+            Quantity = qty,
+            MovementId = movId,
+        };
+    }
+
+    private static double RequirePositiveFiniteQty(double? quantity)
+    {
+        if (quantity is null || !double.IsFinite(quantity.Value) || quantity.Value <= 0)
+            throw new InvalidOperationException("Informe a quantidade.");
+        var qty = Math.Round(quantity.Value, 4);
+        if (qty <= 0)
+            throw new InvalidOperationException("Informe a quantidade.");
+        return qty;
+    }
+
+    private static void RequireFridgeReason(string? notes)
+    {
+        if (string.IsNullOrWhiteSpace(notes))
+            throw new InvalidOperationException("Informe o motivo do ajuste da geladeira.");
+    }
+
     /// <summary>Atualiza só o estoque mínimo do produto (cadastro).</summary>
     public static void UpdateMinStock(int productId, int minStock)
     {
