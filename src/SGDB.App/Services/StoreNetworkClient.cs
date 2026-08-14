@@ -16,16 +16,32 @@ public static class StoreNetworkClient
         DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
     };
 
-    private static HttpClient CreateClient()
+    /// <summary>
+    /// Tempo máximo para o handshake TCP. Sem isso o Windows espera ~21 s
+    /// quando o PC da loja não responde (fora da rede / servidor desligado).
+    /// </summary>
+    public static readonly TimeSpan ConnectTimeout = TimeSpan.FromSeconds(2);
+
+    private static HttpClient CreateHttpClient(string baseUrl, TimeSpan requestTimeout)
     {
-        StoreNetworkMode.EnsureClientConfigured();
-        var c = new HttpClient
+        var handler = new SocketsHttpHandler
         {
-            BaseAddress = new Uri(StoreNetworkMode.ClientBaseUrl.TrimEnd('/') + "/"),
-            Timeout = TimeSpan.FromSeconds(60),
+            ConnectTimeout = ConnectTimeout,
+        };
+        var c = new HttpClient(handler)
+        {
+            BaseAddress = new Uri(baseUrl.TrimEnd('/') + "/"),
+            Timeout = requestTimeout,
         };
         // Servidor TCP próprio não trata 100-continue — sem isso o body do POST pode não chegar
         c.DefaultRequestHeaders.ExpectContinue = false;
+        return c;
+    }
+
+    private static HttpClient CreateClient()
+    {
+        StoreNetworkMode.EnsureClientConfigured();
+        var c = CreateHttpClient(StoreNetworkMode.ClientBaseUrl, TimeSpan.FromSeconds(60));
         c.DefaultRequestHeaders.Add("X-Store-Pin", StoreNetworkMode.GetClientPin());
         c.DefaultRequestHeaders.Add("X-Store-Origin", "notebook");
         return c;
@@ -114,12 +130,7 @@ public static class StoreNetworkClient
         {
             pin = (pin ?? "").Trim();
             var baseUrl = StoreNetworkMode.ClientBaseUrl.TrimEnd('/') + "/";
-            using var client = new HttpClient
-            {
-                BaseAddress = new Uri(baseUrl),
-                Timeout = TimeSpan.FromSeconds(20),
-            };
-            client.DefaultRequestHeaders.ExpectContinue = false;
+            using var client = CreateHttpClient(baseUrl, TimeSpan.FromSeconds(20));
             client.DefaultRequestHeaders.TryAddWithoutValidation("X-Store-Pin", pin);
             using var req = new HttpRequestMessage(HttpMethod.Post, "api/login")
             {
