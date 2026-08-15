@@ -11,6 +11,11 @@ namespace SGDB.Tests;
 [Collection(TempDatabaseCollection.Name)]
 public class PayablePayInstallmentTests
 {
+    public PayablePayInstallmentTests()
+    {
+        TestDataHelper.SetSessionRole("admin");
+    }
+
     private static string TodayBr => DateBrHelper.TodayBr();
 
     [Fact]

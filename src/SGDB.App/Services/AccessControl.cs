@@ -6,6 +6,27 @@ namespace SGDB.Services;
 /// <summary>Checagem de permissões do usuário logado (users.permissions_json / perfil).</summary>
 public static class AccessControl
 {
+    private static readonly AsyncLocal<int> RemoteStoreRequestDepth = new();
+
+    /// <summary>
+    /// Requisição RPC no host da Rede Loja. A sessão do PC servidor NÃO é a
+    /// identidade do notebook — 68C ainda precisa transportar usuário/permissão.
+    /// </summary>
+    public static bool IsRemoteStoreRequest => RemoteStoreRequestDepth.Value > 0;
+
+    public static IDisposable EnterRemoteStoreRequest()
+    {
+        RemoteStoreRequestDepth.Value++;
+        return new RemoteStoreRequestScope();
+    }
+
+    /// <summary>
+    /// Permissão do usuário da sessão local. Em RPC do host, não usa AppSession
+    /// do servidor como prova do usuário do notebook.
+    /// </summary>
+    public static bool AllowsLocalUser(string key) =>
+        IsRemoteStoreRequest || Can(key);
+
     public static UserPermissions Permissions =>
         AppSession.Permissions;
 
@@ -33,7 +54,9 @@ public static class AccessControl
 
             "ajusta_preco" or "tabela_preco" => p.ProdutosEditar,
 
-            "caixa" or "pagar" or "fiado" or "contas_bancarias"
+            "pagar" => p.ContasPagarAcesso,
+
+            "caixa" or "fiado" or "contas_bancarias"
                 or "vasilhame" or "tipos_vasilhame"
                 or "categorias_financeiras" or "depositos_caixa"
                 => p.FinanceiroAcesso,
@@ -90,4 +113,18 @@ public static class AccessControl
 
     public static string DenyReason(string moduleId) =>
         CanAccessModule(moduleId) ? "" : "Sem permissão";
+
+    private sealed class RemoteStoreRequestScope : IDisposable
+    {
+        private bool _disposed;
+
+        public void Dispose()
+        {
+            if (_disposed)
+                return;
+            _disposed = true;
+            if (RemoteStoreRequestDepth.Value > 0)
+                RemoteStoreRequestDepth.Value--;
+        }
+    }
 }

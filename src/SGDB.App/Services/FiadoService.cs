@@ -184,6 +184,7 @@ public static class FiadoService
     public static int RegisterPayment(int customerId, FiadoReceberInput input)
     {
         StoreNetworkMode.EnsureLocalMutationAllowed("recebimento de fiado");
+        RequireFiadoReceber();
         if (customerId <= 0)
             throw new FiadoException("Cliente inválido.");
 
@@ -256,6 +257,7 @@ public static class FiadoService
     public static void ReversePayment(int paymentId)
     {
         StoreNetworkMode.EnsureLocalMutationAllowed("estorno de fiado");
+        RequireFiadoEstornar();
         using var conn = DatabaseService.OpenConnection();
         using var tx = conn.BeginTransaction();
 
@@ -359,6 +361,7 @@ public static class FiadoService
     public static int DiscardOrphanSales(string? orphanPartyKey = null)
     {
         StoreNetworkMode.EnsureLocalMutationAllowed("ajustar fiado");
+        RequireFiadoExcluir();
         using var conn = DatabaseService.OpenConnection();
         using var tx = conn.BeginTransaction();
 
@@ -431,6 +434,7 @@ public static class FiadoService
     public static (int SalesCancelled, int PaymentsReversed, double TotalCleared) ClearCustomerFiado(int customerId)
     {
         StoreNetworkMode.EnsureLocalMutationAllowed("ajustar fiado");
+        RequireFiadoExcluir();
         if (customerId <= 0)
             throw new FiadoException("Selecione um cliente.");
 
@@ -1273,6 +1277,24 @@ public static class FiadoService
 
     private static string FormatBrDateTime(string? iso) =>
         DateBrHelper.FormatUtcToBrazil(iso, "dd/MM/yyyy HH:mm");
+
+    private static void RequireFiadoReceber()
+    {
+        if (!AccessControl.AllowsLocalUser("FiadoReceber"))
+            throw new FiadoException("Seu usuário não tem permissão para receber fiado.");
+    }
+
+    private static void RequireFiadoEstornar()
+    {
+        if (!AccessControl.AllowsLocalUser("FiadoEstornar"))
+            throw new FiadoException("Seu usuário não tem permissão para estornar recebimento de fiado.");
+    }
+
+    private static void RequireFiadoExcluir()
+    {
+        if (!AccessControl.AllowsLocalUser("FiadoExcluir"))
+            throw new FiadoException("Seu usuário não tem permissão para excluir ou limpar fiado.");
+    }
 }
 
 public class FiadoException : Exception

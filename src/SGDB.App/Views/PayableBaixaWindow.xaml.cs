@@ -52,7 +52,9 @@ public partial class PayableBaixaWindow : Window
             DataBox.Text = DateBrHelper.FormatIso(_detail.PaidDate) is { Length: > 0 } d
                 ? d
                 : DateBrHelper.TodayBr();
-            BtnEstornar.Visibility = Visibility.Visible;
+            BtnEstornar.Visibility = AccessControl.Can("ContasPagarEstornar")
+                ? Visibility.Visible
+                : Visibility.Collapsed;
             BtnSalvar.Content = "Corrigir baixa";
         }
         else
@@ -185,6 +187,8 @@ public partial class PayableBaixaWindow : Window
 
     private void Estornar_Click(object sender, RoutedEventArgs e)
     {
+        if (!AccessControl.Ensure("ContasPagarEstornar", "estornar pagamento de contas a pagar", this))
+            return;
         var confirm = MessageBox.Show(
             "Deseja estornar esta baixa?\n\nA parcela voltará a ficar pendente.",
             "Confirmação",

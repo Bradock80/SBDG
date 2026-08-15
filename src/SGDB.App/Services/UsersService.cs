@@ -274,8 +274,8 @@ public static class UsersService
                 "Vendedor — balcão",
                 "• PDV para registrar vendas\n" +
                 "• Consulta clientes e produtos\n" +
-                "• Fiado (contas a receber)\n" +
-                "• Sem desconto livre, cancelamento ou cadastros críticos"),
+                "• Caixa e receber fiado\n" +
+                "• Sem contas a pagar, estorno ou exclusão de fiado"),
         };
 
     public static string RolePermissionsHint(string role) =>

@@ -300,6 +300,9 @@ public sealed class StoreNetworkHost : IDisposable
 
         var origin = ex.Headers["X-Store-Origin"] ?? "rede";
 
+        // 68C: PIN não carrega o usuário do notebook. Não tratar AppSession
+        // do PC servidor como permissão remota (AccessControl.AllowsLocalUser).
+        using var remoteScope = AccessControl.EnterRemoteStoreRequest();
         try
         {
             if (path.Equals("/api/products", StringComparison.OrdinalIgnoreCase))

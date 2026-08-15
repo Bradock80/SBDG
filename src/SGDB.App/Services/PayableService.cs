@@ -373,6 +373,7 @@ public static class PayableService
 
     public static int CreateTitle(PayableTitleCreateInput input)
     {
+        RequireContasPagarAcesso();
         StoreNetworkMode.EnsureLocalMutationAllowed("título a pagar avulso");
         if (input.SupplierId <= 0)
             throw new PayableException("Selecione o fornecedor.");
@@ -450,6 +451,7 @@ public static class PayableService
 
     public static void PayInstallment(int installmentId, PayablePayInput input)
     {
+        RequireContasPagarAcesso();
         if (StoreNetworkMode.IsClient)
         {
             StoreNetworkClient.PayPayableInstallment(installmentId, input);
@@ -460,6 +462,7 @@ public static class PayableService
 
     public static void PayInstallmentLocal(int installmentId, PayablePayInput input)
     {
+        RequireContasPagarAcesso();
         StoreNetworkMode.EnsureLocalMutationAllowed("baixar parcela a pagar");
         if (string.IsNullOrEmpty(DateBrHelper.ToIso(input.PaidDate)))
             throw new PayableException("Informe a data do pagamento (DD/MM/AAAA).");
@@ -535,6 +538,7 @@ public static class PayableService
 
     public static void ReversePayment(int installmentId)
     {
+        RequireContasPagarEstornar();
         if (StoreNetworkMode.IsClient)
         {
             StoreNetworkClient.ReversePayablePayment(installmentId);
@@ -545,6 +549,7 @@ public static class PayableService
 
     public static void ReversePaymentLocal(int installmentId)
     {
+        RequireContasPagarEstornar();
         StoreNetworkMode.EnsureLocalMutationAllowed("estornar parcela a pagar");
         using var conn = DatabaseService.OpenConnection();
         using var tx = conn.BeginTransaction();
@@ -575,6 +580,7 @@ public static class PayableService
 
     public static void UpdateInstallment(int installmentId, PayableInstallmentUpdateInput input)
     {
+        RequireContasPagarAcesso();
         StoreNetworkMode.EnsureLocalMutationAllowed("editar parcela local");
         if (string.IsNullOrEmpty(DateBrHelper.ToIso(input.DueDate)))
             throw new PayableException("Informe o vencimento (DD/MM/AAAA).");
@@ -618,6 +624,7 @@ public static class PayableService
 
     public static void DeleteTitle(int titleId)
     {
+        RequireContasPagarAcesso();
         StoreNetworkMode.EnsureLocalMutationAllowed("excluir título a pagar");
         using var conn = DatabaseService.OpenConnection();
         using var tx = conn.BeginTransaction();
@@ -692,6 +699,7 @@ public static class PayableService
 
     public static void DeleteInstallment(int installmentId)
     {
+        RequireContasPagarAcesso();
         StoreNetworkMode.EnsureLocalMutationAllowed("excluir parcela a pagar");
         using var conn = DatabaseService.OpenConnection();
         using var tx = conn.BeginTransaction();
@@ -871,6 +879,20 @@ public static class PayableService
     /// <summary>Gestão antigo gravava PAGO/PENDENTE em maiúsculas.</summary>
     private static bool IsPaidStatus(string? status) =>
         string.Equals((status ?? "").Trim(), "pago", StringComparison.OrdinalIgnoreCase);
+
+    private static void RequireContasPagarAcesso()
+    {
+        if (!AccessControl.AllowsLocalUser("ContasPagarAcesso"))
+            throw new PayableException(
+                "Seu usuário não tem permissão para acessar ou baixar contas a pagar.");
+    }
+
+    private static void RequireContasPagarEstornar()
+    {
+        if (!AccessControl.AllowsLocalUser("ContasPagarEstornar"))
+            throw new PayableException(
+                "Seu usuário não tem permissão para estornar pagamento de contas a pagar.");
+    }
 
     private static void EnsureFiniteMoney(double value, string campo)
     {

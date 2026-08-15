@@ -56,7 +56,12 @@ public partial class FiadoDetailWindow : Window
             PaymentsGrid.Visibility = hasPayments ? Visibility.Visible : Visibility.Collapsed;
             PaymentsEmptyText.Visibility = hasPayments ? Visibility.Collapsed : Visibility.Visible;
 
-            BtnReceber.Visibility = detail.Balance > 0.005 ? Visibility.Visible : Visibility.Collapsed;
+            BtnReceber.Visibility = detail.Balance > 0.005 && AccessControl.Can("FiadoReceber")
+                ? Visibility.Visible
+                : Visibility.Collapsed;
+            BtnEstornar.Visibility = AccessControl.Can("FiadoEstornar")
+                ? Visibility.Visible
+                : Visibility.Collapsed;
         }
         catch (Exception ex)
         {
@@ -68,6 +73,8 @@ public partial class FiadoDetailWindow : Window
 
     private void Receber_Click(object sender, RoutedEventArgs e)
     {
+        if (!AccessControl.Ensure("FiadoReceber", "receber fiado", this))
+            return;
         if (!CashService.IsOperational())
         {
             MessageBox.Show("Abra o caixa antes de registrar o recebimento.", "Fiado",
@@ -85,6 +92,8 @@ public partial class FiadoDetailWindow : Window
 
     private void Estornar_Click(object sender, RoutedEventArgs e)
     {
+        if (!AccessControl.Ensure("FiadoEstornar", "estornar recebimento de fiado", this))
+            return;
         if (PaymentsGrid.Visibility != Visibility.Visible
             || PaymentsGrid.SelectedItem is not FiadoPaymentRow pay)
         {
@@ -137,7 +146,7 @@ public partial class FiadoDetailWindow : Window
             Receber_Click(sender, e);
             e.Handled = true;
         }
-        else if (e.Key == Key.F8)
+        else if (e.Key == Key.F8 && BtnEstornar.Visibility == Visibility.Visible)
         {
             Estornar_Click(sender, e);
             e.Handled = true;

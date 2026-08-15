@@ -175,7 +175,7 @@
                                 <Button Grid.Column="2" Content="Vincular ao cliente"
                                         Margin="10,0,0,0" Style="{StaticResource SgdbPrimaryButtonStyle}"
                                         Click="VincularOrfaos_Click"/>
-                                <Button Grid.Column="3" Content="Cancelar (sem cliente)"
+                                <Button x:Name="BtnDescartarOrfaos" Grid.Column="3" Content="Cancelar (sem cliente)"
                                         Margin="8,0,0,0" Padding="12,6" Cursor="Hand"
                                         Background="#FEF2F2" Foreground="#991B1B" BorderBrush="#FECACA"
                                         Click="DescartarOrfaos_Click"
@@ -269,14 +269,14 @@
                                     <TextBlock Text="F2 | Detalhe" VerticalAlignment="Center"/>
                                 </StackPanel>
                             </Button>
-                            <Button Style="{StaticResource FiadoFooterButton}" Click="Receber_Click"
+                            <Button x:Name="BtnReceber" Style="{StaticResource FiadoFooterButton}" Click="Receber_Click"
                                     ToolTip="Receber / baixar saldo (F7)">
                                 <StackPanel Orientation="Horizontal">
                                     <TextBlock Text="✓" FontSize="14" VerticalAlignment="Center" Margin="0,0,6,0"/>
                                     <TextBlock Text="F7 | Receber" VerticalAlignment="Center"/>
                                 </StackPanel>
                             </Button>
-                            <Button Style="{StaticResource FiadoFooterButton}" Click="ExcluirFiado_Click"
+                            <Button x:Name="BtnExcluirFiado" Style="{StaticResource FiadoFooterButton}" Click="ExcluirFiado_Click"
                                     ToolTip="Excluir fiado do cliente (Del)">
                                 <StackPanel Orientation="Horizontal">
                                     <TextBlock Text="🗑" FontSize="14" VerticalAlignment="Center" Margin="0,0,6,0"/>

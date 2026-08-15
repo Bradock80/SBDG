@@ -22,9 +22,19 @@ public partial class FiadoModuleView : UserControl
         }
         Loaded += (_, _) =>
         {
+            ApplyPermissionUi();
             Focus();
             LoadData();
         };
+    }
+
+    private void ApplyPermissionUi()
+    {
+        var canReceive = AccessControl.Can("FiadoReceber");
+        var canDelete = AccessControl.Can("FiadoExcluir");
+        BtnReceber.Visibility = canReceive ? Visibility.Visible : Visibility.Collapsed;
+        BtnExcluirFiado.Visibility = canDelete ? Visibility.Visible : Visibility.Collapsed;
+        BtnDescartarOrfaos.Visibility = canDelete ? Visibility.Visible : Visibility.Collapsed;
     }
 
     private void LoadData()
@@ -137,6 +147,8 @@ public partial class FiadoModuleView : UserControl
 
     private void Receber_Click(object sender, RoutedEventArgs e)
     {
+        if (!AccessControl.Ensure("FiadoReceber", "receber fiado", Window.GetWindow(this)))
+            return;
         if (SelectedRow is null)
         {
             MessageBox.Show("Selecione um cliente na lista.", "Fiado",
@@ -246,6 +258,8 @@ public partial class FiadoModuleView : UserControl
 
     private void DescartarOrfaos_Click(object sender, RoutedEventArgs e)
     {
+        if (!AccessControl.Ensure("FiadoExcluir", "excluir ou limpar fiado", Window.GetWindow(this)))
+            return;
         var selectedOrphan = SelectedRow is { Orphan: true } row ? row : null;
         var orphanPartyKey = selectedOrphan?.OrphanPartyKey;
         var qtd = selectedOrphan?.SalesCount ?? 0;
@@ -299,6 +313,8 @@ public partial class FiadoModuleView : UserControl
 
     private void ExcluirFiado_Click(object sender, RoutedEventArgs e)
     {
+        if (!AccessControl.Ensure("FiadoExcluir", "excluir ou limpar fiado", Window.GetWindow(this)))
+            return;
         if (SelectedRow is null)
         {
             MessageBox.Show("Selecione o cliente na lista.", "Fiado",
@@ -360,7 +376,7 @@ public partial class FiadoModuleView : UserControl
             Detalhe_Click(sender, e);
             e.Handled = true;
         }
-        else if (e.Key == Key.F7)
+        else if (e.Key == Key.F7 && BtnReceber.Visibility == Visibility.Visible)
         {
             Receber_Click(sender, e);
             e.Handled = true;
@@ -370,7 +386,7 @@ public partial class FiadoModuleView : UserControl
             LoadData();
             e.Handled = true;
         }
-        else if (e.Key == Key.Delete)
+        else if (e.Key == Key.Delete && BtnExcluirFiado.Visibility == Visibility.Visible)
         {
             ExcluirFiado_Click(sender, e);
             e.Handled = true;

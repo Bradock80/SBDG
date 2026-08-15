@@ -19,6 +19,11 @@ public sealed class UserPermissions
     public bool ProdutosEditar { get; set; }
     public bool EstoqueAjustar { get; set; }
     public bool FinanceiroAcesso { get; set; }
+    public bool ContasPagarAcesso { get; set; }
+    public bool ContasPagarEstornar { get; set; }
+    public bool FiadoReceber { get; set; }
+    public bool FiadoEstornar { get; set; }
+    public bool FiadoExcluir { get; set; }
     public bool RelatoriosAcesso { get; set; }
     public bool SistemaUsuarios { get; set; }
     public bool SistemaBackup { get; set; }
@@ -45,6 +50,11 @@ public sealed class UserPermissions
                 ProdutosEditar = true,
                 EstoqueAjustar = true,
                 FinanceiroAcesso = true,
+                ContasPagarAcesso = true,
+                ContasPagarEstornar = true,
+                FiadoReceber = true,
+                FiadoEstornar = true,
+                FiadoExcluir = true,
                 RelatoriosAcesso = true,
                 SistemaUsuarios = true,
                 SistemaBackup = true,
@@ -64,6 +74,11 @@ public sealed class UserPermissions
                 ProdutosEditar = true,
                 EstoqueAjustar = true,
                 FinanceiroAcesso = true,
+                ContasPagarAcesso = true,
+                ContasPagarEstornar = true,
+                FiadoReceber = true,
+                FiadoEstornar = true,
+                FiadoExcluir = true,
                 RelatoriosAcesso = true,
             },
             _ => new UserPermissions
@@ -71,8 +86,9 @@ public sealed class UserPermissions
                 PdvVenda = true,
                 ClientesConsultar = true,
                 ProdutosConsultar = true,
-                FinanceiroAcesso = true, // fiado
-                // Resumo do dia: só se liberar manualmente
+                FinanceiroAcesso = true, // caixa + módulo fiado
+                FiadoReceber = true,
+                // Contas a pagar / estornos / excluir fiado: só gestor/admin
             },
         };
     }
@@ -128,7 +144,12 @@ public sealed class UserPermissions
         ("ProdutosConsultar", "Produtos — consultar catálogo"),
         ("ProdutosEditar", "Produtos — cadastrar e alterar"),
         ("EstoqueAjustar", "Estoque — ajustar quantidades"),
-        ("FinanceiroAcesso", "Financeiro — caixa, fiado e contas"),
+        ("FinanceiroAcesso", "Financeiro — caixa e módulos financeiros"),
+        ("ContasPagarAcesso", "Contas a Pagar — acessar e baixar"),
+        ("ContasPagarEstornar", "Contas a Pagar — estornar pagamento"),
+        ("FiadoReceber", "Fiado — receber pagamentos"),
+        ("FiadoEstornar", "Fiado — estornar recebimentos"),
+        ("FiadoExcluir", "Fiado — excluir/limpar conta"),
         ("RelatoriosAcesso", "Relatórios e Meu Negócio"),
         ("SistemaUsuarios", "Sistema — usuários e permissões"),
         ("SistemaBackup", "Sistema — backup e restauração"),
@@ -149,6 +170,11 @@ public sealed class UserPermissions
         "ProdutosEditar" => ProdutosEditar,
         "EstoqueAjustar" => EstoqueAjustar,
         "FinanceiroAcesso" => FinanceiroAcesso,
+        "ContasPagarAcesso" => ContasPagarAcesso,
+        "ContasPagarEstornar" => ContasPagarEstornar,
+        "FiadoReceber" => FiadoReceber,
+        "FiadoEstornar" => FiadoEstornar,
+        "FiadoExcluir" => FiadoExcluir,
         "RelatoriosAcesso" => RelatoriosAcesso,
         "SistemaUsuarios" => SistemaUsuarios,
         "SistemaBackup" => SistemaBackup,
@@ -172,6 +198,11 @@ public sealed class UserPermissions
             case "ProdutosEditar": ProdutosEditar = value; break;
             case "EstoqueAjustar": EstoqueAjustar = value; break;
             case "FinanceiroAcesso": FinanceiroAcesso = value; break;
+            case "ContasPagarAcesso": ContasPagarAcesso = value; break;
+            case "ContasPagarEstornar": ContasPagarEstornar = value; break;
+            case "FiadoReceber": FiadoReceber = value; break;
+            case "FiadoEstornar": FiadoEstornar = value; break;
+            case "FiadoExcluir": FiadoExcluir = value; break;
             case "RelatoriosAcesso": RelatoriosAcesso = value; break;
             case "SistemaUsuarios": SistemaUsuarios = value; break;
             case "SistemaBackup": SistemaBackup = value; break;

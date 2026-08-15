@@ -264,7 +264,7 @@
 
             <Grid Grid.Row="2" Margin="0,16,0,0">
                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Left">
-                    <Button Content="F8 | Estornar recebimento" Style="{StaticResource ActionSecondaryBtn}"
+                    <Button x:Name="BtnEstornar" Content="F8 | Estornar recebimento" Style="{StaticResource ActionSecondaryBtn}"
                             Margin="0,0,10,0" Click="Estornar_Click" ToolTip="F8"/>
                     <Button x:Name="BtnReceber" Content="F7 | Receber / baixar" Style="{StaticResource ActionPrimaryBtn}"
                             Click="Receber_Click" ToolTip="F7"/>
