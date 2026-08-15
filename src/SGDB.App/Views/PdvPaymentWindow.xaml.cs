@@ -176,7 +176,7 @@ public partial class PdvPaymentWindow : Window
 
         var amounts = BuildEffectivePaymentAmountsForPricing();
         _tableSurcharge = PriceTablesService.CalcCartSurchargeAllocated(
-            _cartLines.Select(c => (c.ProductId, c.UnitPrice, c.Quantity)),
+            _cartLines.Select(c => (c.ProductId, c.UnitPrice, c.Quantity, c.StockUnitsPerSale)),
             amounts);
         _fiadoUnitExtra = CalcFiadoUnitExtra();
         SyncAutoSurcharge();

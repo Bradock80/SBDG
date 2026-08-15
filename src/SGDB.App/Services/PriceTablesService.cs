@@ -203,7 +203,7 @@ public static class PriceTablesService
     /// Se várias formas, aplica se QUALQUER forma da venda estiver na tabela.
     /// </summary>
     public static double CalcCartSurcharge(
-        IEnumerable<(int ProductId, double UnitPrice, double Qty)> lines,
+        IEnumerable<(int ProductId, double UnitPrice, double Qty, double StockUnitsPerSale)> lines,
         IEnumerable<string> paymentApiLabels)
     {
         var methodIds = paymentApiLabels
@@ -215,7 +215,7 @@ public static class PriceTablesService
     }
 
     public static double CalcCartSurchargeByMethodIds(
-        IEnumerable<(int ProductId, double UnitPrice, double Qty)> lines,
+        IEnumerable<(int ProductId, double UnitPrice, double Qty, double StockUnitsPerSale)> lines,
         IEnumerable<string> methodIds)
     {
         var ids = methodIds
@@ -236,9 +236,10 @@ public static class PriceTablesService
     /// Só entra produto cuja tabela é disparada por ALGUMA forma usada na venda
     /// (ex.: cerveja só débito/crédito → PIX não gera acréscimo na cerveja).
     /// Dinheiro/formas “soft” cobrem primeiro esses produtos; se cobriu 100% → R$ 0.
+    /// Cigarro AVULSO (StockUnitsPerSale ≈ 1 + preco_avulso) não participa da tabela.
     /// </summary>
     public static double CalcCartSurchargeAllocated(
-        IEnumerable<(int ProductId, double UnitPrice, double Qty)> lines,
+        IEnumerable<(int ProductId, double UnitPrice, double Qty, double StockUnitsPerSale)> lines,
         IReadOnlyDictionary<string, double> paymentAmountsByMethodId)
     {
         var payments = paymentAmountsByMethodId
@@ -252,7 +253,7 @@ public static class PriceTablesService
         var lineInfos = new List<PremiumLine>();
         double normalBase = 0;
 
-        foreach (var (productId, unitPrice, qty) in lines)
+        foreach (var (productId, unitPrice, qty, stockUnitsPerSale) in lines)
         {
             if (productId <= 0 || qty <= 0)
                 continue;
@@ -268,6 +269,12 @@ public static class PriceTablesService
             }
 
             var extra = ProductExtra.Parse(product.ExtraJson);
+            if (IsCigaretteAvulsoLine(product, extra, stockUnitsPerSale))
+            {
+                normalBase = ProductPriceHelper.RoundPrice(normalBase + baseAmt);
+                continue;
+            }
+
             var table = ResolveForProduct(extra);
             if (table is null)
             {
@@ -327,6 +334,19 @@ public static class PriceTablesService
         }
 
         return ProductPriceHelper.RoundPrice(total);
+    }
+
+    /// <summary>
+    /// Cigarro avulso: classificação cigarro + preco_avulso + StockUnitsPerSale ≈ 1.
+    /// Não usa Quantity — 1 maço e 1 avulso ambos têm qtd 1 no carrinho.
+    /// </summary>
+    private static bool IsCigaretteAvulsoLine(Product product, ProductExtra extra, double stockUnitsPerSale)
+    {
+        if (stockUnitsPerSale > 1.0001)
+            return false;
+        if (!ProductClassificationHelper.IsCigarette(product.Name, product.GroupName))
+            return false;
+        return PdvService.AllowsCigaretteAvulso(extra);
     }
 
     private sealed class PremiumLine(double baseAmount, double fullSurcharge, PriceTable table)
