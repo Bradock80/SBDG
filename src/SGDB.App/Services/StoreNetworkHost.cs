@@ -97,6 +97,7 @@ public sealed class StoreNetworkHost : IDisposable
         Urls = urls;
         LanUrl = lanIps.Count > 0 ? $"https://{lanIps[0]}:{Port}/" : null;
         IsRunning = true;
+        StoreNetworkSessionService.EnsureDeviceRevokedSubscription();
         AuditService.Log("rede_servidor_ligar", "store_network", Port.ToString(),
             $"TLS · fingerprint={CertificateFingerprint} · URLs: {string.Join(", ", urls.Where(u => !u.Contains("127.0.0.1")))}");
         _loop = Task.Run(() => ListenLoop(_cts.Token));
@@ -175,6 +176,7 @@ public sealed class StoreNetworkHost : IDisposable
         _listener = null;
         IsRunning = false;
         StoreNetworkPairingService.ClearActiveCode();
+        StoreNetworkSessionService.ClearAll();
         _serverCertificate?.Dispose();
         _serverCertificate = null;
         CertificateFingerprint = null;
@@ -305,8 +307,8 @@ public sealed class StoreNetworkHost : IDisposable
                 role = "server",
                 running = IsRunning,
                 apiVersion = 2,
-                authModes = new[] { "pin", "pairing" },
-                features = new[] { "movimentacao", "pdv_resumo", "dashboard", "stock_report", "pairing" },
+                authModes = new[] { "pin", "pairing", "session" },
+                features = new[] { "movimentacao", "pdv_resumo", "dashboard", "stock_report", "pairing", "session" },
             });
             return;
         }
@@ -344,7 +346,31 @@ public sealed class StoreNetworkHost : IDisposable
             return;
         }
 
-        if (!IsAuthorized(ex))
+        if (path.Equals("/api/session", StringComparison.OrdinalIgnoreCase) && ex.Method == "POST")
+        {
+            HandleSessionLogin(ex);
+            return;
+        }
+
+        if (path.Equals("/api/logout", StringComparison.OrdinalIgnoreCase) && ex.Method == "POST")
+        {
+            HandleSessionLogout(ex);
+            return;
+        }
+
+        StoreNetworkRemoteSession? remoteSession = null;
+        var bearer = ReadBearerToken(ex);
+        if (!string.IsNullOrEmpty(bearer))
+        {
+            var resolved = StoreNetworkSessionService.TryResolve(bearer);
+            if (!resolved.Ok || resolved.Session is null)
+            {
+                WriteJson(ex, 401, new { error = StoreNetworkSessionService.SessionInvalidMessage });
+                return;
+            }
+            remoteSession = resolved.Session;
+        }
+        else if (!IsAuthorized(ex))
         {
             WriteJson(ex, 401, new { error = "Informe o PIN." });
             return;
@@ -352,9 +378,9 @@ public sealed class StoreNetworkHost : IDisposable
 
         var origin = ex.Headers["X-Store-Origin"] ?? "rede";
 
-        // 68C: PIN não carrega o usuário do notebook. Não tratar AppSession
-        // do PC servidor como permissão remota (AccessControl.AllowsLocalUser).
-        using var remoteScope = AccessControl.EnterRemoteStoreRequest();
+        // 68C: PIN não carrega o usuário do notebook. Bearer preenche RemoteSession
+        // sem tocar AppSession do PC servidor.
+        using var remoteScope = AccessControl.EnterRemoteStoreRequest(remoteSession);
         try
         {
             if (path.Equals("/api/products", StringComparison.OrdinalIgnoreCase))
@@ -984,6 +1010,64 @@ public sealed class StoreNetworkHost : IDisposable
         });
     }
 
+    private static void HandleSessionLogin(HttpExchange ex)
+    {
+        using var remoteScope = AccessControl.EnterRemoteStoreRequest();
+        var body = ReadJson(ex.Body);
+        var result = StoreNetworkSessionService.TryCreate(
+            body.GetString("login"),
+            body.GetString("password"),
+            body.GetString("deviceId"),
+            ex.RemoteIp,
+            ex.Headers["X-Store-Origin"] ?? "notebook");
+        if (!result.Ok || result.Session is null)
+        {
+            WriteJson(ex, result.StatusCode, new { ok = false, error = result.Error ?? "Falha no login." });
+            return;
+        }
+
+        var s = result.Session;
+        WriteJson(ex, 200, new
+        {
+            ok = true,
+            token = s.Token,
+            expiresAt = s.ExpiresAtUtc.ToString("yyyy-MM-ddTHH:mm:ssZ"),
+            user = new
+            {
+                id = s.UserId,
+                login = s.Login,
+                name = s.UserName,
+                role = s.Role,
+                permissions = s.Permissions,
+            },
+        });
+    }
+
+    private static void HandleSessionLogout(HttpExchange ex)
+    {
+        using var remoteScope = AccessControl.EnterRemoteStoreRequest();
+        var token = ReadBearerToken(ex);
+        if (string.IsNullOrEmpty(token))
+        {
+            WriteJson(ex, 401, new { ok = false, error = "Informe a sessão." });
+            return;
+        }
+
+        StoreNetworkSessionService.Logout(token);
+        WriteJson(ex, 200, new { ok = true });
+    }
+
+    private static string? ReadBearerToken(HttpExchange ex)
+    {
+        var auth = (ex.Headers["Authorization"] ?? "").Trim();
+        const string prefix = "Bearer ";
+        if (auth.Length <= prefix.Length
+            || !auth.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
+            return null;
+        var token = auth[prefix.Length..].Trim();
+        return token.Length == 0 ? null : token;
+    }
+
     private bool IsAuthorized(HttpExchange ex)
     {
         var pin = (ex.Headers["X-Store-Pin"] ?? "").Trim();
@@ -1262,7 +1346,7 @@ public sealed class StoreNetworkHost : IDisposable
         sb.Append("HTTP/1.1 ").Append(ex.Status).Append(' ').Append(statusText).Append("\r\n");
         sb.Append("Cache-Control: no-store\r\n");
         sb.Append("Access-Control-Allow-Origin: *\r\n");
-        sb.Append("Access-Control-Allow-Headers: Content-Type, X-Store-Pin, X-Store-Origin\r\n");
+        sb.Append("Access-Control-Allow-Headers: Content-Type, X-Store-Pin, X-Store-Origin, Authorization\r\n");
         sb.Append("Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS\r\n");
         sb.Append("Connection: close\r\n");
         if (ex.Status != 204)

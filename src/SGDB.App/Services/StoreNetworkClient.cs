@@ -52,6 +52,18 @@ public static class StoreNetworkClient
         "Este computador não está mais autorizado pela loja.\n" +
         "Solicite um novo pareamento no PC servidor.";
 
+    public const string SessionNotSupportedMessage =
+        "O PC da loja precisa ser atualizado para usar login seguro da Rede Loja.";
+
+    private static string? _sessionToken;
+    private static DateTime? _sessionExpiresAt;
+    private static StoreNetworkRemoteUserDto? _remoteUser;
+
+    public static string? SessionToken => _sessionToken;
+    public static DateTime? SessionExpiresAt => _sessionExpiresAt;
+    public static StoreNetworkRemoteUserDto? RemoteUser => _remoteUser;
+    public static bool HasSession => !string.IsNullOrEmpty(_sessionToken);
+
     internal static HttpClient CreateHttpClient(string baseUrl, TimeSpan requestTimeout)
     {
         if (string.IsNullOrWhiteSpace(baseUrl)
@@ -95,6 +107,8 @@ public static class StoreNetworkClient
         var c = CreateHttpClient(StoreNetworkMode.ClientBaseUrl, TimeSpan.FromSeconds(60));
         c.DefaultRequestHeaders.Add("X-Store-Pin", StoreNetworkMode.GetClientPin());
         c.DefaultRequestHeaders.Add("X-Store-Origin", "notebook");
+        if (!string.IsNullOrEmpty(_sessionToken))
+            c.DefaultRequestHeaders.TryAddWithoutValidation("Authorization", "Bearer " + _sessionToken);
         return c;
     }
 
@@ -132,6 +146,7 @@ public static class StoreNetworkClient
                     err = e.GetString() ?? err;
             }
             catch { /* ignore */ }
+            err = RedactSecrets(err);
             if ((int)res.StatusCode == 404
                 || err.Contains("não encontrada", StringComparison.OrdinalIgnoreCase))
             {
@@ -304,14 +319,120 @@ public static class StoreNetworkClient
             ? PairingNotSupportedMessage
             : "Erro " + statusCode;
 
+    public static StoreNetworkSessionDto LoginRemote(string login, string password)
+    {
+        login = (login ?? "").Trim();
+        password ??= "";
+        var deviceId = StoreNetworkPairingService.EnsureDeviceId();
+        var status = GetPairingStatus();
+        if (status.Revoked)
+            throw new InvalidOperationException(DeviceRevokedMessage);
+        if (!status.Authorized)
+            throw new InvalidOperationException(StoreNetworkSessionService.DeviceNotAuthorizedMessage);
+
+        return Run(async () =>
+        {
+            var baseUrl = StoreNetworkMode.ClientBaseUrl.TrimEnd('/') + "/";
+            using var client = CreateHttpClient(baseUrl, TimeSpan.FromSeconds(20));
+            var pin = StoreNetworkMode.GetClientPin();
+            if (!string.IsNullOrWhiteSpace(pin))
+                client.DefaultRequestHeaders.TryAddWithoutValidation("X-Store-Pin", pin);
+            client.DefaultRequestHeaders.TryAddWithoutValidation("X-Store-Origin", "notebook");
+            using var req = new HttpRequestMessage(HttpMethod.Post, "api/session")
+            {
+                Content = new StringContent(
+                    JsonSerializer.Serialize(new { login, password, deviceId }, JsonOpts),
+                    Encoding.UTF8,
+                    "application/json"),
+            };
+            HttpResponseMessage res;
+            try
+            {
+                res = await client.SendAsync(req).ConfigureAwait(false);
+            }
+            catch (Exception ex)
+            {
+                throw new InvalidOperationException(FormatConnectError(ex), ex);
+            }
+
+            var text = await res.Content.ReadAsStringAsync().ConfigureAwait(false);
+            if ((int)res.StatusCode == 404)
+                throw new InvalidOperationException(SessionNotSupportedMessage);
+
+            var dto = JsonSerializer.Deserialize<StoreNetworkSessionDto>(text, JsonOpts);
+            if (!res.IsSuccessStatusCode)
+                throw new InvalidOperationException(RedactSecrets(dto?.Error ?? "Erro " + (int)res.StatusCode));
+            if (dto is null || string.IsNullOrWhiteSpace(dto.Token))
+                throw new InvalidOperationException("Resposta inválida do servidor.");
+
+            _sessionToken = dto.Token;
+            _remoteUser = dto.User;
+            if (DateTime.TryParse(dto.ExpiresAt, out var exp))
+                _sessionExpiresAt = exp.ToUniversalTime();
+            else
+                _sessionExpiresAt = DateTime.UtcNow.Add(StoreNetworkSessionService.Ttl);
+            return dto;
+        });
+    }
+
+    public static void LogoutRemote()
+    {
+        var token = _sessionToken;
+        try
+        {
+            if (!string.IsNullOrEmpty(token) && StoreNetworkMode.IsClient && StoreNetworkMode.HasServerFingerprint())
+            {
+                Run(async () =>
+                {
+                    var baseUrl = StoreNetworkMode.ClientBaseUrl.TrimEnd('/') + "/";
+                    using var client = CreateHttpClient(baseUrl, TimeSpan.FromSeconds(10));
+                    client.DefaultRequestHeaders.TryAddWithoutValidation("Authorization", "Bearer " + token);
+                    using var req = new HttpRequestMessage(HttpMethod.Post, "api/logout");
+                    try
+                    {
+                        await client.SendAsync(req).ConfigureAwait(false);
+                    }
+                    catch
+                    {
+                        /* limpa estado local mesmo offline */
+                    }
+                    return true;
+                });
+            }
+        }
+        catch
+        {
+            /* limpa estado local mesmo se o servidor recusar */
+        }
+        finally
+        {
+            ClearSessionState();
+        }
+    }
+
+    internal static void ClearSessionState()
+    {
+        _sessionToken = null;
+        _sessionExpiresAt = null;
+        _remoteUser = null;
+    }
+
+    internal static string RedactSecrets(string? text)
+    {
+        var s = text ?? "";
+        if (!string.IsNullOrEmpty(_sessionToken) && s.Contains(_sessionToken, StringComparison.Ordinal))
+            s = s.Replace(_sessionToken, "[redacted]", StringComparison.Ordinal);
+        return s;
+    }
+
     internal static string FormatConnectError(Exception ex)
     {
         if (IsCertificateMismatch(ex))
             return FingerprintMismatchMessage;
         if (IsTlsFailure(ex))
-            return TlsRequiredMessage + "\n" + (ex.Message ?? "");
+            return TlsRequiredMessage + "\n" + RedactSecrets(ex.Message ?? "");
         return "Não conectou no PC da loja. Confira IP, PIN, Firewall, fingerprint e se o servidor está Ligado.\n"
-               + (ex.Message ?? "");
+               + RedactSecrets(ex.Message ?? "");
     }
 
     internal static bool IsCertificateMismatch(Exception? ex)
@@ -687,6 +808,24 @@ public sealed class StoreNetworkDeviceStatusDto
     public string? CreatedAt { get; set; }
     public string? LastSeenAt { get; set; }
     public string? Error { get; set; }
+}
+
+public sealed class StoreNetworkSessionDto
+{
+    public bool Ok { get; set; }
+    public string? Token { get; set; }
+    public string? ExpiresAt { get; set; }
+    public StoreNetworkRemoteUserDto? User { get; set; }
+    public string? Error { get; set; }
+}
+
+public sealed class StoreNetworkRemoteUserDto
+{
+    public int Id { get; set; }
+    public string? Login { get; set; }
+    public string? Name { get; set; }
+    public string? Role { get; set; }
+    public UserPermissions? Permissions { get; set; }
 }
 
 public sealed class StoreNetworkOkDto

@@ -8,9 +8,25 @@ public static class AuthService
 {
     public static User? TryLogin(string login, string password)
     {
+        var result = ValidateCredentials(login, password);
+        return result.Status switch
+        {
+            CredentialValidationStatus.Success => result.User,
+            CredentialValidationStatus.Inactive => throw new AuthPendingException(
+                "Sua conta ainda aguarda aprovação do administrador."),
+            _ => null,
+        };
+    }
+
+    /// <summary>
+    /// Valida login/senha contra o banco local deste processo, sem tocar AppSession.
+    /// No host da Rede Loja, o banco é o da loja.
+    /// </summary>
+    public static CredentialValidationResult ValidateCredentials(string? login, string? password)
+    {
         login = (login ?? "").Trim().ToLowerInvariant();
         if (string.IsNullOrEmpty(login) || string.IsNullOrEmpty(password))
-            return null;
+            return CredentialValidationResult.Invalid();
 
         using var conn = DatabaseService.OpenConnection();
         using var cmd = conn.CreateCommand();
@@ -24,19 +40,15 @@ public static class AuthService
 
         using var reader = cmd.ExecuteReader();
         if (!reader.Read())
-            return null;
+            return CredentialValidationResult.Invalid();
 
         var hash = reader.GetString(3);
         if (!VerifyPasswordCompatible(password, hash))
-            return null;
+            return CredentialValidationResult.Invalid();
 
         var active = reader.GetInt32(6) != 0;
-        if (!active)
-            throw new AuthPendingException(
-                "Sua conta ainda aguarda aprovação do administrador.");
-
         var role = reader.GetString(4);
-        return new User
+        var user = new User
         {
             Id = reader.GetInt32(0),
             Login = reader.GetString(1),
@@ -44,6 +56,11 @@ public static class AuthService
             Role = role,
             Permissions = UserPermissions.Parse(reader.GetString(5), role),
         };
+
+        if (!active)
+            return CredentialValidationResult.InactiveUser(user);
+
+        return CredentialValidationResult.Ok(user, hash);
     }
 
     /// <summary>
@@ -107,6 +124,36 @@ public static class AuthService
             return password ?? "";
         return Encoding.UTF8.GetString(bytes, 0, 72);
     }
+}
+
+public enum CredentialValidationStatus
+{
+    InvalidCredentials,
+    Inactive,
+    Success,
+}
+
+public sealed class CredentialValidationResult
+{
+    public CredentialValidationStatus Status { get; init; }
+    public User? User { get; init; }
+
+    /// <summary>SHA-256 do password_hash. Nunca o hash bruto. Só em Success.</summary>
+    internal string? PasswordHashFingerprint { get; init; }
+
+    public static CredentialValidationResult Invalid() =>
+        new() { Status = CredentialValidationStatus.InvalidCredentials };
+
+    public static CredentialValidationResult InactiveUser(User user) =>
+        new() { Status = CredentialValidationStatus.Inactive, User = user };
+
+    public static CredentialValidationResult Ok(User user, string passwordHash) =>
+        new()
+        {
+            Status = CredentialValidationStatus.Success,
+            User = user,
+            PasswordHashFingerprint = StoreNetworkSessionService.FingerprintPasswordHash(passwordHash),
+        };
 }
 
 public sealed class AuthPendingException : Exception

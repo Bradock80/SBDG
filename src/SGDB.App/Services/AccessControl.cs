@@ -7,6 +7,7 @@ namespace SGDB.Services;
 public static class AccessControl
 {
     private static readonly AsyncLocal<int> RemoteStoreRequestDepth = new();
+    private static readonly AsyncLocal<StoreNetworkRemoteSession?> RemoteSessionLocal = new();
 
     /// <summary>
     /// Requisição RPC no host da Rede Loja. A sessão do PC servidor NÃO é a
@@ -14,10 +15,18 @@ public static class AccessControl
     /// </summary>
     public static bool IsRemoteStoreRequest => RemoteStoreRequestDepth.Value > 0;
 
-    public static IDisposable EnterRemoteStoreRequest()
+    /// <summary>Identidade remota da request atual. Null em PIN-only (68C2/B1).</summary>
+    public static StoreNetworkRemoteSession? CurrentRemoteSession => RemoteSessionLocal.Value;
+
+    public static IDisposable EnterRemoteStoreRequest() =>
+        EnterRemoteStoreRequest(null);
+
+    public static IDisposable EnterRemoteStoreRequest(StoreNetworkRemoteSession? session)
     {
+        var previous = RemoteSessionLocal.Value;
         RemoteStoreRequestDepth.Value++;
-        return new RemoteStoreRequestScope();
+        RemoteSessionLocal.Value = session;
+        return new RemoteStoreRequestScope(previous);
     }
 
     /// <summary>
@@ -116,7 +125,13 @@ public static class AccessControl
 
     private sealed class RemoteStoreRequestScope : IDisposable
     {
+        private readonly StoreNetworkRemoteSession? _previous;
         private bool _disposed;
+
+        public RemoteStoreRequestScope(StoreNetworkRemoteSession? previous)
+        {
+            _previous = previous;
+        }
 
         public void Dispose()
         {
@@ -125,6 +140,9 @@ public static class AccessControl
             _disposed = true;
             if (RemoteStoreRequestDepth.Value > 0)
                 RemoteStoreRequestDepth.Value--;
+            RemoteSessionLocal.Value = RemoteStoreRequestDepth.Value == 0
+                ? null
+                : _previous;
         }
     }
 }

@@ -43,6 +43,11 @@ public static partial class DatabaseService
 
         using var conn = OpenConnection();
         EnsureSchema(conn);
+        // OpenConnection pode ter rodado migrações antes das CREATE TABLE
+        // em banco novo. Reaplica para colunas como users.permissions_json.
+        _migrationsDone = false;
+        ApplyPendingMigrations(conn);
+        _migrationsDone = true;
         SeedDefaultAdmin(conn);
     }
 
