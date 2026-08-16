@@ -1,4 +1,7 @@
+using System.Net;
 using System.Net.Http;
+using System.Security.Authentication;
+using System.Security.Cryptography.X509Certificates;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
@@ -22,16 +25,57 @@ public static class StoreNetworkClient
     /// </summary>
     public static readonly TimeSpan ConnectTimeout = TimeSpan.FromSeconds(2);
 
+    /// <summary>O parser do host só fala HTTP/1.1 — HTTPS não pode negociar HTTP/2.</summary>
+    public static readonly Version RequiredHttpVersion = HttpVersion.Version11;
+
+    public static readonly HttpVersionPolicy RequiredVersionPolicy =
+        HttpVersionPolicy.RequestVersionOrLower;
+
+    public const string MissingFingerprintMessage =
+        "Este computador ainda não confia no certificado da loja.\n" +
+        "Configure o fingerprint exibido no PC servidor.";
+
+    public const string FingerprintMismatchMessage =
+        "O certificado da loja mudou.\n" +
+        "Não foi possível estabelecer conexão segura.\n" +
+        "Confirme com o responsável e configure novamente.";
+
+    public const string TlsRequiredMessage =
+        "Não foi possível estabelecer conexão segura com o PC da loja.\n" +
+        "O PC da loja precisa ser atualizado (Rede Loja com HTTPS).\n" +
+        "Não há fallback para HTTP.";
+
     private static HttpClient CreateHttpClient(string baseUrl, TimeSpan requestTimeout)
     {
+        if (string.IsNullOrWhiteSpace(baseUrl)
+            || !baseUrl.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
+        {
+            throw new InvalidOperationException(TlsRequiredMessage);
+        }
+
+        if (!StoreNetworkMode.HasServerFingerprint())
+            throw new InvalidOperationException(MissingFingerprintMessage);
+
+        var expected = StoreNetworkCertificateService.NormalizeFingerprint(
+            StoreNetworkMode.GetServerFingerprint());
+
         var handler = new SocketsHttpHandler
         {
             ConnectTimeout = ConnectTimeout,
+            SslOptions =
+            {
+                EnabledSslProtocols = SslProtocols.Tls12 | SslProtocols.Tls13,
+                CertificateRevocationCheckMode = X509RevocationMode.NoCheck,
+                RemoteCertificateValidationCallback = (_, cert, _, _) =>
+                    StoreNetworkCertificateService.MatchesFingerprint(cert, expected),
+            },
         };
         var c = new HttpClient(handler)
         {
             BaseAddress = new Uri(baseUrl.TrimEnd('/') + "/"),
             Timeout = requestTimeout,
+            DefaultRequestVersion = RequiredHttpVersion,
+            DefaultVersionPolicy = RequiredVersionPolicy,
         };
         // Servidor TCP próprio não trata 100-continue — sem isso o body do POST pode não chegar
         c.DefaultRequestHeaders.ExpectContinue = false;
@@ -67,8 +111,7 @@ public static class StoreNetworkClient
         }
         catch (Exception ex)
         {
-            throw new InvalidOperationException(
-                "Não conectou no PC da loja. Confira IP, PIN, Firewall e se o servidor está Ligado.\n" + ex.Message);
+            throw new InvalidOperationException(FormatConnectError(ex), ex);
         }
 
         var text = await res.Content.ReadAsStringAsync().ConfigureAwait(false);
@@ -116,8 +159,15 @@ public static class StoreNetworkClient
         Run(async () =>
         {
             using var client = CreateClient();
-            // login não exige pin no header se enviarmos no body — status exige pin
-            var res = await client.GetAsync("api/status").ConfigureAwait(false);
+            HttpResponseMessage res;
+            try
+            {
+                res = await client.GetAsync("api/status").ConfigureAwait(false);
+            }
+            catch (Exception ex)
+            {
+                throw new InvalidOperationException(FormatConnectError(ex), ex);
+            }
             var text = await res.Content.ReadAsStringAsync().ConfigureAwait(false);
             if (!res.IsSuccessStatusCode)
                 throw new InvalidOperationException("Servidor não respondeu. PIN ou IP incorreto?");
@@ -139,13 +189,61 @@ public static class StoreNetworkClient
                     Encoding.UTF8,
                     "application/json"),
             };
-            var res = await client.SendAsync(req).ConfigureAwait(false);
+            HttpResponseMessage res;
+            try
+            {
+                res = await client.SendAsync(req).ConfigureAwait(false);
+            }
+            catch (Exception ex)
+            {
+                throw new InvalidOperationException(FormatConnectError(ex), ex);
+            }
             var text = await res.Content.ReadAsStringAsync().ConfigureAwait(false);
             var dto = JsonSerializer.Deserialize<StoreNetworkStatusDto>(text, JsonOpts);
             if (!res.IsSuccessStatusCode)
                 throw new InvalidOperationException(dto?.Error ?? "PIN incorreto.");
             return dto ?? throw new InvalidOperationException("Resposta inválida.");
         });
+
+    internal static string FormatConnectError(Exception ex)
+    {
+        if (IsCertificateMismatch(ex))
+            return FingerprintMismatchMessage;
+        if (IsTlsFailure(ex))
+            return TlsRequiredMessage + "\n" + (ex.Message ?? "");
+        return "Não conectou no PC da loja. Confira IP, PIN, Firewall, fingerprint e se o servidor está Ligado.\n"
+               + (ex.Message ?? "");
+    }
+
+    internal static bool IsCertificateMismatch(Exception? ex)
+    {
+        while (ex is not null)
+        {
+            var msg = ex.Message ?? "";
+            if (msg.Contains("RemoteCertificateValidationCallback", StringComparison.OrdinalIgnoreCase)
+                || msg.Contains("remote certificate was rejected", StringComparison.OrdinalIgnoreCase)
+                || msg.Contains("the remote certificate is invalid", StringComparison.OrdinalIgnoreCase))
+                return true;
+            ex = ex.InnerException;
+        }
+        return false;
+    }
+
+    private static bool IsTlsFailure(Exception? ex)
+    {
+        while (ex is not null)
+        {
+            if (ex is AuthenticationException)
+                return true;
+            var msg = ex.Message ?? "";
+            if (msg.Contains("SSL", StringComparison.OrdinalIgnoreCase)
+                || msg.Contains("TLS", StringComparison.OrdinalIgnoreCase)
+                || msg.Contains("secure channel", StringComparison.OrdinalIgnoreCase))
+                return true;
+            ex = ex.InnerException;
+        }
+        return false;
+    }
 
     /// <summary>Testa IP/PIN sem gravar modo Cliente definitivamente (grava draft temporário).</summary>
     public static StoreNetworkStatusDto TestConnection(string host, string pin, int port)

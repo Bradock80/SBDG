@@ -1,7 +1,10 @@
 using System.Collections.Specialized;
 using System.IO;
 using System.Net;
+using System.Net.Security;
 using System.Net.Sockets;
+using System.Security.Authentication;
+using System.Security.Cryptography.X509Certificates;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
@@ -21,6 +24,7 @@ public sealed class StoreNetworkHost : IDisposable
     private readonly CancellationTokenSource _cts = new();
     private Task? _loop;
     private bool _disposed;
+    private X509Certificate2? _serverCertificate;
 
     public static StoreNetworkHost? Current
     {
@@ -31,8 +35,10 @@ public sealed class StoreNetworkHost : IDisposable
     public int Port { get; private set; }
     public string Pin { get; set; } = "";
     public string? LanUrl { get; private set; }
-    public string LocalUrl => $"http://127.0.0.1:{Port}/";
+    public string LocalUrl => $"https://127.0.0.1:{Port}/";
     public IReadOnlyList<string> Urls { get; private set; } = [];
+    public string? CertificateFingerprint { get; private set; }
+    public DateTime? CertificateNotAfter { get; private set; }
 
     private static readonly JsonSerializerOptions JsonOpts = new()
     {
@@ -57,18 +63,26 @@ public sealed class StoreNetworkHost : IDisposable
     {
         if (IsRunning) return;
 
-        Port = port;
-        Pin = StoreNetworkMode.EnsurePin();
-        StoreNetworkMode.SavePort(port);
-        StoreNetworkMode.SetRole(StoreNetworkMode.RoleServer);
+        var cert = StoreNetworkCertificateService.LoadOrCreate(AppSettingsService.GetNomeDeposito());
+        _serverCertificate?.Dispose();
+        _serverCertificate = cert;
+        CertificateFingerprint = StoreNetworkCertificateService.ComputeFingerprint(cert);
+        CertificateNotAfter = cert.NotAfter;
 
-        TryOpenFirewallRule(port);
+        Pin = StoreNetworkMode.EnsurePin();
+        StoreNetworkMode.SetRole(StoreNetworkMode.RoleServer);
+        if (port is >= 1024 and <= 65535)
+        {
+            StoreNetworkMode.SavePort(port);
+            TryOpenFirewallRule(port);
+        }
 
         try
         {
             var listener = new TcpListener(IPAddress.Any, port);
             listener.Start();
             _listener = listener;
+            Port = ((IPEndPoint)listener.LocalEndpoint).Port;
         }
         catch (Exception ex)
         {
@@ -78,13 +92,13 @@ public sealed class StoreNetworkHost : IDisposable
         }
 
         var lanIps = DeckCompanionHost.GetLanIPv4Addresses();
-        var urls = lanIps.Select(ip => $"http://{ip}:{port}/").ToList();
-        urls.Add($"http://127.0.0.1:{port}/");
+        var urls = lanIps.Select(ip => $"https://{ip}:{Port}/").ToList();
+        urls.Add($"https://127.0.0.1:{Port}/");
         Urls = urls;
-        LanUrl = lanIps.Count > 0 ? $"http://{lanIps[0]}:{port}/" : null;
+        LanUrl = lanIps.Count > 0 ? $"https://{lanIps[0]}:{Port}/" : null;
         IsRunning = true;
         AuditService.Log("rede_servidor_ligar", "store_network", Port.ToString(),
-            $"PIN ativo · URLs: {string.Join(", ", urls.Where(u => !u.Contains("127.0.0.1")))}");
+            $"TLS · fingerprint={CertificateFingerprint} · URLs: {string.Join(", ", urls.Where(u => !u.Contains("127.0.0.1")))}");
         _loop = Task.Run(() => ListenLoop(_cts.Token));
     }
 
@@ -160,6 +174,10 @@ public sealed class StoreNetworkHost : IDisposable
         try { _listener?.Stop(); } catch { /* ignore */ }
         _listener = null;
         IsRunning = false;
+        _serverCertificate?.Dispose();
+        _serverCertificate = null;
+        CertificateFingerprint = null;
+        CertificateNotAfter = null;
         lock (Sync)
         {
             if (ReferenceEquals(_current, this))
@@ -199,11 +217,31 @@ public sealed class StoreNetworkHost : IDisposable
             {
                 client.ReceiveTimeout = 60000;
                 client.SendTimeout = 60000;
-                using var stream = client.GetStream();
-                var ex = ReadHttp(stream);
+                var cert = _serverCertificate;
+                if (cert is null)
+                    return;
+                using var network = client.GetStream();
+                using var ssl = new SslStream(network, leaveInnerStreamOpen: false);
+                try
+                {
+                    ssl.AuthenticateAsServer(new SslServerAuthenticationOptions
+                    {
+                        ServerCertificate = cert,
+                        ClientCertificateRequired = false,
+                        EnabledSslProtocols = SslProtocols.Tls12 | SslProtocols.Tls13,
+                        CertificateRevocationCheckMode = X509RevocationMode.NoCheck,
+                    });
+                }
+                catch (Exception tlsEx)
+                {
+                    LogTlsFailure(tlsEx);
+                    return;
+                }
+
+                var ex = ReadHttp(ssl);
                 if (ex is null) return;
                 Handle(ex);
-                WriteHttp(stream, ex);
+                WriteHttp(ssl, ex);
             }
             catch { /* ignore */ }
         }
@@ -275,7 +313,6 @@ public sealed class StoreNetworkHost : IDisposable
             var body = ReadJson(ex.Body);
             var pin = (body.GetString("pin")
                        ?? ex.Headers["X-Store-Pin"]
-                       ?? ex.Query["pin"]
                        ?? "").Trim();
             var expected = StoreNetworkMode.GetServerPin();
             Pin = expected; // sincroniza memória com o PIN salvo
@@ -893,10 +930,18 @@ public sealed class StoreNetworkHost : IDisposable
 
     private bool IsAuthorized(HttpExchange ex)
     {
-        var pin = (ex.Headers["X-Store-Pin"] ?? ex.Query["pin"] ?? "").Trim();
+        var pin = (ex.Headers["X-Store-Pin"] ?? "").Trim();
         var expected = StoreNetworkMode.GetServerPin();
         Pin = expected;
         return pin.Length > 0 && SecureEquals(pin, expected);
+    }
+
+    private static void LogTlsFailure(Exception ex)
+    {
+        var msg = (ex.GetType().Name + ": " + (ex.Message ?? "")).Trim();
+        if (msg.Length > 240)
+            msg = msg[..240];
+        AuditService.Log("rede_tls_falha", "store_network", null, msg);
     }
 
     private static bool SecureEquals(string a, string b)
@@ -976,7 +1021,7 @@ public sealed class StoreNetworkHost : IDisposable
         public byte[]? ResponseBody { get; set; }
     }
 
-    private static HttpExchange? ReadHttp(NetworkStream stream)
+    private static HttpExchange? ReadHttp(Stream stream)
     {
         using var ms = new MemoryStream();
         var buf = new byte[8192];
@@ -1142,7 +1187,7 @@ public sealed class StoreNetworkHost : IDisposable
         return -1;
     }
 
-    private static void WriteHttp(NetworkStream stream, HttpExchange ex)
+    private static void WriteHttp(Stream stream, HttpExchange ex)
     {
         var body = ex.ResponseBody ?? Array.Empty<byte>();
         var statusText = ex.Status switch

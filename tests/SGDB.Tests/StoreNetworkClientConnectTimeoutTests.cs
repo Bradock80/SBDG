@@ -25,6 +25,7 @@ public class StoreNetworkClientConnectTimeoutTests
     {
         using var db = TempDatabase.Create();
         StoreNetworkMode.SaveClient("192.0.2.1", "1234", StoreNetworkMode.DefaultPort);
+        StoreNetworkMode.SaveServerFingerprint(new string('A', 64));
 
         try
         {
@@ -50,6 +51,7 @@ public class StoreNetworkClientConnectTimeoutTests
     {
         using var db = TempDatabase.Create();
         StoreNetworkMode.SaveClient("192.0.2.1", "1234", StoreNetworkMode.DefaultPort);
+        StoreNetworkMode.SaveServerFingerprint(new string('A', 64));
 
         try
         {

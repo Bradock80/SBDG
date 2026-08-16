@@ -10,6 +10,7 @@ public static class StoreNetworkMode
     public const string SettingPort = "store_network_port";
     public const string SettingHost = "store_network_host";
     public const string SettingClientPin = "store_network_client_pin";
+    public const string SettingServerFingerprint = "store_network_server_fingerprint";
     public const int DefaultPort = 5055;
 
     public const string RoleStandalone = "standalone";
@@ -152,12 +153,31 @@ public static class StoreNetworkMode
             throw new InvalidOperationException("Configure o IP do servidor em Sistema → Rede Loja.");
     }
 
+    public static string GetServerFingerprint() =>
+        (AppSettingsService.GetSetting(SettingServerFingerprint) ?? "").Trim();
+
+    public static bool HasServerFingerprint() =>
+        StoreNetworkCertificateService.TryNormalizeFingerprint(GetServerFingerprint(), out _);
+
+    /// <summary>
+    /// Grava o fingerprint digitado pelo operador. Não aceita vazio e não
+    /// sobrescreve a partir de um certificado apresentado na rede (sem TOFU).
+    /// </summary>
+    public static void SaveServerFingerprint(string fingerprint)
+    {
+        var normalized = StoreNetworkCertificateService.NormalizeFingerprint(fingerprint);
+        AppSettingsService.SetSetting(SettingServerFingerprint, normalized);
+    }
+
+    public static void ClearServerFingerprint() =>
+        AppSettingsService.SetSetting(SettingServerFingerprint, "");
+
     public static string ClientBaseUrl
     {
         get
         {
             EnsureClientConfigured();
-            return $"http://{GetClientHost()}:{GetPort()}";
+            return $"https://{GetClientHost()}:{GetPort()}";
         }
     }
 

@@ -2,10 +2,10 @@
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="Rede Loja"
-        Width="520" Height="620"
+        Width="540" Height="720"
         WindowStartupLocation="CenterOwner"
         ResizeMode="CanResize"
-        MinWidth="480" MinHeight="520"
+        MinWidth="500" MinHeight="600"
         Background="#ECE9E4">
   <Grid Margin="16">
     <Grid.RowDefinitions>
@@ -55,6 +55,18 @@
                 </Grid>
                 <TextBlock x:Name="ServerStatusText" Margin="0,10,0,0" FontSize="12" Foreground="#334155"
                            TextWrapping="Wrap" Text="Servidor desligado."/>
+                <TextBlock Margin="0,10,0,0" FontSize="11" Foreground="#64748B"
+                           Text="Rede Loja segura (HTTPS) — fingerprint SHA-256"/>
+                <TextBox x:Name="ServerFingerprintBox" Margin="0,4,0,0" Height="56"
+                         FontFamily="Consolas" FontSize="11" TextWrapping="Wrap"
+                         IsReadOnly="True" VerticalScrollBarVisibility="Auto"/>
+                <StackPanel Orientation="Horizontal" Margin="0,6,0,0">
+                    <Button Content="Copiar fingerprint" Width="150" Height="28"
+                            Click="CopyFingerprint_Click"/>
+                    <TextBlock x:Name="CertValidityText" Margin="12,0,0,0"
+                               VerticalAlignment="Center" FontSize="11" Foreground="#475569"
+                               TextWrapping="Wrap"/>
+                </StackPanel>
               </StackPanel>
             </Border>
             <Border Background="White" BorderBrush="#C8C4BC" BorderThickness="1" Padding="12" Margin="0,12,0,0">
@@ -99,6 +111,14 @@
                     <TextBox x:Name="ClientPortBox" Height="32" VerticalContentAlignment="Center" Text="5055"/>
                   </StackPanel>
                 </Grid>
+                <TextBlock Text="Fingerprint SHA-256 do PC da loja (copie da tela Servidor)" FontSize="11" Foreground="#64748B" Margin="0,10,0,0"/>
+                <TextBox x:Name="ClientFingerprintBox" Height="56" Margin="0,4,0,0"
+                         FontFamily="Consolas" FontSize="11" TextWrapping="Wrap"
+                         AcceptsReturn="True" VerticalScrollBarVisibility="Auto"/>
+                <Button Content="Salvar fingerprint" Width="160" Height="32" Margin="0,8,0,0"
+                        HorizontalAlignment="Left" Click="SaveFingerprint_Click"/>
+                <TextBlock x:Name="ClientTlsStatusText" Margin="0,8,0,0" FontSize="12" Foreground="#334155"
+                           TextWrapping="Wrap" Text="TLS: fingerprint ainda não configurado."/>
                 <StackPanel Orientation="Horizontal" Margin="0,12,0,0">
                   <Button Content="Testar" Width="90" Height="32" Margin="0,0,8,0" Click="TestClient_Click"/>
                   <Button Content="Salvar como Cliente" Width="150" Height="32" Margin="0,0,8,0"

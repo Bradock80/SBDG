@@ -16,6 +16,7 @@ public partial class StoreNetworkWindow : Window
         ClientHostBox.Text = StoreNetworkMode.GetClientHost();
         ClientPinBox.Text = StoreNetworkMode.GetClientPin();
         ClientPortBox.Text = StoreNetworkMode.GetPort().ToString();
+        ClientFingerprintBox.Text = StoreNetworkMode.GetServerFingerprint();
         Loaded += (_, _) => RefreshUi();
     }
 
@@ -32,15 +33,20 @@ public partial class StoreNetworkWindow : Window
             var url = host.LanUrl ?? host.LocalUrl;
             UrlText.Text = url;
             ServerStatusText.Text = host.LanUrl is null
-                ? $"Ligado só em {host.LocalUrl} — confira o cabo/IP."
-                : $"Ligado. PIN: {host.Pin} · Porta: {host.Port}";
+                ? $"Rede Loja segura ligada só em {host.LocalUrl} — confira o cabo/IP."
+                : $"Rede Loja segura (HTTPS). PIN: {host.Pin} · Porta: {host.Port}";
             RenderQr(url);
+            ServerFingerprintBox.Text = FormatFingerprint(host.CertificateFingerprint);
+            CertValidityText.Text = host.CertificateNotAfter is DateTime until
+                ? $"Válido até {until:dd/MM/yyyy}"
+                : "";
         }
         else
         {
             UrlText.Text = "—";
             ServerStatusText.Text = "Servidor desligado.";
             QrImage.Source = null;
+            FillServerCertificateUiWhenStopped();
         }
 
         var role = StoreNetworkMode.GetRole();
@@ -51,6 +57,61 @@ public partial class StoreNetworkWindow : Window
             StoreNetworkMode.RoleServer => "Modo Servidor (este PC é a loja).",
             _ => "Modo PC único (sem rede).",
         };
+        RefreshClientTlsStatus();
+    }
+
+    private void FillServerCertificateUiWhenStopped()
+    {
+        var status = StoreNetworkCertificateService.GetFileStatus();
+        switch (status)
+        {
+            case StoreNetworkCertificateStatus.Ok:
+                ServerFingerprintBox.Text = FormatFingerprint(StoreNetworkCertificateService.TryReadFingerprint());
+                CertValidityText.Text = "Certificado pronto. Clique em Ligar.";
+                break;
+            case StoreNetworkCertificateStatus.Missing:
+                ServerFingerprintBox.Text = "";
+                CertValidityText.Text = "O certificado será criado ao Ligar.";
+                break;
+            case StoreNetworkCertificateStatus.Expired:
+                ServerFingerprintBox.Text = FormatFingerprint(StoreNetworkCertificateService.TryReadFingerprint());
+                CertValidityText.Text = "Certificado expirado — a Rede Loja não liga até regenerar (muda o fingerprint).";
+                break;
+            default:
+                ServerFingerprintBox.Text = "";
+                CertValidityText.Text = "Arquivo de certificado ilegível. A Rede Loja não será ligada (fingerprint não muda sozinho).";
+                break;
+        }
+    }
+
+    private void RefreshClientTlsStatus()
+    {
+        if (StoreNetworkMode.HasServerFingerprint())
+        {
+            ClientTlsStatusText.Text =
+                "TLS: fingerprint configurado. A conexão usará HTTPS; sem fallback para HTTP.";
+        }
+        else
+        {
+            ClientTlsStatusText.Text =
+                "TLS: este computador ainda não confia no certificado da loja. " +
+                "Configure o fingerprint exibido no PC servidor.";
+        }
+    }
+
+    private static string FormatFingerprint(string? hex)
+    {
+        if (string.IsNullOrWhiteSpace(hex))
+            return "";
+        if (!StoreNetworkCertificateService.TryNormalizeFingerprint(hex, out var n))
+            return hex.Trim();
+        var sb = new System.Text.StringBuilder(80);
+        for (var i = 0; i < n.Length; i += 4)
+        {
+            if (i > 0) sb.Append(' ');
+            sb.Append(n.AsSpan(i, Math.Min(4, n.Length - i)));
+        }
+        return sb.ToString();
     }
 
     private void RenderQr(string url)
@@ -137,6 +198,50 @@ public partial class StoreNetworkWindow : Window
         }
     }
 
+    private void CopyFingerprint_Click(object sender, RoutedEventArgs e)
+    {
+        var fp = ServerFingerprintBox.Text;
+        if (string.IsNullOrWhiteSpace(fp)) return;
+        Clipboard.SetText(fp.Replace(" ", ""));
+        MessageBox.Show("Fingerprint copiado.", "Rede Loja", MessageBoxButton.OK, MessageBoxImage.Information);
+    }
+
+    private void SaveFingerprint_Click(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            var typed = ClientFingerprintBox.Text;
+            var confirm = MessageBox.Show(
+                "Confirmar o fingerprint do PC da loja?\n\n" +
+                "Só aceite se você copiou este valor da tela Servidor neste estabelecimento.\n" +
+                "O certificado apresentado na rede NÃO será aceito automaticamente.",
+                "Confirmar fingerprint",
+                MessageBoxButton.YesNo,
+                MessageBoxImage.Question);
+            if (confirm != MessageBoxResult.Yes)
+                return;
+            StoreNetworkMode.SaveServerFingerprint(typed);
+            ClientFingerprintBox.Text = FormatFingerprint(StoreNetworkMode.GetServerFingerprint());
+            RefreshClientTlsStatus();
+            MessageBox.Show("Fingerprint salvo. Agora use Testar ou Salvar como Cliente.",
+                "Rede Loja", MessageBoxButton.OK, MessageBoxImage.Information);
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show(ex.Message, "Rede Loja", MessageBoxButton.OK, MessageBoxImage.Warning);
+        }
+    }
+
+    private static bool EnsureFingerprintConfigured()
+    {
+        if (StoreNetworkMode.HasServerFingerprint())
+            return true;
+        MessageBox.Show(
+            StoreNetworkClient.MissingFingerprintMessage,
+            "Rede Loja", MessageBoxButton.OK, MessageBoxImage.Warning);
+        return false;
+    }
+
     private void CopyUrl_Click(object sender, RoutedEventArgs e)
     {
         var url = UrlText.Text;
@@ -149,6 +254,8 @@ public partial class StoreNetworkWindow : Window
     {
         try
         {
+            if (!EnsureFingerprintConfigured())
+                return;
             ApplyClientFieldsFromBoxes();
             var st = StoreNetworkClient.Login(ClientPinBox.Text.Trim());
             MessageBox.Show(
@@ -173,6 +280,8 @@ public partial class StoreNetworkWindow : Window
     {
         try
         {
+            if (!EnsureFingerprintConfigured())
+                return;
             ApplyClientFieldsFromBoxes();
             StoreNetworkHost.Current?.Dispose();
             var st = StoreNetworkClient.Login(ClientPinBox.Text.Trim());
