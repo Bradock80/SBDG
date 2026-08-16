@@ -70,6 +70,37 @@
               </StackPanel>
             </Border>
             <Border Background="White" BorderBrush="#C8C4BC" BorderThickness="1" Padding="12" Margin="0,12,0,0">
+              <StackPanel>
+                <TextBlock Text="Computadores autorizados" FontSize="12" FontWeight="SemiBold" Foreground="#0F172A"/>
+                <Button Content="Adicionar computador" Width="180" Height="32" Margin="0,8,0,0"
+                        HorizontalAlignment="Left" Click="AddComputer_Click"/>
+                <TextBlock x:Name="PairingCodeText" Margin="0,10,0,0" FontSize="22" FontWeight="Bold"
+                           FontFamily="Consolas" Foreground="#0F172A" Text=""/>
+                <TextBlock x:Name="PairingExpiryText" Margin="0,4,0,0" FontSize="11" Foreground="#64748B"
+                           TextWrapping="Wrap" Text="Gere um código para autorizar um notebook."/>
+                <ListBox x:Name="DevicesList" Margin="0,10,0,0" MinHeight="72" MaxHeight="160"
+                         BorderBrush="#C8C4BC" BorderThickness="1">
+                  <ListBox.ItemTemplate>
+                    <DataTemplate>
+                      <Grid Margin="0,4">
+                        <Grid.ColumnDefinitions>
+                          <ColumnDefinition Width="*"/>
+                          <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+                        <StackPanel>
+                          <TextBlock Text="{Binding Title}" FontSize="12" FontWeight="SemiBold" TextWrapping="Wrap"/>
+                          <TextBlock Text="{Binding Details}" FontSize="11" Foreground="#64748B" TextWrapping="Wrap"/>
+                        </StackPanel>
+                        <Button Grid.Column="1" Content="Revogar" Width="72" Height="28" Margin="8,0,0,0"
+                                VerticalAlignment="Center" Tag="{Binding DeviceId}"
+                                IsEnabled="{Binding CanRevoke}" Click="RevokeDevice_Click"/>
+                      </Grid>
+                    </DataTemplate>
+                  </ListBox.ItemTemplate>
+                </ListBox>
+              </StackPanel>
+            </Border>
+            <Border Background="White" BorderBrush="#C8C4BC" BorderThickness="1" Padding="12" Margin="0,12,0,0">
               <StackPanel HorizontalAlignment="Stretch">
                 <TextBlock Text="Endereço para o notebook" FontSize="12" Foreground="#64748B" HorizontalAlignment="Center"/>
                 <TextBlock x:Name="UrlText" FontSize="16" FontWeight="Bold" Foreground="#0F172A"
@@ -119,6 +150,14 @@
                         HorizontalAlignment="Left" Click="SaveFingerprint_Click"/>
                 <TextBlock x:Name="ClientTlsStatusText" Margin="0,8,0,0" FontSize="12" Foreground="#334155"
                            TextWrapping="Wrap" Text="TLS: fingerprint ainda não configurado."/>
+                <TextBlock Text="Código de pareamento" FontSize="11" Foreground="#64748B" Margin="0,12,0,0"/>
+                <TextBox x:Name="PairingCodeBox" Height="32" Margin="0,4,0,0"
+                         FontSize="18" FontWeight="Bold" FontFamily="Consolas"
+                         VerticalContentAlignment="Center" MaxLength="8"/>
+                <Button Content="Parear este computador" Width="190" Height="32" Margin="0,8,0,0"
+                        HorizontalAlignment="Left" Click="PairClient_Click"/>
+                <TextBlock x:Name="PairingStatusText" Margin="0,8,0,0" FontSize="12" Foreground="#334155"
+                           TextWrapping="Wrap" Text="Este computador ainda não foi autorizado pela loja."/>
                 <StackPanel Orientation="Horizontal" Margin="0,12,0,0">
                   <Button Content="Testar" Width="90" Height="32" Margin="0,0,8,0" Click="TestClient_Click"/>
                   <Button Content="Salvar como Cliente" Width="150" Height="32" Margin="0,0,8,0"

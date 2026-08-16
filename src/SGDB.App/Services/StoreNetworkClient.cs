@@ -45,7 +45,14 @@ public static class StoreNetworkClient
         "O PC da loja precisa ser atualizado (Rede Loja com HTTPS).\n" +
         "Não há fallback para HTTP.";
 
-    private static HttpClient CreateHttpClient(string baseUrl, TimeSpan requestTimeout)
+    public const string PairingNotSupportedMessage =
+        "O PC da loja precisa ser atualizado para permitir o pareamento seguro.";
+
+    public const string DeviceRevokedMessage =
+        "Este computador não está mais autorizado pela loja.\n" +
+        "Solicite um novo pareamento no PC servidor.";
+
+    internal static HttpClient CreateHttpClient(string baseUrl, TimeSpan requestTimeout)
     {
         if (string.IsNullOrWhiteSpace(baseUrl)
             || !baseUrl.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
@@ -204,6 +211,98 @@ public static class StoreNetworkClient
                 throw new InvalidOperationException(dto?.Error ?? "PIN incorreto.");
             return dto ?? throw new InvalidOperationException("Resposta inválida.");
         });
+
+    public static StoreNetworkPairDto Pair(string pairingCode)
+    {
+        pairingCode = (pairingCode ?? "").Trim();
+        var deviceId = StoreNetworkPairingService.EnsureDeviceId();
+        var deviceName = StoreNetworkPairingService.GetDeviceName();
+        return Run(async () =>
+        {
+            var baseUrl = StoreNetworkMode.ClientBaseUrl.TrimEnd('/') + "/";
+            using var client = CreateHttpClient(baseUrl, TimeSpan.FromSeconds(20));
+            var pin = StoreNetworkMode.GetClientPin();
+            if (!string.IsNullOrWhiteSpace(pin))
+                client.DefaultRequestHeaders.TryAddWithoutValidation("X-Store-Pin", pin);
+            using var req = new HttpRequestMessage(HttpMethod.Post, "api/pair")
+            {
+                Content = new StringContent(
+                    JsonSerializer.Serialize(new
+                    {
+                        pairingCode,
+                        deviceId,
+                        deviceName,
+                    }, JsonOpts),
+                    Encoding.UTF8,
+                    "application/json"),
+            };
+            HttpResponseMessage res;
+            try
+            {
+                res = await client.SendAsync(req).ConfigureAwait(false);
+            }
+            catch (Exception ex)
+            {
+                throw new InvalidOperationException(FormatConnectError(ex), ex);
+            }
+
+            var text = await res.Content.ReadAsStringAsync().ConfigureAwait(false);
+            if ((int)res.StatusCode == 404)
+                throw new InvalidOperationException(PairingNotSupportedMessage);
+
+            var dto = JsonSerializer.Deserialize<StoreNetworkPairDto>(text, JsonOpts);
+            if (!res.IsSuccessStatusCode)
+                throw new InvalidOperationException(dto?.Error ?? FormatPairHttpError((int)res.StatusCode));
+            return dto ?? throw new InvalidOperationException("Resposta inválida do servidor.");
+        });
+    }
+
+    public static StoreNetworkDeviceStatusDto GetPairingStatus()
+    {
+        var deviceId = StoreNetworkPairingService.EnsureDeviceId();
+        return Run(async () =>
+        {
+            var baseUrl = StoreNetworkMode.ClientBaseUrl.TrimEnd('/') + "/";
+            using var client = CreateHttpClient(baseUrl, TimeSpan.FromSeconds(20));
+            var pin = StoreNetworkMode.GetClientPin();
+            if (!string.IsNullOrWhiteSpace(pin))
+                client.DefaultRequestHeaders.TryAddWithoutValidation("X-Store-Pin", pin);
+            HttpResponseMessage res;
+            try
+            {
+                res = await client.GetAsync("api/pair/status?deviceId=" + Uri.EscapeDataString(deviceId))
+                    .ConfigureAwait(false);
+            }
+            catch (Exception ex)
+            {
+                throw new InvalidOperationException(FormatConnectError(ex), ex);
+            }
+
+            var text = await res.Content.ReadAsStringAsync().ConfigureAwait(false);
+            if ((int)res.StatusCode == 404)
+                throw new InvalidOperationException(PairingNotSupportedMessage);
+            if (!res.IsSuccessStatusCode)
+            {
+                string err = "Erro " + (int)res.StatusCode;
+                try
+                {
+                    using var doc = JsonDocument.Parse(text);
+                    if (doc.RootElement.TryGetProperty("error", out var e))
+                        err = e.GetString() ?? err;
+                }
+                catch { /* ignore */ }
+                throw new InvalidOperationException(err);
+            }
+
+            return JsonSerializer.Deserialize<StoreNetworkDeviceStatusDto>(text, JsonOpts)
+                   ?? throw new InvalidOperationException("Resposta inválida do servidor.");
+        });
+    }
+
+    internal static string FormatPairHttpError(int statusCode) =>
+        statusCode == 404
+            ? PairingNotSupportedMessage
+            : "Erro " + statusCode;
 
     internal static string FormatConnectError(Exception ex)
     {
@@ -564,6 +663,30 @@ public sealed class StoreNetworkStatusDto
     public string? Store { get; set; }
     public string? Error { get; set; }
     public string? Role { get; set; }
+    public int ApiVersion { get; set; }
+    public List<string>? AuthModes { get; set; }
+}
+
+public sealed class StoreNetworkPairDto
+{
+    public bool Ok { get; set; }
+    public string? Store { get; set; }
+    public string? DeviceId { get; set; }
+    public string? DeviceName { get; set; }
+    public string? CreatedAt { get; set; }
+    public string? Error { get; set; }
+}
+
+public sealed class StoreNetworkDeviceStatusDto
+{
+    public bool Ok { get; set; }
+    public bool Authorized { get; set; }
+    public bool Revoked { get; set; }
+    public string? DeviceId { get; set; }
+    public string? DeviceName { get; set; }
+    public string? CreatedAt { get; set; }
+    public string? LastSeenAt { get; set; }
+    public string? Error { get; set; }
 }
 
 public sealed class StoreNetworkOkDto

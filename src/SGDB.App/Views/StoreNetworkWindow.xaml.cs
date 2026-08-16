@@ -58,6 +58,81 @@ public partial class StoreNetworkWindow : Window
             _ => "Modo PC único (sem rede).",
         };
         RefreshClientTlsStatus();
+        RefreshPairingUi();
+    }
+
+    private void RefreshPairingUi()
+    {
+        var active = StoreNetworkPairingService.PeekActiveCode();
+        if (active is not null)
+        {
+            PairingCodeText.Text = active.Code;
+            PairingExpiryText.Text =
+                $"Expira em 5 minutos (até {active.ExpiresAtUtc.ToLocalTime():HH:mm}).";
+        }
+        else
+        {
+            PairingCodeText.Text = "";
+            PairingExpiryText.Text = "Gere um código para autorizar um notebook.";
+        }
+
+        try
+        {
+            DevicesList.ItemsSource = StoreNetworkPairingService.ListDevices()
+                .Select(StoreNetworkDeviceRow.From)
+                .ToList();
+        }
+        catch (Exception ex)
+        {
+            DevicesList.ItemsSource = null;
+            PairingExpiryText.Text = ex.Message;
+        }
+
+        RefreshClientPairingStatus();
+    }
+
+    private void RefreshClientPairingStatus()
+    {
+        try
+        {
+            var localId = "";
+            try { localId = StoreNetworkPairingService.EnsureDeviceId(); }
+            catch { /* identidade inválida: mostra texto padrão */ }
+
+            var abbr = string.IsNullOrEmpty(localId)
+                ? ""
+                : StoreNetworkPairingService.AbbreviateDeviceId(localId);
+            var name = StoreNetworkPairingService.GetDeviceName();
+
+            if (!StoreNetworkMode.IsClient || !StoreNetworkMode.HasServerFingerprint())
+            {
+                PairingStatusText.Text = string.IsNullOrEmpty(abbr)
+                    ? "Este computador ainda não foi autorizado pela loja."
+                    : $"Este computador ({name} · {abbr}) ainda não foi autorizado pela loja.";
+                return;
+            }
+
+            var status = StoreNetworkClient.GetPairingStatus();
+            if (status.Revoked)
+            {
+                PairingStatusText.Text = StoreNetworkClient.DeviceRevokedMessage;
+                return;
+            }
+
+            if (status.Authorized)
+            {
+                PairingStatusText.Text =
+                    $"Este computador está autorizado pela loja.\n{status.DeviceName} · {StoreNetworkPairingService.AbbreviateDeviceId(status.DeviceId)}";
+                return;
+            }
+
+            PairingStatusText.Text =
+                $"Este computador ({name} · {abbr}) ainda não foi autorizado pela loja.";
+        }
+        catch
+        {
+            PairingStatusText.Text = "Este computador ainda não foi autorizado pela loja.";
+        }
     }
 
     private void FillServerCertificateUiWhenStopped()
@@ -317,5 +392,98 @@ public partial class StoreNetworkWindow : Window
         RefreshUi();
     }
 
+    private void AddComputer_Click(object sender, RoutedEventArgs e)
+    {
+        if (!AccessControl.Ensure("SistemaUsuarios", "adicionar computador na Rede Loja", this))
+            return;
+        var generated = StoreNetworkPairingService.GenerateCode();
+        PairingCodeText.Text = generated.Code;
+        PairingExpiryText.Text =
+            "Código: válido por 5 minutos" +
+            (StoreNetworkHost.Current is { IsRunning: true }
+                ? $" (até {generated.ExpiresAtUtc.ToLocalTime():HH:mm})."
+                : " — ligue o servidor para o notebook usar o código.");
+    }
+
+    private void RevokeDevice_Click(object sender, RoutedEventArgs e)
+    {
+        if (!AccessControl.Ensure("SistemaUsuarios", "revogar computador da Rede Loja", this))
+            return;
+        if (sender is not System.Windows.Controls.Button btn || btn.Tag is not string deviceId)
+            return;
+        var confirm = MessageBox.Show(
+            "Revogar este computador?\nEle precisará de um novo código de pareamento.",
+            "Revogar computador",
+            MessageBoxButton.YesNo,
+            MessageBoxImage.Warning);
+        if (confirm != MessageBoxResult.Yes)
+            return;
+        try
+        {
+            StoreNetworkPairingService.Revoke(deviceId);
+            RefreshUi();
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show(ex.Message, "Rede Loja", MessageBoxButton.OK, MessageBoxImage.Warning);
+        }
+    }
+
+    private void PairClient_Click(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            if (!EnsureFingerprintConfigured())
+                return;
+            ApplyClientFieldsFromBoxes();
+            var result = StoreNetworkClient.Pair(PairingCodeBox.Text);
+            PairingCodeBox.Clear();
+            PairingStatusText.Text =
+                $"Este computador está autorizado pela loja.\n{result.DeviceName} · {StoreNetworkPairingService.AbbreviateDeviceId(result.DeviceId)}";
+            MessageBox.Show(
+                "Este computador está autorizado pela loja.",
+                "Rede Loja", MessageBoxButton.OK, MessageBoxImage.Information);
+            RefreshUi();
+        }
+        catch (Exception ex)
+        {
+            var msg = ex.Message;
+            if (msg.Contains("não está mais autorizado", StringComparison.OrdinalIgnoreCase))
+                PairingStatusText.Text = StoreNetworkClient.DeviceRevokedMessage;
+            MessageBox.Show(msg, "Rede Loja", MessageBoxButton.OK, MessageBoxImage.Warning);
+        }
+    }
+
     private void Close_Click(object sender, RoutedEventArgs e) => Close();
+}
+
+public sealed class StoreNetworkDeviceRow
+{
+    public string DeviceId { get; init; } = "";
+    public string Title { get; init; } = "";
+    public string Details { get; init; } = "";
+    public bool CanRevoke { get; init; }
+
+    public static StoreNetworkDeviceRow From(StoreNetworkPairedDevice d)
+    {
+        var status = d.Revoked ? "Revogado" : "Autorizado";
+        var created = FormatWhen(d.CreatedAt);
+        var seen = FormatWhen(d.LastSeenAt);
+        return new StoreNetworkDeviceRow
+        {
+            DeviceId = d.DeviceId,
+            Title = $"{d.DeviceName} · {StoreNetworkPairingService.AbbreviateDeviceId(d.DeviceId)}",
+            Details = $"{status} · pareado {created} · último contato {seen}",
+            CanRevoke = !d.Revoked,
+        };
+    }
+
+    private static string FormatWhen(string? raw)
+    {
+        if (string.IsNullOrWhiteSpace(raw))
+            return "—";
+        if (DateTime.TryParse(raw, out var dt))
+            return dt.ToLocalTime().ToString("dd/MM HH:mm");
+        return raw;
+    }
 }

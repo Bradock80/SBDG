@@ -174,6 +174,7 @@ public sealed class StoreNetworkHost : IDisposable
         try { _listener?.Stop(); } catch { /* ignore */ }
         _listener = null;
         IsRunning = false;
+        StoreNetworkPairingService.ClearActiveCode();
         _serverCertificate?.Dispose();
         _serverCertificate = null;
         CertificateFingerprint = null;
@@ -240,6 +241,7 @@ public sealed class StoreNetworkHost : IDisposable
 
                 var ex = ReadHttp(ssl);
                 if (ex is null) return;
+                ex.RemoteIp = (client.Client.RemoteEndPoint as IPEndPoint)?.Address.ToString() ?? "";
                 Handle(ex);
                 WriteHttp(ssl, ex);
             }
@@ -303,7 +305,8 @@ public sealed class StoreNetworkHost : IDisposable
                 role = "server",
                 running = IsRunning,
                 apiVersion = 2,
-                features = new[] { "movimentacao", "pdv_resumo", "dashboard", "stock_report" },
+                authModes = new[] { "pin", "pairing" },
+                features = new[] { "movimentacao", "pdv_resumo", "dashboard", "stock_report", "pairing" },
             });
             return;
         }
@@ -326,6 +329,18 @@ public sealed class StoreNetworkHost : IDisposable
                 return;
             }
             WriteJson(ex, 200, new { ok = true, store = AppSettingsService.GetNomeDeposito(), role = "server" });
+            return;
+        }
+
+        if (path.Equals("/api/pair", StringComparison.OrdinalIgnoreCase) && ex.Method == "POST")
+        {
+            HandlePair(ex);
+            return;
+        }
+
+        if (path.Equals("/api/pair/status", StringComparison.OrdinalIgnoreCase) && ex.Method == "GET")
+        {
+            HandlePairStatus(ex);
             return;
         }
 
@@ -928,6 +943,47 @@ public sealed class StoreNetworkHost : IDisposable
         return null;
     }
 
+    private static void HandlePair(HttpExchange ex)
+    {
+        using var remoteScope = AccessControl.EnterRemoteStoreRequest();
+        var body = ReadJson(ex.Body);
+        var result = StoreNetworkPairingService.TryPair(
+            body.GetString("pairingCode"),
+            body.GetString("deviceId"),
+            body.GetString("deviceName"),
+            ex.RemoteIp);
+        if (!result.Ok || result.Device is null)
+        {
+            WriteJson(ex, result.StatusCode, new { ok = false, error = result.Error ?? "Falha no pareamento." });
+            return;
+        }
+
+        WriteJson(ex, 200, new
+        {
+            ok = true,
+            store = AppSettingsService.GetNomeDeposito(),
+            deviceId = result.Device.DeviceId,
+            deviceName = result.Device.DeviceName,
+            createdAt = result.Device.CreatedAt,
+        });
+    }
+
+    private static void HandlePairStatus(HttpExchange ex)
+    {
+        using var remoteScope = AccessControl.EnterRemoteStoreRequest();
+        var status = StoreNetworkPairingService.GetDeviceStatus(ex.Query["deviceId"], touchLastSeen: true);
+        WriteJson(ex, 200, new
+        {
+            ok = true,
+            authorized = status.Authorized,
+            revoked = status.Revoked,
+            deviceId = status.DeviceId,
+            deviceName = status.DeviceName,
+            createdAt = status.CreatedAt,
+            lastSeenAt = status.LastSeenAt,
+        });
+    }
+
     private bool IsAuthorized(HttpExchange ex)
     {
         var pin = (ex.Headers["X-Store-Pin"] ?? "").Trim();
@@ -1016,6 +1072,7 @@ public sealed class StoreNetworkHost : IDisposable
         public NameValueCollection Query { get; set; } = new(StringComparer.OrdinalIgnoreCase);
         public NameValueCollection Headers { get; set; } = new(StringComparer.OrdinalIgnoreCase);
         public string? Body { get; set; }
+        public string RemoteIp { get; set; } = "";
         public int Status { get; set; } = 200;
         public string? ContentType { get; set; }
         public byte[]? ResponseBody { get; set; }
@@ -1197,6 +1254,7 @@ public sealed class StoreNetworkHost : IDisposable
             400 => "Bad Request",
             401 => "Unauthorized",
             404 => "Not Found",
+            429 => "Too Many Requests",
             500 => "Internal Server Error",
             _ => "OK",
         };
