@@ -21,10 +21,7 @@ public partial class LoginWindow : Window
     {
         InitializeComponent();
         DepositoLabel.Text = FormatDepositoName(AppSettingsService.GetNomeDeposito());
-        FirstAccessBtn.Visibility = SetupService.NeedsInitialSetup()
-            ? Visibility.Visible
-            : Visibility.Collapsed;
-        FirstAccessSep.Visibility = FirstAccessBtn.Visibility;
+        ApplyNetworkModeChrome();
         LoadRememberedCredentials();
         if (string.IsNullOrWhiteSpace(LoginBox.Text))
             LoginBox.Focus();
@@ -34,6 +31,35 @@ public partial class LoginWindow : Window
             EnterButton.Focus();
     }
 
+    private void ApplyNetworkModeChrome()
+    {
+        if (!ApplicationLoginService.IsRemoteLogin)
+        {
+            NetworkModeText.Visibility = Visibility.Collapsed;
+            ConfigureNetworkBtn.Visibility = Visibility.Collapsed;
+            RememberCheck.Content = "Lembrar usuário e senha";
+            FirstAccessBtn.Visibility = SetupService.NeedsInitialSetup()
+                ? Visibility.Visible
+                : Visibility.Collapsed;
+            FirstAccessSep.Visibility = FirstAccessBtn.Visibility;
+            LocalAccountLinks.Visibility = Visibility.Visible;
+            return;
+        }
+
+        var host = StoreNetworkMode.GetClientHost();
+        var store = FormatDepositoName(AppSettingsService.GetNomeDeposito());
+        NetworkModeText.Text = string.IsNullOrWhiteSpace(host)
+            ? "Entrar na loja"
+            : $"Conectado à Rede Loja • {host}";
+        if (!string.IsNullOrWhiteSpace(store) && store != "Meu Depósito")
+            NetworkModeText.Text += $" — {store}";
+        NetworkModeText.Visibility = Visibility.Visible;
+
+        RememberCheck.Content = "Lembrar usuário";
+        LocalAccountLinks.Visibility = Visibility.Collapsed;
+        ConfigureNetworkBtn.Visibility = Visibility.Visible;
+    }
+
     private void LoadRememberedCredentials()
     {
         var saved = LoginRememberService.TryLoad();
@@ -41,8 +67,9 @@ public partial class LoginWindow : Window
             return;
 
         LoginBox.Text = saved.Value.Login;
-        PasswordBox.Password = saved.Value.Password;
         RememberCheck.IsChecked = true;
+        if (ApplicationLoginService.CanRememberPassword)
+            PasswordBox.Password = saved.Value.Password;
     }
 
     private static string FormatDepositoName(string? name)
@@ -103,6 +130,16 @@ public partial class LoginWindow : Window
 
     private void Register_Click(object sender, RoutedEventArgs e)
     {
+        if (ApplicationLoginService.IsRemoteLogin)
+        {
+            MessageBox.Show(
+                ApplicationLoginService.RegisterOnServerMessage,
+                "Rede Loja",
+                MessageBoxButton.OK,
+                MessageBoxImage.Information);
+            return;
+        }
+
         var dlg = new RegisterWindow { Owner = this };
         if (dlg.ShowDialog() == true && !string.IsNullOrWhiteSpace(dlg.CreatedLogin))
         {
@@ -118,6 +155,16 @@ public partial class LoginWindow : Window
 
     private void ForgotPassword_Click(object sender, RoutedEventArgs e)
     {
+        if (ApplicationLoginService.IsRemoteLogin)
+        {
+            MessageBox.Show(
+                ApplicationLoginService.PasswordChangeUnavailableMessage,
+                "Rede Loja",
+                MessageBoxButton.OK,
+                MessageBoxImage.Information);
+            return;
+        }
+
         if (!SetupService.HasRecoveryCode())
         {
             MessageBox.Show(
@@ -144,6 +191,16 @@ public partial class LoginWindow : Window
 
     private void FirstAccess_Click(object sender, RoutedEventArgs e)
     {
+        if (ApplicationLoginService.IsRemoteLogin)
+        {
+            MessageBox.Show(
+                ApplicationLoginService.RegisterOnServerMessage,
+                "Rede Loja",
+                MessageBoxButton.OK,
+                MessageBoxImage.Information);
+            return;
+        }
+
         if (!SetupService.NeedsInitialSetup())
         {
             MessageBox.Show(
@@ -163,6 +220,13 @@ public partial class LoginWindow : Window
             DialogResult = true;
             Close();
         }
+    }
+
+    private void ConfigureNetwork_Click(object sender, RoutedEventArgs e)
+    {
+        var dlg = new StoreNetworkWindow { Owner = this };
+        dlg.ShowDialog();
+        ApplyNetworkModeChrome();
     }
 
     private string CurrentPassword =>
@@ -185,11 +249,13 @@ public partial class LoginWindow : Window
             var password = CurrentPassword;
             try
             {
-                var user = AuthService.TryLogin(LoginBox.Text, password);
-                if (user is null)
+                var result = ApplicationLoginService.TryLogin(LoginBox.Text, password);
+                if (!result.Ok || result.User is null)
                 {
-                    ErrorText.Text = "Usuário ou senha inválidos.";
+                    ErrorText.Text = result.Error ?? "Usuário ou senha inválidos.";
                     ErrorText.Visibility = Visibility.Visible;
+                    if (result.CanOpenStoreNetworkSettings)
+                        ConfigureNetworkBtn.Visibility = Visibility.Visible;
                     if (_passwordVisible)
                     {
                         PasswordVisibleBox.Clear();
@@ -203,11 +269,16 @@ public partial class LoginWindow : Window
                     return;
                 }
 
-                AuthenticatedUser = user;
-                TypedPassword = password;
+                AuthenticatedUser = result.User;
+                TypedPassword = result.TypedPassword;
 
                 if (RememberCheck.IsChecked == true)
-                    LoginRememberService.Save(LoginBox.Text, password);
+                {
+                    if (ApplicationLoginService.CanRememberPassword)
+                        LoginRememberService.Save(LoginBox.Text, password);
+                    else
+                        LoginRememberService.SaveLoginOnly(LoginBox.Text);
+                }
                 else
                     LoginRememberService.Clear();
 

@@ -20,6 +20,7 @@ public partial class InitialSetupWindow : Window
         ErrorText.Visibility = Visibility.Collapsed;
         try
         {
+            ApplicationLoginService.EnsureLocalUserAdministration();
             if (SenhaBox.Password != Senha2Box.Password)
                 throw new InvalidOperationException("As senhas não coincidem.");
 

@@ -25,6 +25,17 @@ public partial class UsersModuleView : UserControl
         InitializeComponent();
         Loaded += (_, _) =>
         {
+            if (StoreNetworkMode.IsClient)
+            {
+                MessageBox.Show(
+                    ApplicationLoginService.LocalUserAdministrationMessage,
+                    "Rede Loja",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Information);
+                CloseRequested?.Invoke(this, EventArgs.Empty);
+                return;
+            }
+
             RoleBox.ItemsSource = new[]
             {
                 new RoleOpt { Id = "admin", Label = "Administrador" },

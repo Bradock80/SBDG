@@ -35,7 +35,9 @@ public partial class MainWindow : Window
         InitializeComponent();
 
         RefreshCompanyTitle();
-        UserNameText.Text = user.Nome;
+        UserNameText.Text = StoreNetworkMode.IsClient
+            ? $"Rede Loja • {user.Nome}"
+            : user.Nome;
         UserRoleText.Text = FormatRole(user.Role);
 
         ShowHome();
@@ -67,7 +69,10 @@ public partial class MainWindow : Window
             // X / fechamento definitivo: encerra o processo.
             // Logout (nova MainWindow já criada): não Shutdown.
             if (!_isLoggingOut)
+            {
+                ApplicationLoginService.AbandonLocalSession();
                 System.Windows.Application.Current?.Shutdown();
+            }
         };
     }
 
@@ -358,7 +363,7 @@ public partial class MainWindow : Window
         if (StoreNetworkMode.IsModuleBlockedOnClient(moduleId))
         {
             MessageBox.Show(
-                StoreNetworkMode.ClientBlockedModuleMessage,
+                StoreNetworkMode.BlockedModuleMessage(moduleId),
                 "Rede Loja",
                 MessageBoxButton.OK,
                 MessageBoxImage.Information);
@@ -915,8 +920,17 @@ public partial class MainWindow : Window
     {
         if (mi.Tag is string moduleId && !string.IsNullOrWhiteSpace(moduleId))
         {
+            if (moduleId == "usuarios" && StoreNetworkMode.IsModuleBlockedOnClient(moduleId))
+            {
+                mi.IsEnabled = false;
+                mi.Visibility = Visibility.Collapsed;
+                mi.ToolTip = ApplicationLoginService.LocalUserAdministrationMessage;
+                return;
+            }
+
             var allowed = AccessControl.CanAccessModule(moduleId);
             mi.IsEnabled = allowed;
+            mi.Visibility = Visibility.Visible;
             mi.ToolTip = allowed ? null : "Sem permissão";
         }
 
@@ -980,32 +994,31 @@ public partial class MainWindow : Window
         return "home";
     }
 
+    internal void BeginLogoutClose()
+    {
+        _isLoggingOut = true;
+        Close();
+    }
+
     private void Logout_Click(object sender, RoutedEventArgs e)
     {
         AuditService.Log("logout", "sessao", _user.Id.ToString(), _user.Login);
-        AppSession.Clear();
+        ApplicationLoginService.Logout();
         var login = new LoginWindow();
         if (login.ShowDialog() == true && login.AuthenticatedUser is not null)
         {
             var next = login.AuthenticatedUser;
-            if (login.TypedPassword is not null
-                && SetupService.IsFactoryDefaultPassword(next.Login, login.TypedPassword))
+            if (System.Windows.Application.Current is App app
+                && app.CompleteInteractiveLogin(next, login.TypedPassword))
             {
-                var change = new PasswordChangeWindow(PasswordChangeMode.Forced, next);
-                if (change.ShowDialog() != true || !change.PasswordChanged)
-                {
-                    System.Windows.Application.Current.Shutdown();
-                    return;
-                }
+                var main = new MainWindow(next);
+                System.Windows.Application.Current.MainWindow = main;
+                main.Show();
+                BeginLogoutClose();
+                return;
             }
 
-            AppSession.SetUser(next);
-            AuditService.Log("login", "sessao", next.Id.ToString(), next.Login);
-            var main = new MainWindow(next);
-            System.Windows.Application.Current.MainWindow = main;
-            main.Show();
-            _isLoggingOut = true;
-            Close();
+            System.Windows.Application.Current.Shutdown();
             return;
         }
 

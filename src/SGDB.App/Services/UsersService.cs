@@ -68,6 +68,7 @@ public static class UsersService
         string? newPassword,
         UserPermissions? permissions = null)
     {
+        ApplicationLoginService.EnsureLocalUserManagement();
         login = (login ?? "").Trim().ToLowerInvariant();
         nome = (nome ?? "").Trim();
         role = (role ?? "vendedor").Trim().ToLowerInvariant();
@@ -153,6 +154,7 @@ public static class UsersService
 
     public static void ResetPasswordByAdmin(int userId, string newPassword)
     {
+        ApplicationLoginService.EnsureLocalPasswordChange();
         if (!AppSession.IsAdmin)
             throw new UsersException("Apenas administradores podem redefinir senha de outro usuário.");
 
@@ -181,6 +183,7 @@ public static class UsersService
     /// </summary>
     public static int RegisterSelf(string nome, string login, string? email, string password)
     {
+        ApplicationLoginService.EnsureLocalUserAdministration();
         nome = (nome ?? "").Trim();
         login = (login ?? "").Trim().ToLowerInvariant();
         email = (email ?? "").Trim();
@@ -243,6 +246,7 @@ public static class UsersService
 
     public static void Deactivate(int id)
     {
+        ApplicationLoginService.EnsureLocalUserManagement();
         if (AppSession.CurrentUser?.Id == id)
             throw new UsersException("Você não pode desativar o próprio usuário logado.");
 

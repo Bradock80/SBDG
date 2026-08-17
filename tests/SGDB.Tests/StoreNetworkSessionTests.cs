@@ -15,6 +15,7 @@ public class StoreNetworkSessionTests
         StoreNetworkPairingService.ResetForTests();
         StoreNetworkSessionService.ResetForTests();
         StoreNetworkClient.ClearSessionState();
+        ApplicationLoginService.ResetForTests();
     }
 
     [Fact]
@@ -343,10 +344,13 @@ public class StoreNetworkSessionTests
             StoreNetworkClient.Pair(StoreNetworkPairingService.GenerateCode().Code);
             var dto = StoreNetworkClient.LoginRemote("ven", "senha-ven");
             StoreNetworkSessionService.ClearAll();
-            var ex = Assert.Throws<InvalidOperationException>(() =>
+            var ex = Assert.Throws<StoreNetworkSessionExpiredException>(() =>
                 StoreNetworkClient.ListProducts(null, "ativos", null, null, null, "none"));
-            Assert.Contains("Sessão inválida", ex.Message, StringComparison.OrdinalIgnoreCase);
+            Assert.Equal(ApplicationLoginService.SessionExpiredMessage, ex.Message);
             Assert.DoesNotContain(dto.Token!, ex.Message);
+            Assert.Null(StoreNetworkClient.SessionToken);
+            Assert.Null(StoreNetworkClient.RemoteUser);
+            Assert.Null(AppSession.CurrentUser);
 
             StoreNetworkClient.ClearSessionState();
             Assert.True(StoreNetworkClient.Login("2468").Ok);
@@ -398,8 +402,19 @@ public class StoreNetworkSessionTests
         Assert.Equal(64, r.PasswordHashFingerprint!.Length);
     }
 
-    private static int CreateUser(string login, string role, string password, bool active = true) =>
-        UsersService.Save(null, login, login, role, active, password);
+    private static int CreateUser(string login, string role, string password, bool active = true)
+    {
+        var roleBefore = StoreNetworkMode.GetRole();
+        StoreNetworkMode.SetRole(StoreNetworkMode.RoleStandalone);
+        try
+        {
+            return UsersService.Save(null, login, login, role, active, password);
+        }
+        finally
+        {
+            StoreNetworkMode.SetRole(roleBefore);
+        }
+    }
 
     private static string PairDevice(string name)
     {

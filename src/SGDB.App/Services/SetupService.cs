@@ -37,6 +37,7 @@ public static class SetupService
         string adminNome,
         string password)
     {
+        ApplicationLoginService.EnsureLocalUserAdministration();
         if (CountUsers() > 0)
             throw new InvalidOperationException("A configuração inicial já foi concluída.");
 
@@ -75,6 +76,12 @@ public static class SetupService
     public static bool TryResetPasswordWithRecovery(string login, string recoveryCode, string newPassword, out string error)
     {
         error = "";
+        if (StoreNetworkMode.IsClient)
+        {
+            error = ApplicationLoginService.PasswordChangeUnavailableMessage;
+            return false;
+        }
+
         login = (login ?? "").Trim().ToLowerInvariant();
         recoveryCode = (recoveryCode ?? "").Trim().ToUpperInvariant();
         if (string.IsNullOrEmpty(login) || string.IsNullOrEmpty(recoveryCode))

@@ -37,6 +37,8 @@ public static class LoginRememberService
         }
     }
 
+    public static void SaveLoginOnly(string login) => Save(login, password: "");
+
     public static void Save(string login, string password)
     {
         var dir = Path.GetDirectoryName(FilePath);

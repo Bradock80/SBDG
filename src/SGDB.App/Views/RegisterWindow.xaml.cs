@@ -81,6 +81,7 @@ public partial class RegisterWindow : Window
         ErrorText.Visibility = Visibility.Collapsed;
         try
         {
+            ApplicationLoginService.EnsureLocalUserAdministration();
             if (SenhaBox.Password != Senha2Box.Password)
                 throw new UsersException("As senhas não coincidem.");
 

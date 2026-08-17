@@ -147,6 +147,9 @@ public static class StoreNetworkClient
             }
             catch { /* ignore */ }
             err = RedactSecrets(err);
+            var hadBearer = !string.IsNullOrEmpty(_sessionToken);
+            if (hadBearer && (int)res.StatusCode == 401)
+                ApplicationLoginService.HandleAuthenticatedRequestUnauthorized(err);
             if ((int)res.StatusCode == 404
                 || err.Contains("não encontrada", StringComparison.OrdinalIgnoreCase))
             {

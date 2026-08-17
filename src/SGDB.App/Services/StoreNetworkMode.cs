@@ -223,6 +223,7 @@ public static class StoreNetworkMode
                 or "estoque_validade_lotes"
                 or "estoque_consistencia_lotes"
                 or "auditoria"
+                or "usuarios"
                 => true,
             _ => false,
         };
@@ -231,6 +232,11 @@ public static class StoreNetworkMode
         "Este módulo está disponível apenas no computador servidor da loja.\n\n" +
         "No notebook (cliente) você pode: Produtos, Compras, Estoque (via rede), Clientes, " +
         "Contas a Pagar, Vasilhame, Movimentação, Meu Negócio e Resumo do PDV.";
+
+    public static string BlockedModuleMessage(string moduleId) =>
+        moduleId == "usuarios"
+            ? ApplicationLoginService.LocalUserAdministrationMessage
+            : ClientBlockedModuleMessage;
 
     /// <summary>Cliente não abre o PDV de venda — só o resumo do dia.</summary>
     public static bool IsPdvSalesBlockedOnClient => IsClient;

@@ -27,8 +27,7 @@ public static class AppSession
             return;
         }
 
-        Permissions = user.Permissions
-                      ?? UsersService.GetPermissions(user.Id);
+        Permissions = ResolvePermissions(user);
     }
 
     public static void Clear()
@@ -41,6 +40,29 @@ public static class AppSession
     public static void RefreshPermissions()
     {
         if (CurrentUser is null) return;
-        Permissions = UsersService.GetPermissions(CurrentUser.Id);
+        Permissions = ResolvePermissions(CurrentUser, reloadFromLocalDatabase: true);
+    }
+
+    private static UserPermissions ResolvePermissions(User user, bool reloadFromLocalDatabase = false)
+    {
+        if (!reloadFromLocalDatabase && user.Permissions is not null)
+            return user.Permissions;
+
+        if (IsClientProcess())
+            return user.Permissions ?? UserPermissions.ForRole(user.Role);
+
+        return UsersService.GetPermissions(user.Id);
+    }
+
+    private static bool IsClientProcess()
+    {
+        try
+        {
+            return StoreNetworkMode.IsClient;
+        }
+        catch (InvalidOperationException)
+        {
+            return false;
+        }
     }
 }

@@ -80,6 +80,7 @@ public partial class PasswordChangeWindow : Window
         ErrorText.Visibility = Visibility.Collapsed;
         try
         {
+            ApplicationLoginService.EnsureLocalPasswordChange();
             if (SenhaBox.Password != Senha2Box.Password)
                 throw new InvalidOperationException("As senhas não coincidem.");
             if (SenhaBox.Password.Length < 4)

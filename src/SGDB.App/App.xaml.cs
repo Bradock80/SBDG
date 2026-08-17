@@ -18,6 +18,7 @@ public partial class App : System.Windows.Application
         DispatcherUnhandledException += OnDispatcherUnhandledException;
         AppDomain.CurrentDomain.UnhandledException += OnDomainUnhandledException;
         DatePickerUxHelper.RegisterClearWatermark();
+        ApplicationLoginService.RemoteSessionInvalidated += OnRemoteSessionInvalidated;
     }
 
     private void Application_Startup(object sender, StartupEventArgs e)
@@ -47,7 +48,7 @@ public partial class App : System.Windows.Application
             User? user = null;
             string? typedPassword = null;
 
-            if (SetupService.NeedsInitialSetup())
+            if (ApplicationLoginService.ShouldRunInitialSetup())
             {
                 var setup = new InitialSetupWindow();
                 if (setup.ShowDialog() != true || setup.CreatedAdmin is null)
@@ -69,35 +70,13 @@ public partial class App : System.Windows.Application
                 typedPassword = login.TypedPassword;
             }
 
-            if (typedPassword is not null
-                && SetupService.IsFactoryDefaultPassword(user.Login, typedPassword))
+            if (!CompleteInteractiveLogin(user, typedPassword))
             {
-                var change = new PasswordChangeWindow(PasswordChangeMode.Forced, user) { Owner = null };
-                if (change.ShowDialog() != true || !change.PasswordChanged)
-                {
-                    MessageBox.Show(
-                        "É necessário alterar a senha padrão para usar o sistema.",
-                        "SGDB",
-                        MessageBoxButton.OK,
-                        MessageBoxImage.Warning);
-                    Shutdown();
-                    return;
-                }
+                Shutdown();
+                return;
             }
 
-            AppSession.SetUser(user);
-            AuditService.Log("login", "sessao", user.Id.ToString(), user.Login);
-
-            var main = new MainWindow(user);
-            MainWindow = main;
-            main.Show();
-            main.Activate();
-            main.Topmost = true;
-            main.Topmost = false;
-            main.Focus();
-
-            // Auto-update (GitHub Releases) — não bloqueia a UI
-            _ = CheckForUpdatesInBackgroundAsync(main);
+            ShowMainWindow(user);
         }
         catch (Exception ex)
         {
@@ -108,6 +87,91 @@ public partial class App : System.Windows.Application
                 MessageBoxButton.OK,
                 MessageBoxImage.Error);
             Shutdown(1);
+        }
+    }
+
+    internal bool CompleteInteractiveLogin(User user, string? typedPassword)
+    {
+        if (ApplicationLoginService.ShouldForceLocalPasswordChange(user, typedPassword))
+        {
+            var change = new PasswordChangeWindow(PasswordChangeMode.Forced, user) { Owner = null };
+            if (change.ShowDialog() != true || !change.PasswordChanged)
+            {
+                MessageBox.Show(
+                    "É necessário alterar a senha padrão para usar o sistema.",
+                    "SGDB",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Warning);
+                return false;
+            }
+        }
+
+        AppSession.SetUser(user);
+        AuditService.Log("login", "sessao", user.Id.ToString(), user.Login);
+        return true;
+    }
+
+    internal void ShowMainWindow(User user)
+    {
+        var main = new MainWindow(user);
+        MainWindow = main;
+        main.Show();
+        main.Activate();
+        main.Topmost = true;
+        main.Topmost = false;
+        main.Focus();
+        _ = CheckForUpdatesInBackgroundAsync(main);
+    }
+
+    private bool _handlingRemoteExpiry;
+
+    private void OnRemoteSessionInvalidated(StoreNetworkSessionExpiredException ex)
+    {
+        if (!Dispatcher.CheckAccess())
+        {
+            Dispatcher.BeginInvoke(() => OnRemoteSessionInvalidated(ex));
+            return;
+        }
+
+        ReloginAfterRemoteSessionExpired(ex);
+    }
+
+    private void ReloginAfterRemoteSessionExpired(StoreNetworkSessionExpiredException ex)
+    {
+        if (_handlingRemoteExpiry)
+            return;
+        if (Windows.OfType<LoginWindow>().Any())
+            return;
+
+        _handlingRemoteExpiry = true;
+        try
+        {
+            MessageBox.Show(
+                ex.Message,
+                "Rede Loja",
+                MessageBoxButton.OK,
+                MessageBoxImage.Warning);
+
+            var previous = MainWindow as MainWindow;
+            var login = new LoginWindow();
+            if (login.ShowDialog() == true && login.AuthenticatedUser is not null)
+            {
+                if (!CompleteInteractiveLogin(login.AuthenticatedUser, login.TypedPassword))
+                {
+                    Shutdown();
+                    return;
+                }
+
+                ShowMainWindow(login.AuthenticatedUser);
+                previous?.BeginLogoutClose();
+                return;
+            }
+
+            Shutdown();
+        }
+        finally
+        {
+            _handlingRemoteExpiry = false;
         }
     }
 
@@ -148,6 +212,12 @@ public partial class App : System.Windows.Application
 
     private static void OnDispatcherUnhandledException(object sender, DispatcherUnhandledExceptionEventArgs e)
     {
+        if (e.Exception is StoreNetworkSessionExpiredException)
+        {
+            e.Handled = true;
+            return;
+        }
+
         WriteCrashLog(e.Exception);
         MessageBox.Show(
             $"Erro inesperado:\n\n{e.Exception.Message}\n\n{e.Exception.GetType().Name}\n\nLog: {CrashLogPath()}",
