@@ -1,0 +1,121 @@
+using SGDB.Models;
+using SGDB.Services;
+using SGDB.Tests.Infrastructure;
+using SGDB.Utils;
+
+namespace SGDB.Tests;
+
+/// <summary>
+/// Nome comercial na importação XML: tira logística (CX/UN/C/23),
+/// mantém marca, sabor, tipo e volume da unidade vendida.
+/// </summary>
+public class ProductCommercialNameTests
+{
+    [Theory]
+    [InlineData(
+        "CERVEJA ANTARCTICA PILSEN 300ML CX C/23 UN",
+        "ANTARCTICA PILSEN 300 ML")]
+    [InlineData(
+        "COCA COLA ORIGINAL 2L PET CX C/6 UN",
+        "COCA-COLA ORIGINAL 2 L")]
+    [InlineData(
+        "REFRIGERANTE GUARANA ANTARCTICA 350ML LATA FD 12 UN",
+        "GUARANÁ ANTARCTICA 350 ML LATA")]
+    [InlineData(
+        "HEINEKEN LONG NECK 330ML CX 24UN",
+        "HEINEKEN LONG NECK 330 ML")]
+    [InlineData(
+        "ANTARCTICA 300ML CX C/23 UN",
+        "ANTARCTICA 300 ML")]
+    [InlineData(
+        "CERVEJA ANTARCTICA PILSEN GARRAFA RETORNAVEL 300ML CX C/23 UNIDADES",
+        "ANTARCTICA PILSEN GARRAFA RETORNAVEL 300 ML")]
+    [InlineData(
+        "SKOL PILSEN 350ML LATA CX C/12 UN",
+        "SKOL PILSEN 350 ML LATA")]
+    [InlineData(
+        "COCA COLA ZERO 600ML PET FARDO C/12",
+        "COCA-COLA ZERO 600 ML")]
+    [InlineData(
+        "AGUA CRYSTAL SEM GAS 500ML CX 12 UN",
+        "AGUA CRYSTAL SEM GAS 500 ML")]
+    [InlineData(
+        "BRAHMA CHOPP 1L PET CX C/6 UN",
+        "BRAHMA CHOPP 1 L")]
+    public void NormalizeCommercialName_TiraLogistica_MantemMarcaVolume(string xProd, string expected)
+    {
+        var actual = ProductClassificationHelper.NormalizeCommercialName(xProd);
+
+        Assert.Equal(expected, actual.ToUpperInvariant());
+        Assert.DoesNotMatch(@"\bCX\b", actual);
+        Assert.DoesNotMatch(@"C/\s*\d+", actual);
+        Assert.DoesNotMatch(@"\b(?:UN|UND|UNID|UNIDADE|UNIDADES|FD|FARDO)\b", actual);
+    }
+
+    [Fact]
+    public void NormalizeCommercialName_NaoRemoveSaborNemTipoDaUnidade()
+    {
+        var actual = ProductClassificationHelper.NormalizeCommercialName(
+            "CERVEJA HEINEKEN LAGER 330ML LONG NECK CX C/24 UN");
+
+        Assert.Contains("HEINEKEN", actual, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("LAGER", actual, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("LONG NECK", actual, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("330 ML", actual, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("CX", actual, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void InferPackFactor_ContinuaLendoQuantidadeDaEmbalagemNoXProd()
+    {
+        Assert.Equal(23, NfeXmlImportService.InferPackFactorFromProductName(
+            "CERVEJA ANTARCTICA PILSEN 300ML CX C/23 UN"));
+        Assert.Equal(6, NfeXmlImportService.InferPackFactorFromProductName(
+            "COCA COLA ORIGINAL 2L PET CX C/6 UN"));
+        Assert.Equal(12, NfeXmlImportService.InferPackFactorFromProductName(
+            "REFRIGERANTE GUARANA ANTARCTICA 350ML LATA FD 12 UN"));
+    }
+}
+
+[Collection(TempDatabaseCollection.Name)]
+public class ProductCommercialNamePersistenceTests
+{
+    [Fact]
+    public void Create_ProdutoNovoDoXml_NaoGravaCxUnNoCadastro()
+    {
+        using var db = TempDatabase.Create();
+        TestDataHelper.SetSessionRole("admin");
+
+        var created = ProductService.Create(new ProductInput
+        {
+            Code = "XMLANT",
+            Name = "CERVEJA ANTARCTICA PILSEN 300ML CX C/23 UN",
+            Unit = "UN",
+            CostPrice = 5.50,
+            SalePrice = 9,
+        });
+
+        Assert.Equal("ANTARCTICA PILSEN 300 ML", created.Name);
+        Assert.DoesNotContain("CX", created.Name, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("C/23", created.Name, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("300 ML", created.Name, StringComparison.OrdinalIgnoreCase);
+        Assert.NotEqual("ANTARCTICA 300ML CX C/23 UN", created.Name);
+    }
+
+    [Fact]
+    public void EnsureCleanCatalogName_Xml_NaoSobrescreveNomeComercialExistente()
+    {
+        using var db = TempDatabase.Create();
+        TestDataHelper.SetSessionRole("admin");
+        var id = TestDataHelper.SeedSimpleProduct(
+            10, 8, 5, code: "ANT1", name: "ANTARCTICA 300 ML");
+        var product = ProductService.GetById(id)!;
+
+        var after = ProductService.EnsureCleanCatalogName(
+            product,
+            "CERVEJA ANTARCTICA PILSEN GARRAFA RETORNAVEL 300ML CX C/23 UNIDADES");
+
+        Assert.Equal("ANTARCTICA 300 ML", after.Name);
+        Assert.Equal("ANTARCTICA 300 ML", ProductService.GetById(id)!.Name);
+    }
+}

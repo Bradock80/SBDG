@@ -13,8 +13,16 @@ public static class ProductClassificationHelper
     public readonly record struct Classification(string? Brand, string? Group);
 
     /// <summary>
+    /// Nome comercial SGDB a partir da xProd/NF-e: remove unidade logística
+    /// (CX, FD, C/23, UN, UNIDADES…) e mantém marca, sabor, tipo e volume/peso da unidade.
+    /// Função central — importação XML e cadastro devem chamar só esta rotina.
+    /// </summary>
+    public static string NormalizeCommercialName(string? name) =>
+        SanitizeProductName(name);
+
+    /// <summary>
     /// Remove siglas e padrões de embalagem/caixa no final do nome (NF-e).
-    /// Mantém o nome comercial, tamanho (473ML, 1,5L) e atributos (COM GAS, PET, GFA VD).
+    /// Mantém o nome comercial, tamanho (473ML, 1,5L) e atributos (GFA VD, LATA, LONG NECK).
     /// </summary>
     public static string SanitizeProductName(string? name)
     {
@@ -25,15 +33,18 @@ public static class ProductClassificationHelper
         // "QTD. 15.00 UN" / "QTD 15 UN" no meio ou no fim
         cleaned = Regex.Replace(
             cleaned,
-            @"\s+QTD\.?\s*[\d.,]+\s*(?:UN|UND|UNID)?\b",
+            @"\s+QTD\.?\s*[\d.,]+\s*(?:UN|UND|UNID|UNIDADE|UNIDADES)?\b",
             " ",
             RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
         cleaned = Regex.Replace(cleaned, @"\s+", " ").Trim();
         var original = cleaned;
 
-        // Embalagem / display / fardo (não incluir PET, GFA, LATA — fazem parte do produto)
+        const string UnitWords = @"UN|UND|UNID|UNIDADE|UNIDADES|U";
+
+        // Embalagem / display / fardo (não incluir GFA, LATA — identificam o SKU).
+        // Tokens longos primeiro (DISPLAY antes de DES, CAIXAS antes de CAIXA).
         const string PackWords =
-            @"DP|BOX|CX|FD|PCT|PCTE|DSP|DES|DISPLAY|CARTELA|FARDO|PACK|PACOTE|EMB|SC|SACOLA|SCH|PT|PTA|FDO|MASTER|CAIXA|CXA|SH|SHRINK|NPAL|PAL|PALLET|PACKING|CARTAO|CARTÃO|PAPELAO|PAPELÃO|SIX|SIXP|SIXPACK";
+            @"DISPLAY|FARDOS|FARDO|PACOTE|PCTE|CAIXAS|CAIXA|CARTELA|PACKING|PALLET|SHRINK|MASTER|SACOLA|PAPEL[AÃ]O|CART[AÃ]O|SIXPACK|SIXP|PACK|BOX|CXA|CX|FD|PCT|PC|DSP|DES|EMB|SC|SCH|PTA|PT|FDO|NPAL|PAL|SH|SIX|DP";
 
         // Códigos de planta / canal / fábrica no fim (após qtd)
         const string TrailingCodes =
@@ -43,6 +54,13 @@ public static class ProductClassificationHelper
         do
         {
             previous = cleaned;
+
+            // CX C/23 UN | CX 12 UN | CX 24UN | FD 12 UN | FARDO C/12 | CAIXA 6 UNIDADES
+            cleaned = Regex.Replace(
+                cleaned,
+                $@"[\s\-_/]*(?:{PackWords})\s*C?\s*/?\s*\d+\s*(?:{UnitWords})?\s*$",
+                "",
+                RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
 
             // Display Nestlé/Garoto: 12(12X24G) BR | 18(30X32G) BR
             cleaned = Regex.Replace(
@@ -99,10 +117,10 @@ public static class ProductClassificationHelper
                 "",
                 RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
 
-            // CX C/23 | CX C/ 23 | CX/23 | C/12 no fim
+            // CX C/23 | CX C/ 23 UN | CX/23 UNIDADES | C/12 no fim
             cleaned = Regex.Replace(
                 cleaned,
-                @"[\s\-_/]*CX\s*C?\s*/\s*\d+[A-Za-z0-9]*\s*$",
+                $@"[\s\-_/]*CX\s*C?\s*/\s*\d+\s*(?:{UnitWords})?\s*$",
                 "",
                 RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
 
@@ -128,17 +146,17 @@ public static class ProductClassificationHelper
                 "",
                 RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
 
-            // C/12 | C/ 24 UN (sem CX na frente)
+            // C/12 | C/ 24 UN | C/23 UNIDADES (sem CX na frente)
             cleaned = Regex.Replace(
                 cleaned,
-                @"[\s\-_/]*C/\s*\d+[A-Za-z0-9./]*\s*$",
+                $@"[\s\-_/]*C/\s*\d+\s*(?:{UnitWords})?\s*$",
                 "",
                 RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
 
             // 12U MAINLINE | 06UN CP | 12UN JD T | 12UNPBR | 12 U FL
             cleaned = Regex.Replace(
                 cleaned,
-                $@"[\s\-_/]+\d+\s*(?:UN|UND|UNID|U)\s*[A-Za-z0-9]*(?:\s+(?:{TrailingCodes}|[A-Za-z0-9]{{1,20}})){{0,5}}\s*$",
+                $@"[\s\-_/]+\d+\s*(?:{UnitWords})\s*[A-Za-z0-9]*(?:\s+(?:{TrailingCodes}|[A-Za-z0-9]{{1,20}})){{0,5}}\s*$",
                 "",
                 RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
 
@@ -209,15 +227,22 @@ public static class ProductClassificationHelper
                 "",
                 RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
 
-            // UN / qtd+UN soltos no fim
+            // PET residual da NF após tirar a caixa (2L PET → 2L). LATA/GARRAFA ficam.
             cleaned = Regex.Replace(
                 cleaned,
-                @"[\s\-_/]+\d+\s*(?:UN|UND|UNID)\.?\s*$",
+                @"[\s\-_/]+PET\s*$",
+                "",
+                RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+
+            // UN / UNIDADE(S) / qtd+UN soltos no fim
+            cleaned = Regex.Replace(
+                cleaned,
+                $@"[\s\-_/]+\d+\s*(?:{UnitWords})\.?\s*$",
                 "",
                 RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
             cleaned = Regex.Replace(
                 cleaned,
-                @"[\s\-_/]+(?:UN|UND|UNID)\.?\s*$",
+                $@"[\s\-_/]+(?:{UnitWords})\.?\s*$",
                 "",
                 RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
 
@@ -228,6 +253,9 @@ public static class ProductClassificationHelper
 
         cleaned = ExpandCommercialAbbreviations(cleaned);
         cleaned = FixKnownTruncatedBrands(cleaned);
+        cleaned = StripGenericCategoryPrefix(cleaned);
+        cleaned = FormatCommercialMeasures(cleaned);
+        cleaned = CanonicalCommercialSpelling(cleaned);
 
         return string.IsNullOrWhiteSpace(cleaned) ? original : cleaned;
     }
@@ -315,6 +343,60 @@ public static class ProductClassificationHelper
             RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
 
         return Regex.Replace(name, @"\s+", " ").Trim();
+    }
+
+    /// <summary>
+    /// Tira o tipo genérico da NF (CERVEJA, REFRIGERANTE) quando a marca/sabor já identificam o produto.
+    /// Não remove Pilsen, Lager, Zero, Original, Lata, Long Neck.
+    /// </summary>
+    private static string StripGenericCategoryPrefix(string name)
+    {
+        if (string.IsNullOrWhiteSpace(name))
+            return name;
+
+        var stripped = Regex.Replace(
+            name,
+            @"^(?:CERVEJA|REFRIGERANTE)S?\s+",
+            "",
+            RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+        stripped = Regex.Replace(stripped, @"\s+", " ").Trim();
+        return stripped.Length < 4 ? name : stripped;
+    }
+
+    /// <summary>300ML → 300 ML; 2L → 2 L; 1kg → 1 KG. Preserva o valor da unidade vendida.</summary>
+    private static string FormatCommercialMeasures(string name)
+    {
+        if (string.IsNullOrWhiteSpace(name))
+            return name;
+
+        return Regex.Replace(
+            name,
+            @"(\d+[.,]?\d*)\s*(ML|L|G|GR|KG)\b",
+            m => $"{m.Groups[1].Value} {m.Groups[2].Value.ToUpperInvariant()}",
+            RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+    }
+
+    private static string CanonicalCommercialSpelling(string name)
+    {
+        if (string.IsNullOrWhiteSpace(name))
+            return name;
+
+        var cleaned = Regex.Replace(
+            name,
+            @"\bCOCA\s*-\s*COLA\b",
+            "COCA-COLA",
+            RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+        cleaned = Regex.Replace(
+            cleaned,
+            @"\bCOCA\s+COLA\b",
+            "COCA-COLA",
+            RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+        cleaned = Regex.Replace(
+            cleaned,
+            @"\bGUARANA\b",
+            "GUARANÁ",
+            RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+        return Regex.Replace(cleaned, @"\s+", " ").Trim();
     }
 
     /// <summary>Aliases de marca → nome canônico (mais longos primeiro).</summary>

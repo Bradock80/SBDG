@@ -433,7 +433,7 @@ public static class NfeXmlImportService
                         throw new InvalidOperationException(
                             $"Produto \"{item.Name}\" não encontrado e a criação automática de produtos está desativada.");
 
-                    var catalogName = ProductClassificationHelper.SanitizeProductName(item.Name);
+                    var catalogName = ProductClassificationHelper.NormalizeCommercialName(item.Name);
                     var packFactor = item.PackFactor > 1 ? item.PackFactor : 1;
                     var inferred = ProductClassificationHelper.Infer(catalogName);
                     var isCigPack = ProductClassificationHelper.UsesPackPurchasePrice(catalogName, inferred.Group);

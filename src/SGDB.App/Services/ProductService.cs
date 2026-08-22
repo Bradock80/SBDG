@@ -552,8 +552,8 @@ public static class ProductService
     public static Product CreateLocal(ProductInput input)
     {
         StoreNetworkMode.EnsureLocalMutationAllowed("criar produto");
-        // Sempre limpa embalagem/caixa do nome no cadastro (NF-e e demais origens).
-        input.Name = ProductClassificationHelper.SanitizeProductName(input.Name);
+        // Nome comercial: tira CX/UN/fardo; mantém marca, sabor, volume da unidade.
+        input.Name = ProductClassificationHelper.NormalizeCommercialName(input.Name);
         var data = Normalize(input);
         data.Code = ResolveCode(data.Code, data.Name);
 
@@ -581,15 +581,16 @@ public static class ProductService
     }
 
     /// <summary>
-    /// Se o nome do produto (ou o da NF) ainda tiver embalagem, grava a versão limpa no cadastro.
+    /// Limpa embalagem logística do nome já cadastrado.
+    /// Na importação XML (<paramref name="nfeName"/> preenchido) NÃO substitui o nome comercial por xProd.
     /// </summary>
     public static Product EnsureCleanCatalogName(Product product, string? nfeName = null)
     {
-        var fromProduct = ProductClassificationHelper.SanitizeProductName(product.Name);
-        var fromNfe = ProductClassificationHelper.SanitizeProductName(nfeName);
-        var preferred = !string.IsNullOrWhiteSpace(fromNfe) && fromNfe.Length >= Math.Min(8, fromProduct.Length)
-            ? fromNfe
-            : fromProduct;
+        // Produto existente + XML: preserva o nome comercial do cadastro.
+        if (!string.IsNullOrWhiteSpace(nfeName))
+            return product;
+
+        var preferred = ProductClassificationHelper.NormalizeCommercialName(product.Name);
 
         if (string.IsNullOrWhiteSpace(preferred)
             || string.Equals(preferred, product.Name, StringComparison.OrdinalIgnoreCase))
@@ -626,7 +627,7 @@ public static class ProductService
         var updated = 0;
         foreach (var product in List(null, "todos"))
         {
-            var clean = ProductClassificationHelper.SanitizeProductName(product.Name);
+            var clean = ProductClassificationHelper.NormalizeCommercialName(product.Name);
             if (string.IsNullOrWhiteSpace(clean)
                 || string.Equals(clean, product.Name, StringComparison.OrdinalIgnoreCase))
                 continue;
@@ -699,7 +700,7 @@ public static class ProductService
     {
         StoreNetworkMode.EnsureLocalMutationAllowed("atualizar produto");
         var existing = GetByIdLocal(id) ?? throw new InvalidOperationException("Produto não encontrado.");
-        input.Name = ProductClassificationHelper.SanitizeProductName(input.Name);
+        input.Name = ProductClassificationHelper.NormalizeCommercialName(input.Name);
         var data = Normalize(input);
 
         if (!string.IsNullOrWhiteSpace(data.Code))

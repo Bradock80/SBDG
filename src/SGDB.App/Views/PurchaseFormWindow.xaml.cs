@@ -1579,7 +1579,7 @@ public partial class PurchaseFormWindow : Window
                         throw new InvalidOperationException(
                             $"Produto não cadastrado: {item.Name}. Cadastre-o ou permita criar automaticamente.");
 
-                    var catalogName = ProductClassificationHelper.SanitizeProductName(item.Name);
+                    var catalogName = ProductClassificationHelper.NormalizeCommercialName(item.Name);
                     var newPackFactor = item.PackFactor > 1 ? item.PackFactor : 1;
                     var sale = item.SalePrice > 0 ? item.SalePrice : saleComMargem;
                     var inferred = ProductClassificationHelper.Infer(catalogName);
