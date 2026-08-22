@@ -42,6 +42,30 @@ public class ProductCommercialNameTests
     [InlineData(
         "BRAHMA CHOPP 1L PET CX C/6 UN",
         "BRAHMA CHOPP 1 L")]
+    [InlineData(
+        "PRODUTO XYZ 500G PCT C/12 UN",
+        "PRODUTO XYZ 500 G")]
+    [InlineData(
+        "PRODUTO XYZ 500G PACOTE C/10 UN",
+        "PRODUTO XYZ 500 G")]
+    [InlineData(
+        "PRODUTO XYZ 500G PACOTE 10 UN",
+        "PRODUTO XYZ 500 G")]
+    [InlineData(
+        "PRODUTO XYZ 500G PCT 20UN",
+        "PRODUTO XYZ 500 G")]
+    [InlineData(
+        "PRODUTO XYZ 500G PCT C/20 UN",
+        "PRODUTO XYZ 500 G")]
+    [InlineData(
+        "PRODUTO XYZ 1KG PCTE C/10",
+        "PRODUTO XYZ 1 KG")]
+    [InlineData(
+        "CHOCOLATE LACTA 20G PCT. C/12 UN",
+        "CHOCOLATE LACTA 20 G")]
+    [InlineData(
+        "BISCOITO MARILAN 40G PAC 10 UN",
+        "BISCOITO MARILAN 40 G")]
     public void NormalizeCommercialName_TiraLogistica_MantemMarcaVolume(string xProd, string expected)
     {
         var actual = ProductClassificationHelper.NormalizeCommercialName(xProd);
@@ -49,7 +73,20 @@ public class ProductCommercialNameTests
         Assert.Equal(expected, actual.ToUpperInvariant());
         Assert.DoesNotMatch(@"\bCX\b", actual);
         Assert.DoesNotMatch(@"C/\s*\d+", actual);
-        Assert.DoesNotMatch(@"\b(?:UN|UND|UNID|UNIDADE|UNIDADES|FD|FARDO)\b", actual);
+        Assert.DoesNotMatch(@"\b(?:UN|UND|UNID|UNIDADE|UNIDADES|FD|FARDO|PACOTE|PCTE|PCT|PAC)\b", actual);
+    }
+
+    [Fact]
+    public void NormalizeCommercialName_NaoRemovePctPacDentroDePalavra()
+    {
+        var impacto = ProductClassificationHelper.NormalizeCommercialName(
+            "BISCOITO IMPACTO CHOCOLATE 40G");
+        Assert.Contains("IMPACTO", impacto, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("40 G", impacto, StringComparison.OrdinalIgnoreCase);
+
+        var pacoca = ProductClassificationHelper.NormalizeCommercialName("PACOCA ROLHA 20G");
+        Assert.Contains("PACOCA", pacoca, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("20 G", pacoca, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]
@@ -74,6 +111,12 @@ public class ProductCommercialNameTests
             "COCA COLA ORIGINAL 2L PET CX C/6 UN"));
         Assert.Equal(12, NfeXmlImportService.InferPackFactorFromProductName(
             "REFRIGERANTE GUARANA ANTARCTICA 350ML LATA FD 12 UN"));
+        Assert.Equal(12, NfeXmlImportService.InferPackFactorFromProductName(
+            "PRODUTO XYZ 500G PCT C/12 UN"));
+        Assert.Equal(10, NfeXmlImportService.InferPackFactorFromProductName(
+            "PRODUTO XYZ 500G PACOTE C/10 UN"));
+        Assert.Equal(20, NfeXmlImportService.InferPackFactorFromProductName(
+            "PRODUTO XYZ 500G PCT 20UN"));
     }
 }
 
@@ -117,5 +160,26 @@ public class ProductCommercialNamePersistenceTests
 
         Assert.Equal("ANTARCTICA 300 ML", after.Name);
         Assert.Equal("ANTARCTICA 300 ML", ProductService.GetById(id)!.Name);
+    }
+
+    [Fact]
+    public void Create_ProdutoNovoDoXml_TiraPacotePctDoNomeComercial()
+    {
+        using var db = TempDatabase.Create();
+        TestDataHelper.SetSessionRole("admin");
+
+        var created = ProductService.Create(new ProductInput
+        {
+            Code = "XMLPCT",
+            Name = "PRODUTO XYZ 500G PCT C/12 UN",
+            Unit = "UN",
+            CostPrice = 2,
+            SalePrice = 4,
+        });
+
+        Assert.Equal("PRODUTO XYZ 500 G", created.Name);
+        Assert.DoesNotContain("PCT", created.Name, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("C/12", created.Name, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("500 G", created.Name, StringComparison.OrdinalIgnoreCase);
     }
 }

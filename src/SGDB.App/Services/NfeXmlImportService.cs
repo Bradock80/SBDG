@@ -1162,6 +1162,7 @@ public static class NfeXmlImportService
         string[] patterns =
         [
             @"\bC/\s*(\d{1,3})\b",
+            @"\b(?:PACOTES?|PACOTE|PCTE|PCT|PAC)\.?\s*C?\s*/?\s*(\d{1,3})(?:UN)?\b",
             @"CX(\d{1,3})X",                 // CX100X15G, CX23X300ML (antes do \bCX\d\b)
             @"\bCX\s*(\d{1,3})(?:X|\b|/)",  // CX100X…, CX23, CX/12
             @"\bCX\s*C?/?\s*(\d{1,3})\b",
@@ -1170,6 +1171,7 @@ public static class NfeXmlImportService
             @"\bLT\s*(\d{1,3})\b",
             @"\bLT(\d{1,3})\b",
             @"(\d{1,3})\s*UN\b",
+            @"(\d{1,3})UN\b",
             @"\b(\d{1,3})U\b",
             @"\bPET\s+(\d{1,3})\b",
             @"\b(\d{1,3})X1\b",

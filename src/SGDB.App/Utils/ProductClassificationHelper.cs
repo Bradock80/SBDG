@@ -14,7 +14,7 @@ public static class ProductClassificationHelper
 
     /// <summary>
     /// Nome comercial SGDB a partir da xProd/NF-e: remove unidade logística
-    /// (CX, FD, C/23, UN, UNIDADES…) e mantém marca, sabor, tipo e volume/peso da unidade.
+    /// (CX, FD, PACOTE, PCT, C/23, UN, UNIDADES…) e mantém marca, sabor, tipo e volume/peso da unidade.
     /// Função central — importação XML e cadastro devem chamar só esta rotina.
     /// </summary>
     public static string NormalizeCommercialName(string? name) =>
@@ -44,7 +44,10 @@ public static class ProductClassificationHelper
         // Embalagem / display / fardo (não incluir GFA, LATA — identificam o SKU).
         // Tokens longos primeiro (DISPLAY antes de DES, CAIXAS antes de CAIXA).
         const string PackWords =
-            @"DISPLAY|FARDOS|FARDO|PACOTE|PCTE|CAIXAS|CAIXA|CARTELA|PACKING|PALLET|SHRINK|MASTER|SACOLA|PAPEL[AÃ]O|CART[AÃ]O|SIXPACK|SIXP|PACK|BOX|CXA|CX|FD|PCT|PC|DSP|DES|EMB|SC|SCH|PTA|PT|FDO|NPAL|PAL|SH|SIX|DP";
+            @"DISPLAY|FARDOS|FARDO|PACOTES|PACOTE|PCTE|CAIXAS|CAIXA|CARTELA|PACKING|PALLET|SHRINK|MASTER|SACOLA|PAPEL[AÃ]O|CART[AÃ]O|SIXPACK|SIXP|PACK|BOX|CXA|CX|FD|PCT|PAC|PC|DSP|DES|EMB|SC|SCH|PTA|PT|FDO|NPAL|PAL|SH|SIX|DP";
+
+        // PACOTE/PCT só como token de embalagem (não IMPACTO, PACOCA, COMPACTO).
+        const string PackageWords = @"PACOTES|PACOTE|PCTE|PCT|PAC";
 
         // Códigos de planta / canal / fábrica no fim (após qtd)
         const string TrailingCodes =
@@ -55,10 +58,17 @@ public static class ProductClassificationHelper
         {
             previous = cleaned;
 
-            // CX C/23 UN | CX 12 UN | CX 24UN | FD 12 UN | FARDO C/12 | CAIXA 6 UNIDADES
+            // PACOTE C/10 UN | PCT C/12 | PCT. 12 UN | PCT 20UN | PCTE C/10 | PAC 10 UN
             cleaned = Regex.Replace(
                 cleaned,
-                $@"[\s\-_/]*(?:{PackWords})\s*C?\s*/?\s*\d+\s*(?:{UnitWords})?\s*$",
+                $@"[\s\-_/]*\b(?:{PackageWords})\.?\s*(?:C\s*/\s*|/)?\s*\d+\s*(?:{UnitWords})?\s*$",
+                "",
+                RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+
+            // CX C/23 UN | CX 12 UN | CX 24UN | FD 12 UN | FARDO C/12 | CAIXA 6 UNIDADES | PCT. C/12
+            cleaned = Regex.Replace(
+                cleaned,
+                $@"[\s\-_/]*(?:{PackWords})\.?\s*C?\s*/?\s*\d+\s*(?:{UnitWords})?\s*$",
                 "",
                 RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
 
@@ -206,10 +216,15 @@ public static class ProductClassificationHelper
                 "",
                 RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
 
-            // Palavra de embalagem sozinha no fim: BOX, CX, DISPLAY, CARTAO…
+            // Palavra de embalagem sozinha no fim: BOX, CX, DISPLAY, PACOTE, PCT.
             cleaned = Regex.Replace(
                 cleaned,
-                $@"[\s\-_/]+(?:{PackWords})\s*$",
+                $@"[\s\-_/]+\b(?:{PackageWords})\.?\s*$",
+                "",
+                RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+            cleaned = Regex.Replace(
+                cleaned,
+                $@"[\s\-_/]+(?:{PackWords})\.?\s*$",
                 "",
                 RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
 
