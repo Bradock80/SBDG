@@ -58,6 +58,12 @@ public static class StoreNetworkClient
     private static string? _sessionToken;
     private static DateTime? _sessionExpiresAt;
     private static StoreNetworkRemoteUserDto? _remoteUser;
+    /// <summary>null = ainda não consultou /api/status nesta sessão.</summary>
+    private static IReadOnlyList<string>? _cachedFeatures;
+
+    internal static IReadOnlyList<string>? TestStatusFeatures { get; set; }
+    internal static int TestStatusFetchCount { get; set; }
+    internal static int TestPurchaseSendCount { get; set; }
 
     public static string? SessionToken => _sessionToken;
     public static DateTime? SessionExpiresAt => _sessionExpiresAt;
@@ -183,6 +189,19 @@ public static class StoreNetworkClient
     public static StoreNetworkStatusDto Ping() =>
         Run(async () =>
         {
+            if (TestStatusFeatures is not null)
+            {
+                TestStatusFetchCount++;
+                var fake = new StoreNetworkStatusDto
+                {
+                    Ok = true,
+                    ApiVersion = 2,
+                    Features = TestStatusFeatures.ToList(),
+                };
+                CacheFeatures(fake.Features);
+                return fake;
+            }
+
             using var client = CreateClient();
             HttpResponseMessage res;
             try
@@ -196,8 +215,11 @@ public static class StoreNetworkClient
             var text = await res.Content.ReadAsStringAsync().ConfigureAwait(false);
             if (!res.IsSuccessStatusCode)
                 throw new InvalidOperationException("Servidor não respondeu. PIN ou IP incorreto?");
-            return JsonSerializer.Deserialize<StoreNetworkStatusDto>(text, JsonOpts)
+            var dto = JsonSerializer.Deserialize<StoreNetworkStatusDto>(text, JsonOpts)
                    ?? throw new InvalidOperationException("Resposta inválida.");
+            TestStatusFetchCount++;
+            CacheFeatures(dto.Features);
+            return dto;
         });
 
     public static StoreNetworkStatusDto Login(string pin) =>
@@ -418,7 +440,39 @@ public static class StoreNetworkClient
         _sessionToken = null;
         _sessionExpiresAt = null;
         _remoteUser = null;
+        _cachedFeatures = null;
     }
+
+    internal static void ResetPurchaseSalePriceTestHooks()
+    {
+        TestStatusFeatures = null;
+        TestStatusFetchCount = 0;
+        TestPurchaseSendCount = 0;
+        _cachedFeatures = null;
+    }
+
+    internal static void SeedCachedFeatures(IReadOnlyList<string> features) =>
+        CacheFeatures(features);
+
+    internal static void EnsurePurchaseSalePriceCapability(PurchaseInput input)
+    {
+        if (!PurchaseSalePriceRules.NeedsAtomicSalePriceCapability(input))
+            return;
+
+        if (_cachedFeatures is not null)
+        {
+            if (PurchaseSalePriceRules.SupportsAtomicSalePrice(_cachedFeatures))
+                return;
+            throw new InvalidOperationException(PurchaseSalePriceRules.HostNeedsUpgradeBeforeCloseMessage);
+        }
+
+        var status = Ping();
+        if (!PurchaseSalePriceRules.SupportsAtomicSalePrice(status.Features))
+            throw new InvalidOperationException(PurchaseSalePriceRules.HostNeedsUpgradeBeforeCloseMessage);
+    }
+
+    private static void CacheFeatures(IReadOnlyList<string>? features) =>
+        _cachedFeatures = features is null ? [] : features.ToList();
 
     internal static string RedactSecrets(string? text)
     {
@@ -568,13 +622,24 @@ public static class StoreNetworkClient
         Run(() => SendAsync<StoreNetworkExistsDto>(HttpMethod.Get,
             "api/purchases/nfe-exists?key=" + Uri.EscapeDataString(chave))).Exists;
 
-    public static int CreatePurchase(PurchaseInput input, bool closeOnSave) =>
-        Run(() => SendAsync<StoreNetworkIdDto>(HttpMethod.Post, "api/purchases",
-            new { input, closeOnSave })).Id;
-
-    public static void UpdatePurchase(int id, PurchaseInput input, bool closeOnSave) =>
-        Run(() => SendAsync<StoreNetworkOkDto>(HttpMethod.Put, $"api/purchases/{id}",
+    public static int CreatePurchase(PurchaseInput input, bool closeOnSave)
+    {
+        EnsurePurchaseSalePriceCapability(input);
+        TestPurchaseSendCount++;
+        var dto = Run(() => SendAsync<StoreNetworkIdDto>(HttpMethod.Post, "api/purchases",
             new { input, closeOnSave }));
+        PurchaseSalePriceRules.EnsureHostAppliedSalePrices(input, closeOnSave, dto.SalePriceUpdates);
+        return dto.Id;
+    }
+
+    public static void UpdatePurchase(int id, PurchaseInput input, bool closeOnSave)
+    {
+        EnsurePurchaseSalePriceCapability(input);
+        TestPurchaseSendCount++;
+        var dto = Run(() => SendAsync<StoreNetworkOkDto>(HttpMethod.Put, $"api/purchases/{id}",
+            new { input, closeOnSave }));
+        PurchaseSalePriceRules.EnsureHostAppliedSalePrices(input, closeOnSave, dto.SalePriceUpdates);
+    }
 
     public static void DeletePurchase(int id) =>
         Run(() => SendAsync<StoreNetworkOkDto>(HttpMethod.Delete, $"api/purchases/{id}"));
@@ -789,6 +854,7 @@ public sealed class StoreNetworkStatusDto
     public string? Role { get; set; }
     public int ApiVersion { get; set; }
     public List<string>? AuthModes { get; set; }
+    public List<string>? Features { get; set; }
 }
 
 public sealed class StoreNetworkPairDto
@@ -835,6 +901,8 @@ public sealed class StoreNetworkOkDto
 {
     public bool Ok { get; set; }
     public string? Error { get; set; }
+    /// <summary>Quantos itens tiveram sale_price aplicado na mesma tx da compra. Null = host antigo.</summary>
+    public int? SalePriceUpdates { get; set; }
 }
 
 public sealed class StoreNetworkIdDto
@@ -842,6 +910,8 @@ public sealed class StoreNetworkIdDto
     public bool Ok { get; set; }
     public int Id { get; set; }
     public string? Error { get; set; }
+    /// <summary>Quantos itens tiveram sale_price aplicado na mesma tx da compra. Null = host antigo.</summary>
+    public int? SalePriceUpdates { get; set; }
 }
 
 public sealed class StoreNetworkExistsDto

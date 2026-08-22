@@ -252,7 +252,9 @@
                                         </StackPanel>
                                         <StackPanel Grid.Column="4">
                                             <TextBlock Text="Valor Sugerido" Style="{StaticResource CompraTopLabel}"/>
-                                            <TextBox x:Name="SuggestedPriceBox" Style="{StaticResource CompraValBlue}" TabIndex="-1"/>
+                                            <TextBox x:Name="SuggestedPriceBox" Style="{StaticResource CompraValBlue}" TabIndex="-1"
+                                                     MouseDoubleClick="SuggestedPriceBox_MouseDoubleClick"
+                                                     ToolTip="Dê um duplo clique para copiar o sugerido para Valor Venda (grava no cadastro)."/>
                                         </StackPanel>
                                         <StackPanel Grid.Column="6">
                                             <TextBlock Text="Valor Venda Anterior" Style="{StaticResource CompraTopLabel}"/>
@@ -389,8 +391,10 @@
                                 <TextBlock Text="Parâmetros" Style="{StaticResource CompraSectionTitle}"/>
                                 <CheckBox x:Name="AjustaPrecoBox" Content="Também ajustar preço de venda" FontSize="11" Margin="0,2"
                                           IsChecked="False"
-                                          ToolTip="Desmarcado: só atualiza compra/custo. Marcado: também grava o Pr. Venda da grade."/>
-                                <TextBlock Text="Qtd/Preço = unitário (estoque). Preço 0,00 = brinde. Ao finalizar: custo médio; cigarro grava maço. Venda só se marcar a opção acima."
+                                          Checked="AjustaPrecoBox_Changed"
+                                          Unchecked="AjustaPrecoBox_Changed"
+                                          ToolTip="Marcado: o novo preço será gravado no cadastro do produto. Desmarque para não atualizar o cadastro."/>
+                                <TextBlock Text="Qtd/Preço = unitário (estoque). Preço 0,00 = brinde. Ao finalizar: custo médio; cigarro grava maço. Alterar Pr. Venda marca esta opção automaticamente."
                                            FontSize="9" Foreground="#555" TextWrapping="Wrap" Margin="0,0,0,4"/>
                                 <CheckBox x:Name="IncluirStCustoBox" Content="Incluir ICMS-ST no custo" FontSize="11" Margin="0,2"
                                           IsChecked="False"

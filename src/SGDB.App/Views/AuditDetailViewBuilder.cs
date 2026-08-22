@@ -225,7 +225,10 @@ public static class AuditDetailViewBuilder
             AddField(card, "Referência", code);
         var source = GetString(p, "source");
         if (!string.IsNullOrWhiteSpace(source))
-            AddField(card, "Origem", source);
+            AddField(card, "Origem", source == "compra" ? "Compra" : source);
+        var purchaseId = GetInt(p, "purchase_id");
+        if (purchaseId is > 0)
+            AddField(card, "Compra", purchaseId.Value.ToString());
 
         if (p.TryGetProperty("changes", out var changes) && changes.ValueKind == JsonValueKind.Object)
         {

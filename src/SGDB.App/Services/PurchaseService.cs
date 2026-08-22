@@ -15,6 +15,10 @@ public sealed class PurchaseItemInput
     public double UnitPrice { get; set; }
     public string? LotNumber { get; set; }
     public DateTime? ExpiryDate { get; set; }
+    /// <summary>Preço de venda escolhido na compra (cadastro só muda se UpdateSalePrice).</summary>
+    public double SalePrice { get; set; }
+    /// <summary>Intenção explícita do operador de gravar SalePrice em products.sale_price.</summary>
+    public bool UpdateSalePrice { get; set; }
 }
 
 public sealed class PurchaseInput
@@ -42,6 +46,18 @@ public static class PurchaseService
     /// Deve permanecer null em produção. Sem regra por productId.
     /// </summary>
     public static Action? TestBeforeInsertPurchaseItemLot { get; set; }
+
+    /// <summary>
+    /// Somente testes: invocado imediatamente antes de atualizar products.sale_price.
+    /// Deve permanecer null em produção.
+    /// </summary>
+    public static Action? TestBeforeApplySalePrice { get; set; }
+
+    /// <summary>
+    /// Somente testes: invocado depois de atualizar sale_price e antes do commit.
+    /// Deve permanecer null em produção.
+    /// </summary>
+    public static Action? TestAfterApplySalePrice { get; set; }
 
     /// <summary>Última entrada do produto pela data de entrada da compra.</summary>
     public static ProductLastEntry? GetLastEntry(int productId)
@@ -425,6 +441,7 @@ public static class PurchaseService
             if (closeOnSave && input.GerarEstoque)
                 ApplyStock(conn, tx, id, input.Items, reverse: false);
 
+            List<SalePriceAuditPending> saleAudits = [];
             if (closeOnSave)
             {
                 using var close = conn.CreateCommand();
@@ -433,11 +450,15 @@ public static class PurchaseService
                 close.Parameters.AddWithValue("$id", id);
                 close.ExecuteNonQuery();
                 PayableService.SyncFromPurchase(conn, tx, id);
+                saleAudits = ApplySalePricesInTx(conn, tx, input.Items);
             }
 
             tx.Commit();
             if (closeOnSave)
+            {
                 LogPurchaseAudit(id, input, total);
+                LogSalePriceAudits(id, saleAudits);
+            }
             return id;
         }
     }
@@ -512,6 +533,7 @@ public static class PurchaseService
         if (closeOnSave && input.GerarEstoque)
             ApplyStock(conn, tx, id, input.Items, reverse: false);
 
+        List<SalePriceAuditPending> saleAudits = [];
         if (closeOnSave)
         {
             using var close = conn.CreateCommand();
@@ -520,17 +542,22 @@ public static class PurchaseService
             close.Parameters.AddWithValue("$id", id);
             close.ExecuteNonQuery();
             PayableService.SyncFromPurchase(conn, tx, id);
+            saleAudits = ApplySalePricesInTx(conn, tx, input.Items);
         }
 
         tx.Commit();
         if (closeOnSave)
+        {
             LogPurchaseAudit(id, input, total);
+            LogSalePriceAudits(id, saleAudits);
+        }
     }
 
     private static void LogPurchaseAudit(int purchaseId, PurchaseInput input, double total)
     {
         var supplier = PersonService.GetById(input.SupplierId);
-        var source = input.Notes?.Contains("Importado via XML", StringComparison.OrdinalIgnoreCase) == true
+        var source = !string.IsNullOrWhiteSpace(input.NfeKey)
+            || input.Notes?.Contains("Importado via XML", StringComparison.OrdinalIgnoreCase) == true
             ? "nfe_xml"
             : "manual";
         var nfLabel = string.IsNullOrWhiteSpace(input.Number) ? "s/n" : input.Number.Trim();
@@ -845,6 +872,135 @@ public static class PurchaseService
         }
     }
 
+    private sealed class SalePriceAuditPending
+    {
+        public int ProductId { get; init; }
+        public string Code { get; init; } = "";
+        public string Name { get; init; } = "";
+        public double From { get; init; }
+        public double To { get; init; }
+    }
+
+    /// <summary>
+    /// Grava products.sale_price na mesma transação da compra, só nos itens
+    /// com UpdateSalePrice. Não altera unit_price da NF nem a fórmula de custo.
+    /// </summary>
+    private static List<SalePriceAuditPending> ApplySalePricesInTx(
+        SqliteConnection conn, SqliteTransaction tx, List<PurchaseItemInput> items)
+    {
+        TestBeforeApplySalePrice?.Invoke();
+        var pending = new List<SalePriceAuditPending>();
+
+        foreach (var item in items)
+        {
+            if (!item.UpdateSalePrice)
+                continue;
+
+            PurchaseSalePriceRules.RequireValidSalePrice(item.SalePrice);
+            var requested = ProductPriceHelper.RoundPrice(item.SalePrice);
+
+            using var get = conn.CreateCommand();
+            get.Transaction = tx;
+            get.CommandText = """
+                SELECT IFNULL(code,''), IFNULL(name,''), IFNULL(group_name,''),
+                       IFNULL(sale_price,0), IFNULL(cost_price,0), IFNULL(extra_json,'')
+                FROM products WHERE id = $id LIMIT 1;
+                """;
+            get.Parameters.AddWithValue("$id", item.ProductId);
+
+            string code;
+            string name;
+            string? group;
+            double oldSale;
+            double costPrice;
+            string extraJson;
+            using (var reader = get.ExecuteReader())
+            {
+                if (!reader.Read())
+                    throw new InvalidOperationException(
+                        $"Produto #{item.ProductId} não encontrado para atualizar o preço de venda.");
+                code = reader.GetString(0);
+                name = reader.GetString(1);
+                group = reader.IsDBNull(2) ? "" : reader.GetString(2);
+                oldSale = reader.GetDouble(3);
+                costPrice = reader.GetDouble(4);
+                extraJson = reader.IsDBNull(5) ? "" : reader.GetString(5);
+            }
+
+            var extra = ProductExtra.Parse(extraJson);
+            ProductClassificationHelper.FillMissing(name, ref group, extra);
+
+            var packFactor = extra.FatorEmbalagem > 1 ? extra.FatorEmbalagem
+                : extra.QtdAtacado > 1 ? extra.QtdAtacado : 1;
+            var isCigPack = ProductClassificationHelper.UsesPackPurchasePrice(name, group);
+            var cigsPerPack = isCigPack
+                ? ProductPriceHelper.ResolveCigarettesPerPack(name, packFactor)
+                : packFactor;
+            if (isCigPack && cigsPerPack >= 2)
+                packFactor = cigsPerPack;
+
+            var sale = ProductPriceHelper.ResolveCatalogSale(
+                requested, item.UnitPrice, packFactor, name, group);
+            PurchaseSalePriceRules.RequireValidSalePrice(sale);
+
+            if (packFactor > 1 && sale > 0)
+            {
+                extra.PrecoAtacado = isCigPack
+                    ? sale
+                    : ProductPriceCalculator.RoundPrice(sale * packFactor);
+            }
+
+            if (sale > 0 && costPrice > 0)
+                extra.LucroPercent = ProductPriceHelper.MarginOnSale(costPrice, sale);
+
+            using var upd = conn.CreateCommand();
+            upd.Transaction = tx;
+            upd.CommandText = """
+                UPDATE products
+                SET sale_price = $sale, extra_json = $extra
+                WHERE id = $id;
+                """;
+            upd.Parameters.AddWithValue("$sale", sale);
+            upd.Parameters.AddWithValue("$extra", extra.ToJson());
+            upd.Parameters.AddWithValue("$id", item.ProductId);
+            if (upd.ExecuteNonQuery() == 0)
+            {
+                throw new InvalidOperationException(
+                    $"Falha ao gravar o preço de venda do produto #{item.ProductId}.");
+            }
+
+            pending.Add(new SalePriceAuditPending
+            {
+                ProductId = item.ProductId,
+                Code = code,
+                Name = name,
+                From = oldSale,
+                To = sale,
+            });
+        }
+
+        TestAfterApplySalePrice?.Invoke();
+        return pending;
+    }
+
+    private static void LogSalePriceAudits(int purchaseId, List<SalePriceAuditPending> pending)
+    {
+        foreach (var row in pending)
+        {
+            if (PurchaseSalePriceRules.SameMoney(row.From, row.To))
+                continue;
+
+            var changes = new Dictionary<string, object>
+            {
+                ["preco_venda"] = new { de = row.From, para = row.To },
+            };
+            AuditService.LogJson("alterar", "produto", row.ProductId.ToString(),
+                AuditPayloadBuilder.ProductChange(
+                    row.ProductId, row.Code, row.Name, changes, "compra", purchaseId),
+                $"{row.Name}: preço R$ {row.From:N2} → R$ {row.To:N2}");
+        }
+    }
+
     private static void ValidateInput(PurchaseInput input)
     {
         if (input.SupplierId <= 0 && string.IsNullOrWhiteSpace(input.SupplierCnpj))
@@ -861,6 +1017,8 @@ public static class PurchaseService
                 throw new InvalidOperationException("Quantidade deve ser maior que zero.");
             if (item.UnitPrice < 0)
                 throw new InvalidOperationException("Preço unitário inválido (use 0,00 para brinde/prêmio).");
+            if (item.UpdateSalePrice)
+                item.SalePrice = PurchaseSalePriceRules.NormalizeSalePrice(item.SalePrice);
         }
     }
 

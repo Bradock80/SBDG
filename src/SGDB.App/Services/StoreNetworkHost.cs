@@ -47,6 +47,18 @@ public sealed class StoreNetworkHost : IDisposable
         DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
     };
 
+    /// <summary>Capabilities anunciadas em GET /api/status (apiVersion permanece 2).</summary>
+    internal static readonly string[] AdvertisedFeatures =
+    [
+        "movimentacao",
+        "pdv_resumo",
+        "dashboard",
+        "stock_report",
+        "pairing",
+        "session",
+        PurchaseSalePriceRules.AtomicFeature,
+    ];
+
     public static StoreNetworkHost StartNew(int? port = null)
     {
         lock (Sync)
@@ -308,7 +320,7 @@ public sealed class StoreNetworkHost : IDisposable
                 running = IsRunning,
                 apiVersion = 2,
                 authModes = new[] { "pin", "pairing", "session" },
-                features = new[] { "movimentacao", "pdv_resumo", "dashboard", "stock_report", "pairing", "session" },
+                features = AdvertisedFeatures,
             });
             return;
         }
@@ -536,7 +548,10 @@ public sealed class StoreNetworkHost : IDisposable
                     var id = PurchaseService.CreateLocal(input, close);
                     AuditService.Log("rede_compra_criar", "purchase", id.ToString(),
                         $"origem={origin}; close={close}");
-                    WriteJson(ex, 200, new { ok = true, id });
+                    var saleUpdates = close
+                        ? PurchaseSalePriceRules.CountRequestedSaleUpdates(input.Items)
+                        : 0;
+                    WriteJson(ex, 200, new { ok = true, id, salePriceUpdates = saleUpdates });
                     return;
                 }
             }
@@ -571,7 +586,10 @@ public sealed class StoreNetworkHost : IDisposable
                         PurchaseService.UpdateLocal(purchaseId, input, close);
                         AuditService.Log("rede_compra_atualizar", "purchase", purchaseId.ToString(),
                             $"origem={origin}; close={close}");
-                        WriteJson(ex, 200, new { ok = true });
+                        var saleUpdates = close
+                            ? PurchaseSalePriceRules.CountRequestedSaleUpdates(input.Items)
+                            : 0;
+                        WriteJson(ex, 200, new { ok = true, salePriceUpdates = saleUpdates });
                         return;
                     }
                     if (parts.Length == 1 && ex.Method == "DELETE")

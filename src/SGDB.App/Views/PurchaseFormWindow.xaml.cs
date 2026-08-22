@@ -45,6 +45,12 @@ public sealed class PurchaseItemDraft : INotifyPropertyChanged
     public double PrevCost { get; set; }
     public double PrevSale { get; set; }
 
+    /// <summary>
+    /// Intenção explícita de gravar SalePrice em products.sale_price.
+    /// Não é marcada só por carregar o preço do cadastro/XML.
+    /// </summary>
+    public bool UpdateSalePrice { get; set; }
+
     /// <summary>Itens por maço/fardo (cigarro=20). Usado só no Preço Venda/cadastro.</summary>
     public double PackFactor { get; set; } = 1;
     public string? GroupName { get; set; }
@@ -117,7 +123,7 @@ public sealed class PurchaseItemDraft : INotifyPropertyChanged
             // Mantém Pr. Venda; só recalcula margem % e sugerido.
             var keepSale = SalePrice > 0 ? SalePrice : PrevSale;
             if (keepSale > 0)
-                ApplySalePrice(keepSale);
+                ApplySalePrice(keepSale, asOperatorEdit: false);
             else
                 RecalcSuggestedFromMargin();
             OnPropertyChanged(nameof(UnitPriceDisplay));
@@ -137,7 +143,7 @@ public sealed class PurchaseItemDraft : INotifyPropertyChanged
     public string SalePriceDisplay
     {
         get => SalePrice.ToString("N2");
-        set => ApplySalePrice(ProductPriceHelper.ParseBr(value));
+        set => ApplySalePrice(ProductPriceHelper.ParseBr(value), asOperatorEdit: true);
     }
 
     private void RecalcSuggestedFromMargin()
@@ -155,16 +161,35 @@ public sealed class PurchaseItemDraft : INotifyPropertyChanged
         if (marginPercent >= 100) marginPercent = 99.99;
         Margin = ProductPriceHelper.RoundPrice(marginPercent);
         RecalcSuggestedFromMargin();
-        SalePrice = SuggestedPrice;
+        ApplySalePrice(SuggestedPrice, asOperatorEdit: true);
     }
 
     /// <summary>Define preço de venda (maço no cigarro) e recalcula margem %.</summary>
-    public void ApplySalePrice(double sale)
+    public void ApplySalePrice(double sale, bool asOperatorEdit = false)
     {
         sale = ProductPriceHelper.RoundPrice(Math.Max(0, sale));
         SalePrice = sale;
         SuggestedPrice = sale;
         Margin = ProductPriceHelper.MarginOnSale(CatalogCost, sale);
+        if (asOperatorEdit)
+            UpdateSalePrice = true;
+    }
+
+    /// <summary>Copiar o sugerido para Pr. Venda conta como alteração explícita.</summary>
+    public void AcceptSuggestedSale()
+    {
+        if (SuggestedPrice > 0)
+            ApplySalePrice(SuggestedPrice, asOperatorEdit: true);
+    }
+
+    /// <summary>
+    /// Sincroniza o valor visível do formulário superior no draft antes de fechar.
+    /// </summary>
+    public void SyncSaleFromForm(double visibleSale, bool operatorEdited)
+    {
+        if (visibleSale <= 0 && !operatorEdited)
+            return;
+        ApplySalePrice(visibleSale, asOperatorEdit: operatorEdited);
     }
 
     public static void FillPackMeta(PurchaseItemDraft draft, Product product)
@@ -264,6 +289,8 @@ public partial class PurchaseFormWindow : Window
     private PurchaseItemDraft? _editingItem;
     private bool _suppressPriceCalc;
     private bool _uiReady;
+    private bool _suppressSaleIntent;
+    private bool _formSaleEdited;
     private bool _suppressComboFilter;
     private bool _comboTypingGuard;
     private bool _suppressNfeKeyLookup;
@@ -483,6 +510,7 @@ public partial class PurchaseFormWindow : Window
         foreach (var item in _items)
             item.ApplyMarginPercent(margin);
 
+        RefreshAjustaPrecoFromSelection();
         StatusText.Text =
             $"Margem {margin:N0}% aplicada em todos. Depois altere Margem ou Pr. Venda na grade nos itens diferentes.";
         StatusText.Foreground = System.Windows.Media.Brushes.DarkGreen;
@@ -507,8 +535,10 @@ public partial class PurchaseFormWindow : Window
         }
         else if (header.Contains("Venda", StringComparison.OrdinalIgnoreCase))
         {
-            item.ApplySalePrice(value);
+            item.ApplySalePrice(value, asOperatorEdit: true);
             tb.Text = item.SalePriceDisplay;
+            if (ReferenceEquals(ItemsGrid.SelectedItem, item) || ReferenceEquals(_editingItem, item))
+                SetAjustaPrecoBox(true);
         }
         else if (header.StartsWith("Preço", StringComparison.OrdinalIgnoreCase))
         {
@@ -973,6 +1003,7 @@ public partial class PurchaseFormWindow : Window
         if (!_uiReady || _suppressPriceCalc)
             return;
         RecalcSaleFromMargin();
+        MarkFormSaleEdited();
     }
 
     private void SalePriceBox_TextChanged(object sender, TextChangedEventArgs e)
@@ -983,6 +1014,26 @@ public partial class PurchaseFormWindow : Window
         var sale = ProductPriceHelper.ParseBr(SalePriceBox.Text);
         MarginBox.Text = ProductPriceHelper.FormatBr(ProductPriceHelper.MarginOnSale(cost, sale));
         SuggestedPriceBox.Text = SalePriceBox.Text;
+        MarkFormSaleEdited();
+        if (ActiveSaleDraft() is PurchaseItemDraft item && sale > 0)
+            item.ApplySalePrice(sale, asOperatorEdit: true);
+    }
+
+    private void SuggestedPriceBox_MouseDoubleClick(object sender, MouseButtonEventArgs e)
+    {
+        if (_readOnly || !_uiReady)
+            return;
+        var suggested = ProductPriceHelper.ParseBr(SuggestedPriceBox.Text);
+        if (suggested <= 0)
+            return;
+        _suppressPriceCalc = true;
+        SalePriceBox.Text = ProductPriceHelper.FormatBr(suggested);
+        _suppressPriceCalc = false;
+        MarkFormSaleEdited();
+        if (ActiveSaleDraft() is PurchaseItemDraft item)
+            item.AcceptSuggestedSale();
+        else
+            SetAjustaPrecoBox(true);
     }
 
     /// <summary>
@@ -1041,6 +1092,7 @@ public partial class PurchaseFormWindow : Window
         _itemMode = ItemEntryMode.Adding;
         _editingItem = null;
         ClearItemEntry();
+        SetAjustaPrecoBox(false);
         ProductBox.Focus();
         UpdateItemButtons();
     }
@@ -1106,10 +1158,18 @@ public partial class PurchaseFormWindow : Window
             SuggestedPrice = ProductPriceHelper.ParseBr(SuggestedPriceBox.Text),
             PrevSale = ProductPriceHelper.ParseBr(PrevSaleBox.Text),
             SalePrice = ProductPriceHelper.ParseBr(SalePriceBox.Text),
+            UpdateSalePrice = AjustaPrecoBox.IsChecked == true,
         };
 
         if (_itemMode == ItemEntryMode.Editing && _editingItem is not null)
         {
+            draft.PackFactor = _editingItem.PackFactor;
+            draft.GroupName = _editingItem.GroupName;
+            draft.LotNumber = _editingItem.LotNumber;
+            draft.ExpiryDate = _editingItem.ExpiryDate;
+            draft.HasXmlRastro = _editingItem.HasXmlRastro;
+            draft.UnitPriceWithoutSt = _editingItem.UnitPriceWithoutSt;
+            draft.UnitPriceWithSt = _editingItem.UnitPriceWithSt;
             var idx = _items.IndexOf(_editingItem);
             if (idx >= 0)
             {
@@ -1129,6 +1189,7 @@ public partial class PurchaseFormWindow : Window
         _editingItem = null;
         UpdateItemButtons();
         UpdateTotals();
+        RefreshAjustaPrecoFromSelection();
     }
 
     private void ItemCancel_Click(object sender, RoutedEventArgs e)
@@ -1144,7 +1205,10 @@ public partial class PurchaseFormWindow : Window
         if (!_uiReady)
             return;
         if (_itemMode == ItemEntryMode.Idle && ItemsGrid.SelectedItem is PurchaseItemDraft item)
+        {
             ItemSeqBox.Text = item.Seq.ToString();
+            RefreshAjustaPrecoFromSelection();
+        }
     }
 
     private void LoadItemToEntry(PurchaseItemDraft item)
@@ -1167,6 +1231,8 @@ public partial class PurchaseFormWindow : Window
         PrevSaleBox.Text = ProductPriceHelper.FormatBr(item.PrevSale);
         SalePriceBox.Text = ProductPriceHelper.FormatBr(item.SalePrice);
         ItemSeqBox.Text = item.Seq.ToString();
+        _formSaleEdited = false;
+        SetAjustaPrecoBox(item.UpdateSalePrice);
         _suppressPriceCalc = false;
         UpdateLineTotal();
     }
@@ -1194,6 +1260,7 @@ public partial class PurchaseFormWindow : Window
         FcpBox.Text = "0,00";
         CsosnBox.Text = "";
         ItemSeqBox.Text = "0";
+        _formSaleEdited = false;
         _suppressPriceCalc = false;
     }
 
@@ -1562,7 +1629,7 @@ public partial class PurchaseFormWindow : Window
             var defaultMargin = ProductPriceHelper.ParseBr(MargemGeralBox.Text);
             if (defaultMargin <= 0 || defaultMargin >= 100)
                 defaultMargin = 30;
-            AjustaPrecoBox.IsChecked = false;
+            SetAjustaPrecoBox(false);
 
             foreach (var item in preview.Items)
             {
@@ -1706,7 +1773,8 @@ public partial class PurchaseFormWindow : Window
                 "Na grade:\n" +
                 "• Qtd e Preço = unitário da NF (bate com estoque e XML)\n" +
                 "• Pr. Sugerido = custo novo com a margem padrão\n" +
-                "• Pr. Venda = preço atual do cadastro (só muda se marcar a opção abaixo)\n";
+                "• Pr. Venda = preço atual do cadastro; se você alterar, o cadastro é atualizado\n" +
+                "  (desmarque “Também ajustar preço de venda” para não gravar)\n";
             if (stDiffItems.Count > 0)
             {
                 msg += "\nCusto sem ICMS-ST (padrão) × com ST:\n";
@@ -1930,6 +1998,7 @@ public partial class PurchaseFormWindow : Window
         }
 
         var gerarEstoque = GerarEstoqueBox.IsChecked == true;
+        SyncActiveItemBeforeSave();
         if (closeOnSave && gerarEstoque && _fromNfeXml && _items.Count > 0)
         {
             var proxy = _items.Select(i => new NfeImportItem
@@ -1986,6 +2055,8 @@ public partial class PurchaseFormWindow : Window
                 UnitPrice = i.UnitPrice,
                 LotNumber = i.LotNumber,
                 ExpiryDate = i.ExpiryDate,
+                SalePrice = i.SalePrice,
+                UpdateSalePrice = i.UpdateSalePrice,
             }).ToList(),
         };
 
@@ -2003,7 +2074,7 @@ public partial class PurchaseFormWindow : Window
             }
 
             if (closeOnSave)
-                ApplyPurchasePricesToProducts(updateSale: AjustaPrecoBox.IsChecked == true);
+                ApplyPurchasePricesToProducts(updateSale: false);
 
             // Abre Contas a Pagar sempre que gerou financeiro (parcelas), com ou sem estoque
             if (closeOnSave && financeiro is not null)
@@ -2018,10 +2089,71 @@ public partial class PurchaseFormWindow : Window
         }
     }
 
+    private PurchaseItemDraft? ActiveSaleDraft()
+    {
+        if (_itemMode == ItemEntryMode.Adding)
+            return null;
+        return _editingItem ?? ItemsGrid.SelectedItem as PurchaseItemDraft;
+    }
+
+    private void MarkFormSaleEdited()
+    {
+        _formSaleEdited = true;
+        SetAjustaPrecoBox(true);
+    }
+
+    private void SetAjustaPrecoBox(bool value)
+    {
+        _suppressSaleIntent = true;
+        try
+        {
+            if (AjustaPrecoBox is not null)
+                AjustaPrecoBox.IsChecked = value;
+        }
+        finally
+        {
+            _suppressSaleIntent = false;
+        }
+    }
+
+    private void RefreshAjustaPrecoFromSelection()
+    {
+        SetAjustaPrecoBox(ActiveSaleDraft()?.UpdateSalePrice == true);
+    }
+
+    private void AjustaPrecoBox_Changed(object sender, RoutedEventArgs e)
+    {
+        if (_suppressSaleIntent || !_uiReady)
+            return;
+        var item = ActiveSaleDraft();
+        if (item is not null)
+            item.UpdateSalePrice = AjustaPrecoBox.IsChecked == true;
+    }
+
+    /// <summary>
+    /// Garante que o Valor Venda visível no formulário entre no draft antes de fechar.
+    /// A última decisão do checkbox (desmarcar) vence para o item em edição.
+    /// </summary>
+    private void SyncActiveItemBeforeSave()
+    {
+        if (_itemMode == ItemEntryMode.Idle && !_formSaleEdited)
+            return;
+
+        var item = _editingItem ?? ItemsGrid.SelectedItem as PurchaseItemDraft;
+        if (item is null)
+            return;
+
+        var sale = ProductPriceHelper.ParseBr(SalePriceBox.Text);
+        if (sale > 0 || _formSaleEdited)
+            item.SyncSaleFromForm(sale, operatorEdited: _formSaleEdited);
+
+        item.UpdateSalePrice = AjustaPrecoBox.IsChecked == true;
+    }
+
     /// <summary>
     /// Ao finalizar: atualiza Preço Compra (desta NF) e Preço Custo (média ponderada se gerou estoque).
-    /// Preço Venda / maço só mudam se updateSale = true.
-    /// Preço 0,00 é permitido (brinde/prêmio) e entra na média.
+    /// Preço de venda do cadastro já foi gravado na transação da compra quando UpdateSalePrice.
+    /// Aqui o ramo updateSale permanece só para a promoção cigarro &lt; 5 → maço (sem checkbox).
     /// </summary>
     private void ApplyPurchasePricesToProducts(bool updateSale)
     {

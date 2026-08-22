@@ -127,8 +127,23 @@ public static class AuditPayloadBuilder
     public static object PdvDiscount(int saleId, double subtotal, double discount, double discountPct, double totalAfter, string paymentType) =>
         new { op = "desconto", sale_id = saleId, subtotal, discount, discount_pct = discountPct, total_after = totalAfter, payment_type = paymentType };
 
-    public static object ProductChange(int productId, string code, string name, Dictionary<string, object> changes, string source) =>
-        new { op = "alterar_produto", product_id = productId, code, name, changes, source };
+    public static object ProductChange(
+        int productId,
+        string code,
+        string name,
+        Dictionary<string, object> changes,
+        string source,
+        int? purchaseId = null) =>
+        new
+        {
+            op = "alterar_produto",
+            product_id = productId,
+            code,
+            name,
+            changes,
+            source,
+            purchase_id = purchaseId,
+        };
 
     public static object PurchaseEntry(int purchaseId, int supplierId, string? supplierName, string? number, string? nfeKey, double total, int itemsCount, bool gerarEstoque, string source) =>
         new { op = "entrada_compra", purchase_id = purchaseId, supplier_id = supplierId, supplier_name = supplierName, number, nfe_key = nfeKey, total, items_count = itemsCount, gerar_estoque = gerarEstoque, source };
