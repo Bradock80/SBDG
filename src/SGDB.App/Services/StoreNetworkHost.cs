@@ -57,6 +57,7 @@ public sealed class StoreNetworkHost : IDisposable
         "pairing",
         "session",
         PurchaseSalePriceRules.AtomicFeature,
+        PurchaseAverageCostRules.AtomicFeature,
     ];
 
     public static StoreNetworkHost StartNew(int? port = null)
@@ -551,7 +552,10 @@ public sealed class StoreNetworkHost : IDisposable
                     var saleUpdates = close
                         ? PurchaseSalePriceRules.CountRequestedSaleUpdates(input.Items)
                         : 0;
-                    WriteJson(ex, 200, new { ok = true, id, salePriceUpdates = saleUpdates });
+                    var costUpdates = close
+                        ? PurchaseAverageCostRules.CountAppliedProductUpdates(input)
+                        : 0;
+                    WriteJson(ex, 200, new { ok = true, id, salePriceUpdates = saleUpdates, averageCostUpdates = costUpdates });
                     return;
                 }
             }
@@ -589,7 +593,10 @@ public sealed class StoreNetworkHost : IDisposable
                         var saleUpdates = close
                             ? PurchaseSalePriceRules.CountRequestedSaleUpdates(input.Items)
                             : 0;
-                        WriteJson(ex, 200, new { ok = true, salePriceUpdates = saleUpdates });
+                        var costUpdates = close
+                            ? PurchaseAverageCostRules.CountAppliedProductUpdates(input)
+                            : 0;
+                        WriteJson(ex, 200, new { ok = true, salePriceUpdates = saleUpdates, averageCostUpdates = costUpdates });
                         return;
                     }
                     if (parts.Length == 1 && ex.Method == "DELETE")

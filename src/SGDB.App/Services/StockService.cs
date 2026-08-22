@@ -76,6 +76,8 @@ public static class StockService
             ?? throw new InvalidOperationException("Produto não encontrado.");
 
         var stockBefore = product.Stock;
+        var stockBeforeForAverage = PurchaseAverageCostRules.PhysicalStock(
+            product.Stock, product.StockFridge);
         string movType;
         double qty;
         string finalNotes;
@@ -131,8 +133,9 @@ public static class StockService
         if (applyCost)
         {
             var incoming = Math.Max(0, unitCost!.Value);
+            PurchaseAverageCostRules.RequireUsableStockBefore(stockBeforeForAverage, product.Name);
             var newCost = ProductPriceHelper.WeightedAverageCost(
-                stockBefore, product.CostPrice, qty, incoming);
+                stockBeforeForAverage, product.CostPrice, qty, incoming);
             movementUnitPrice = incoming;
 
             var extra = ProductExtra.Parse(product.ExtraJson);
@@ -1182,7 +1185,8 @@ public static class StockService
         using var cmd = conn.CreateCommand();
         cmd.Transaction = tx;
         cmd.CommandText = """
-            SELECT id, IFNULL(stock,0), IFNULL(cost_price,0), IFNULL(extra_json,'')
+            SELECT id, IFNULL(stock,0), IFNULL(cost_price,0), IFNULL(extra_json,''),
+                   IFNULL(name,''), IFNULL(stock_fridge,0)
             FROM products WHERE id = $id LIMIT 1;
             """;
         cmd.Parameters.AddWithValue("$id", id);
@@ -1192,7 +1196,9 @@ public static class StockService
             reader.GetInt32(0),
             reader.GetDouble(1),
             reader.GetDouble(2),
-            reader.IsDBNull(3) ? "" : reader.GetString(3));
+            reader.IsDBNull(3) ? "" : reader.GetString(3),
+            reader.IsDBNull(4) ? "" : reader.GetString(4),
+            reader.GetDouble(5));
     }
 
     private static ProductFridgeStock? GetProductFridge(SqliteConnection conn, SqliteTransaction tx, int id)
@@ -1282,7 +1288,8 @@ public static class StockService
     private static double Round4(double v) => Math.Round(v, 4);
 
     private sealed record ProductStock(int Id, double Stock, double CostPrice);
-    private sealed record ProductStockExtra(int Id, double Stock, double CostPrice, string ExtraJson);
+    private sealed record ProductStockExtra(
+        int Id, double Stock, double CostPrice, string ExtraJson, string Name, double StockFridge);
     private sealed record ProductFridgeStock(
         int Id, double Stock, double CostPrice, double StockFridge, int StockFridgeMin);
 }

@@ -32,6 +32,11 @@ public sealed class PurchaseInput
     public required string Number { get; set; }
     public string? NfeKey { get; set; }
     public bool GerarEstoque { get; set; } = true;
+    /// <summary>
+    /// Atualiza cost_price / preco_compra ao fechar. Padrão true (tela Compras).
+    /// O módulo Importar XML pode desligar para só movimentar estoque.
+    /// </summary>
+    public bool UpdateAverageCost { get; set; } = true;
     public string? Notes { get; set; }
     public List<PurchaseItemInput> Items { get; set; } = [];
 }
@@ -58,6 +63,18 @@ public static class PurchaseService
     /// Deve permanecer null em produção.
     /// </summary>
     public static Action? TestAfterApplySalePrice { get; set; }
+
+    /// <summary>
+    /// Somente testes: invocado imediatamente antes de atualizar cost_price / preco_compra.
+    /// Deve permanecer null em produção.
+    /// </summary>
+    public static Action? TestBeforeApplyAverageCost { get; set; }
+
+    /// <summary>
+    /// Somente testes: invocado depois de atualizar o custo médio e antes do commit.
+    /// Deve permanecer null em produção.
+    /// </summary>
+    public static Action? TestAfterApplyAverageCost { get; set; }
 
     /// <summary>Última entrada do produto pela data de entrada da compra.</summary>
     public static ProductLastEntry? GetLastEntry(int productId)
@@ -438,10 +455,15 @@ public static class PurchaseService
             var id = Convert.ToInt32(cmd.ExecuteScalar());
             InsertItems(conn, tx, id, input.Items);
 
+            Dictionary<int, ProductCostSnapshot>? costSnapshots = null;
+            if (closeOnSave && input.UpdateAverageCost)
+                costSnapshots = LoadCostSnapshots(conn, tx, input.Items);
+
             if (closeOnSave && input.GerarEstoque)
                 ApplyStock(conn, tx, id, input.Items, reverse: false);
 
             List<SalePriceAuditPending> saleAudits = [];
+            List<CostAuditPending> costAudits = [];
             if (closeOnSave)
             {
                 using var close = conn.CreateCommand();
@@ -451,6 +473,8 @@ public static class PurchaseService
                 close.ExecuteNonQuery();
                 PayableService.SyncFromPurchase(conn, tx, id);
                 saleAudits = ApplySalePricesInTx(conn, tx, input.Items);
+                if (input.UpdateAverageCost)
+                    costAudits = ApplyAverageCostsInTx(conn, tx, input, costSnapshots!);
             }
 
             tx.Commit();
@@ -458,6 +482,7 @@ public static class PurchaseService
             {
                 LogPurchaseAudit(id, input, total);
                 LogSalePriceAudits(id, saleAudits);
+                LogCostAudits(id, costAudits);
             }
             return id;
         }
@@ -530,10 +555,15 @@ public static class PurchaseService
 
         InsertItems(conn, tx, id, input.Items);
 
+        Dictionary<int, ProductCostSnapshot>? costSnapshots = null;
+        if (closeOnSave && input.UpdateAverageCost)
+            costSnapshots = LoadCostSnapshots(conn, tx, input.Items);
+
         if (closeOnSave && input.GerarEstoque)
             ApplyStock(conn, tx, id, input.Items, reverse: false);
 
         List<SalePriceAuditPending> saleAudits = [];
+        List<CostAuditPending> costAudits = [];
         if (closeOnSave)
         {
             using var close = conn.CreateCommand();
@@ -543,6 +573,8 @@ public static class PurchaseService
             close.ExecuteNonQuery();
             PayableService.SyncFromPurchase(conn, tx, id);
             saleAudits = ApplySalePricesInTx(conn, tx, input.Items);
+            if (input.UpdateAverageCost)
+                costAudits = ApplyAverageCostsInTx(conn, tx, input, costSnapshots!);
         }
 
         tx.Commit();
@@ -550,6 +582,7 @@ public static class PurchaseService
         {
             LogPurchaseAudit(id, input, total);
             LogSalePriceAudits(id, saleAudits);
+            LogCostAudits(id, costAudits);
         }
     }
 
@@ -814,47 +847,43 @@ public static class PurchaseService
 
     /// <summary>
     /// Desfaz a média ponderada aplicada no finalize (best-effort se houve vendas depois).
+    /// Agrega linhas do mesmo produto; usa depósito + geladeira na mesma unidade da média.
     /// </summary>
     private static void ReversePurchaseCostEffects(
         SqliteConnection conn, SqliteTransaction tx, List<PurchaseItemInput> items)
     {
-        foreach (var item in items)
+        foreach (var group in items.Where(i => i.ProductId > 0 && i.Quantity > 0).GroupBy(i => i.ProductId))
         {
             using var get = conn.CreateCommand();
             get.Transaction = tx;
             get.CommandText = """
-                SELECT IFNULL(stock,0), IFNULL(cost_price,0), IFNULL(name,''), IFNULL(group_name,''),
-                       IFNULL(extra_json,'')
+                SELECT IFNULL(stock,0), IFNULL(stock_fridge,0), IFNULL(cost_price,0),
+                       IFNULL(name,''), IFNULL(group_name,''), IFNULL(extra_json,'')
                 FROM products WHERE id = $id LIMIT 1;
                 """;
-            get.Parameters.AddWithValue("$id", item.ProductId);
+            get.Parameters.AddWithValue("$id", group.Key);
             using var reader = get.ExecuteReader();
             if (!reader.Read())
                 continue;
 
-            var stock = reader.GetDouble(0);
-            var cost = reader.GetDouble(1);
-            var name = reader.IsDBNull(2) ? "" : reader.GetString(2);
-            var group = reader.IsDBNull(3) ? "" : reader.GetString(3);
-            var extraJson = reader.IsDBNull(4) ? "" : reader.GetString(4);
+            var warehouse = reader.GetDouble(0);
+            var fridge = reader.GetDouble(1);
+            var cost = reader.GetDouble(2);
+            var name = reader.IsDBNull(3) ? "" : reader.GetString(3);
+            string? groupName = reader.IsDBNull(4) ? "" : reader.GetString(4);
+            var extraJson = reader.IsDBNull(5) ? "" : reader.GetString(5);
             reader.Close();
 
             var extra = ProductExtra.Parse(extraJson);
-            var packFactor = extra.FatorEmbalagem >= 1 ? extra.FatorEmbalagem : 1;
-            var lineTotal = ProductPriceCalculator.RoundPrice(item.Quantity * item.UnitPrice);
-            var lineCost = ProductPriceHelper.ResolveCatalogCost(
-                item.UnitPrice, packFactor, name, group, lineTotal, item.Quantity);
+            ProductClassificationHelper.FillMissing(name, ref groupName, extra);
+            var packFactor = extra.FatorEmbalagem > 1 ? extra.FatorEmbalagem
+                : extra.QtdAtacado > 1 ? extra.QtdAtacado : 1;
 
-            double qtyForAvg = item.Quantity;
-            if (ProductClassificationHelper.UsesPackPurchasePrice(name, group))
-            {
-                var cigs = ProductPriceHelper.ResolveCigarettesPerPack(name, packFactor);
-                if (cigs >= 2)
-                    qtyForAvg = item.Quantity / cigs;
-            }
-
-            var restored = ProductPriceHelper.RemoveFromWeightedAverage(
-                stock, cost, qtyForAvg, lineCost);
+            var lines = group
+                .Select(i => (i.Quantity, i.UnitPrice))
+                .ToList();
+            var restored = PurchaseAverageCostRules.RemovePurchaseFromAverage(
+                warehouse, fridge, cost, name, groupName, packFactor, lines);
 
             extra.PrecoCompra = restored;
 
@@ -867,7 +896,7 @@ public static class PurchaseService
                 """;
             upd.Parameters.AddWithValue("$cost", restored);
             upd.Parameters.AddWithValue("$extra", extra.ToJson());
-            upd.Parameters.AddWithValue("$id", item.ProductId);
+            upd.Parameters.AddWithValue("$id", group.Key);
             upd.ExecuteNonQuery();
         }
     }
@@ -879,6 +908,185 @@ public static class PurchaseService
         public string Name { get; init; } = "";
         public double From { get; init; }
         public double To { get; init; }
+    }
+
+    private sealed class CostAuditPending
+    {
+        public int ProductId { get; init; }
+        public string Code { get; init; } = "";
+        public string Name { get; init; } = "";
+        public double CostFrom { get; init; }
+        public double CostTo { get; init; }
+        public double PrecoCompraTo { get; init; }
+    }
+
+    private sealed class ProductCostSnapshot
+    {
+        public int ProductId { get; init; }
+        public double Warehouse { get; init; }
+        public double Fridge { get; init; }
+        public double CostPrice { get; init; }
+        public string Name { get; init; } = "";
+        public string GroupName { get; init; } = "";
+        public string Code { get; init; } = "";
+    }
+
+    private static Dictionary<int, ProductCostSnapshot> LoadCostSnapshots(
+        SqliteConnection conn, SqliteTransaction tx, List<PurchaseItemInput> items)
+    {
+        var map = new Dictionary<int, ProductCostSnapshot>();
+        foreach (var productId in items.Select(i => i.ProductId).Where(id => id > 0).Distinct())
+        {
+            using var cmd = conn.CreateCommand();
+            cmd.Transaction = tx;
+            cmd.CommandText = """
+                SELECT IFNULL(stock,0), IFNULL(stock_fridge,0), IFNULL(cost_price,0),
+                       IFNULL(name,''), IFNULL(group_name,''), IFNULL(code,'')
+                FROM products WHERE id = $id LIMIT 1;
+                """;
+            cmd.Parameters.AddWithValue("$id", productId);
+            using var reader = cmd.ExecuteReader();
+            if (!reader.Read())
+                throw new InvalidOperationException($"Produto #{productId} não encontrado para atualizar o custo médio.");
+            map[productId] = new ProductCostSnapshot
+            {
+                ProductId = productId,
+                Warehouse = reader.GetDouble(0),
+                Fridge = reader.GetDouble(1),
+                CostPrice = reader.GetDouble(2),
+                Name = reader.GetString(3),
+                GroupName = reader.IsDBNull(4) ? "" : reader.GetString(4),
+                Code = reader.IsDBNull(5) ? "" : reader.GetString(5),
+            };
+        }
+        return map;
+    }
+
+    /// <summary>
+    /// Grava cost_price (média) e extra.preco_compra (último custo da NF)
+    /// na mesma transação da compra, usando o estoque ANTERIOR à entrada
+    /// (snapshot antes de ApplyStock). Agrega linhas do mesmo ProductId.
+    /// </summary>
+    private static List<CostAuditPending> ApplyAverageCostsInTx(
+        SqliteConnection conn,
+        SqliteTransaction tx,
+        PurchaseInput input,
+        Dictionary<int, ProductCostSnapshot> snapshots)
+    {
+        TestBeforeApplyAverageCost?.Invoke();
+        var pending = new List<CostAuditPending>();
+        var groups = input.Items
+            .Where(i => i.ProductId > 0 && i.Quantity > 0)
+            .GroupBy(i => i.ProductId);
+
+        foreach (var group in groups)
+        {
+            if (!snapshots.TryGetValue(group.Key, out var snap))
+                throw new InvalidOperationException(
+                    $"Produto #{group.Key} não encontrado para atualizar o custo médio.");
+
+            using var get = conn.CreateCommand();
+            get.Transaction = tx;
+            get.CommandText = """
+                SELECT IFNULL(code,''), IFNULL(name,''), IFNULL(group_name,''),
+                       IFNULL(sale_price,0), IFNULL(extra_json,'')
+                FROM products WHERE id = $id LIMIT 1;
+                """;
+            get.Parameters.AddWithValue("$id", group.Key);
+            string code;
+            string name;
+            string? groupName;
+            double sale;
+            string extraJson;
+            using (var reader = get.ExecuteReader())
+            {
+                if (!reader.Read())
+                    throw new InvalidOperationException(
+                        $"Produto #{group.Key} não encontrado para atualizar o custo médio.");
+                code = reader.GetString(0);
+                name = reader.GetString(1);
+                groupName = reader.IsDBNull(2) ? "" : reader.GetString(2);
+                sale = reader.GetDouble(3);
+                extraJson = reader.IsDBNull(4) ? "" : reader.GetString(4);
+            }
+
+            var extra = ProductExtra.Parse(extraJson);
+            ProductClassificationHelper.FillMissing(name, ref groupName, extra);
+            var packFactor = extra.FatorEmbalagem > 1 ? extra.FatorEmbalagem
+                : extra.QtdAtacado > 1 ? extra.QtdAtacado : 1;
+            var isCigPack = ProductClassificationHelper.UsesPackPurchasePrice(name, groupName);
+            var cigsPerPack = isCigPack
+                ? ProductPriceHelper.ResolveCigarettesPerPack(name, packFactor)
+                : packFactor;
+            if (isCigPack && cigsPerPack >= 2)
+            {
+                packFactor = cigsPerPack;
+                if (extra.FatorEmbalagem <= 1)
+                    extra.FatorEmbalagem = cigsPerPack;
+                if (extra.QtdAtacado <= 1)
+                    extra.QtdAtacado = cigsPerPack;
+            }
+            else if (packFactor > 1)
+            {
+                if (extra.QtdAtacado <= 1)
+                    extra.QtdAtacado = packFactor;
+                if (extra.FatorEmbalagem <= 1)
+                    extra.FatorEmbalagem = packFactor;
+            }
+
+            var lines = group.Select(i => (i.Quantity, i.UnitPrice)).ToList();
+            var lastCost = PurchaseAverageCostRules.LastLineCatalogCost(
+                name, groupName, packFactor, lines);
+            extra.PrecoCompra = Math.Round(lastCost, 4);
+
+            double costToStore;
+            if (input.GerarEstoque)
+            {
+                costToStore = PurchaseAverageCostRules.WeightedAverageFromLines(
+                    snap.Warehouse, snap.Fridge, snap.CostPrice,
+                    name, groupName, packFactor, lines);
+            }
+            else if (group.Last().UnitPrice > 0)
+            {
+                costToStore = lastCost;
+            }
+            else
+            {
+                costToStore = snap.CostPrice;
+            }
+
+            if (sale > 0 && costToStore > 0)
+                extra.LucroPercent = ProductPriceHelper.MarginOnSale(costToStore, sale);
+
+            using var upd = conn.CreateCommand();
+            upd.Transaction = tx;
+            upd.CommandText = """
+                UPDATE products
+                SET cost_price = $cost, extra_json = $extra
+                WHERE id = $id;
+                """;
+            upd.Parameters.AddWithValue("$cost", costToStore);
+            upd.Parameters.AddWithValue("$extra", extra.ToJson());
+            upd.Parameters.AddWithValue("$id", group.Key);
+            if (upd.ExecuteNonQuery() == 0)
+            {
+                throw new InvalidOperationException(
+                    $"Falha ao gravar o custo médio do produto #{group.Key}.");
+            }
+
+            pending.Add(new CostAuditPending
+            {
+                ProductId = group.Key,
+                Code = string.IsNullOrWhiteSpace(code) ? snap.Code : code,
+                Name = name,
+                CostFrom = snap.CostPrice,
+                CostTo = costToStore,
+                PrecoCompraTo = extra.PrecoCompra,
+            });
+        }
+
+        TestAfterApplyAverageCost?.Invoke();
+        return pending;
     }
 
     /// <summary>
@@ -1001,6 +1209,25 @@ public static class PurchaseService
         }
     }
 
+    private static void LogCostAudits(int purchaseId, List<CostAuditPending> pending)
+    {
+        foreach (var row in pending)
+        {
+            if (PurchaseSalePriceRules.SameMoney(row.CostFrom, row.CostTo))
+                continue;
+
+            var changes = new Dictionary<string, object>
+            {
+                ["preco_custo"] = new { de = row.CostFrom, para = row.CostTo },
+                ["preco_compra"] = row.PrecoCompraTo,
+            };
+            AuditService.LogJson("alterar", "produto", row.ProductId.ToString(),
+                AuditPayloadBuilder.ProductChange(
+                    row.ProductId, row.Code, row.Name, changes, "compra", purchaseId),
+                $"{row.Name}: custo R$ {row.CostFrom:N2} → R$ {row.CostTo:N2}");
+        }
+    }
+
     private static void ValidateInput(PurchaseInput input)
     {
         if (input.SupplierId <= 0 && string.IsNullOrWhiteSpace(input.SupplierCnpj))
@@ -1013,9 +1240,9 @@ public static class PurchaseService
         {
             if (item.ProductId <= 0)
                 throw new InvalidOperationException("Item sem produto válido.");
-            if (item.Quantity <= 0)
+            if (!double.IsFinite(item.Quantity) || item.Quantity <= 0)
                 throw new InvalidOperationException("Quantidade deve ser maior que zero.");
-            if (item.UnitPrice < 0)
+            if (!double.IsFinite(item.UnitPrice) || item.UnitPrice < 0)
                 throw new InvalidOperationException("Preço unitário inválido (use 0,00 para brinde/prêmio).");
             if (item.UpdateSalePrice)
                 item.SalePrice = PurchaseSalePriceRules.NormalizeSalePrice(item.SalePrice);

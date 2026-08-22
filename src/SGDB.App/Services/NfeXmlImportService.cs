@@ -391,7 +391,6 @@ public static class NfeXmlImportService
 
         var purchaseItems = new List<PurchaseItemInput>();
         var createdProducts = 0;
-        var originalCosts = new Dictionary<int, double>();
         var supplierId = supplier.Id;
 
         foreach (var item in preview.Items)
@@ -402,10 +401,7 @@ public static class NfeXmlImportService
                 productId = existingId;
                 var existing = ProductService.GetById(existingId);
                 if (existing is not null)
-                {
-                    originalCosts[existingId] = existing.CostPrice;
                     ProductService.EnsureCleanCatalogName(existing, item.Name);
-                }
                 if (item.PackFactor > 1)
                     TryUpdatePackInfo(productId, item);
                 if (item.SalePrice > 0 && updateCost)
@@ -418,7 +414,6 @@ public static class NfeXmlImportService
                 if (resolved is not null)
                 {
                     productId = resolved.Id;
-                    originalCosts[productId] = resolved.CostPrice;
                     ProductService.EnsureCleanCatalogName(resolved, item.Name);
                     if (item.PackFactor > 1)
                         TryUpdatePackInfo(productId, item);
@@ -464,7 +459,6 @@ public static class NfeXmlImportService
                     if (barcodeGuard is not null)
                     {
                         productId = barcodeGuard.Id;
-                        originalCosts[productId] = barcodeGuard.CostPrice;
                         ProductService.EnsureCleanCatalogName(barcodeGuard, item.Name);
                     }
                     else
@@ -516,6 +510,7 @@ public static class NfeXmlImportService
             Number = preview.Numero,
             NfeKey = string.IsNullOrWhiteSpace(preview.Chave) ? null : preview.Chave,
             GerarEstoque = updateStock,
+            UpdateAverageCost = updateCost,
             Notes = PurchaseFinanceHelper.AppendFinanceiroToNotes(baseNotes, financeiro),
             Items = purchaseItems,
         };
@@ -524,15 +519,9 @@ public static class NfeXmlImportService
         // Estoque só entra se updateStock=true.
         var purchaseId = PurchaseService.Create(input, closeOnSave: true);
 
-        // Atualiza cadastro (custo maço p/ cigarro) e fator de embalagem.
+        // Meta de embalagem / venda da tela Importar XML (custo médio já entrou na tx da compra).
         if (updateStock)
-            ApplyPackMetaAfterPurchase(preview, purchaseItems, updateCost, originalCosts, marginPercent);
-
-        if (updateStock && !updateCost)
-        {
-            foreach (var (productId, originalCost) in originalCosts)
-                RestoreCostPrice(productId, originalCost);
-        }
+            ApplyPackMetaAfterPurchase(preview, purchaseItems, updateCost, marginPercent);
 
         return new NfeImportApplyResult
         {
@@ -550,7 +539,6 @@ public static class NfeXmlImportService
         NfeImportPreview preview,
         List<PurchaseItemInput> purchaseItems,
         bool updateCost,
-        IReadOnlyDictionary<int, double> originalCosts,
         double? marginPercent)
     {
         for (var i = 0; i < preview.Items.Count && i < purchaseItems.Count; i++)
@@ -582,42 +570,11 @@ public static class NfeXmlImportService
             }
 
             var costUnit = Math.Max(0, item.UnitPrice);
-            var lineCost = ProductPriceHelper.ResolveCatalogCost(
-                costUnit, Math.Max(packFactor, cigsPerPack), product.Name, group,
-                item.TotalValue > 0 ? item.TotalValue : item.Quantity * item.UnitPrice,
-                item.Quantity);
-
             var sale = product.SalePrice;
-            double costToStore = product.CostPrice;
+            var costToStore = product.CostPrice;
 
             if (updateCost)
             {
-                extra.PrecoCompra = Math.Round(lineCost, 4); // desta NF (0 = brinde)
-
-                // Custo ANTES desta NF (ApplySalePrice não pode ter sobrescrito).
-                var costBefore = originalCosts.TryGetValue(product.Id, out var oc)
-                    ? oc
-                    : product.CostPrice;
-
-                // Custo antigo absurdo (ex.: maço × 20 gravado errado) → descarta na média.
-                if (usePack && lineCost > 0.5 && costBefore > Math.Max(40, lineCost * 2.5))
-                    costBefore = lineCost;
-
-                // Estoque já somado em PurchaseService.ApplyStock
-                var stockBefore = Math.Max(0, product.Stock - purchaseItem.Quantity);
-                if (usePack && cigsPerPack >= 2)
-                {
-                    var packsBefore = stockBefore / cigsPerPack;
-                    var packsIn = purchaseItem.Quantity / cigsPerPack;
-                    costToStore = ProductPriceHelper.WeightedAverageCost(
-                        packsBefore, costBefore, packsIn, lineCost);
-                }
-                else
-                {
-                    costToStore = ProductPriceHelper.WeightedAverageCost(
-                        stockBefore, costBefore, purchaseItem.Quantity, lineCost);
-                }
-
                 if (item.SalePrice > 0 || usePack)
                 {
                     sale = ProductPriceHelper.ResolveCatalogSale(
@@ -657,30 +614,6 @@ public static class NfeXmlImportService
                 Active = product.Active,
             });
         }
-    }
-
-    private static void RestoreCostPrice(int productId, double cost)
-    {
-        var product = ProductService.GetById(productId);
-        if (product is null)
-            return;
-
-        var extra = ProductExtra.Parse(product.ExtraJson);
-        ProductService.Update(productId, new ProductInput
-        {
-            Code = product.Code,
-            Barcode = product.Barcode,
-            Name = product.Name,
-            GroupName = product.GroupName,
-            Unit = string.IsNullOrWhiteSpace(product.Unit) ? "UN" : product.Unit,
-            CostPrice = cost,
-            SalePrice = product.SalePrice,
-            MinStock = product.MinStock,
-            Stock = product.Stock,
-            Location = product.Location,
-            Extra = extra,
-            Active = product.Active,
-        });
     }
 
     /// <summary>Garante fornecedor do emitente da NF-e (cria se necessário).</summary>

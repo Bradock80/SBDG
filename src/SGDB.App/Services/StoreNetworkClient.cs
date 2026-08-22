@@ -471,6 +471,23 @@ public static class StoreNetworkClient
             throw new InvalidOperationException(PurchaseSalePriceRules.HostNeedsUpgradeBeforeCloseMessage);
     }
 
+    internal static void EnsurePurchaseAverageCostCapability(PurchaseInput input, bool closeOnSave)
+    {
+        if (!closeOnSave || !PurchaseAverageCostRules.NeedsAtomicAverageCostCapability(input))
+            return;
+
+        if (_cachedFeatures is not null)
+        {
+            if (PurchaseAverageCostRules.SupportsAtomicAverageCost(_cachedFeatures))
+                return;
+            throw new InvalidOperationException(PurchaseAverageCostRules.HostNeedsUpgradeBeforeCloseMessage);
+        }
+
+        var status = Ping();
+        if (!PurchaseAverageCostRules.SupportsAtomicAverageCost(status.Features))
+            throw new InvalidOperationException(PurchaseAverageCostRules.HostNeedsUpgradeBeforeCloseMessage);
+    }
+
     private static void CacheFeatures(IReadOnlyList<string>? features) =>
         _cachedFeatures = features is null ? [] : features.ToList();
 
@@ -625,20 +642,24 @@ public static class StoreNetworkClient
     public static int CreatePurchase(PurchaseInput input, bool closeOnSave)
     {
         EnsurePurchaseSalePriceCapability(input);
+        EnsurePurchaseAverageCostCapability(input, closeOnSave);
         TestPurchaseSendCount++;
         var dto = Run(() => SendAsync<StoreNetworkIdDto>(HttpMethod.Post, "api/purchases",
             new { input, closeOnSave }));
         PurchaseSalePriceRules.EnsureHostAppliedSalePrices(input, closeOnSave, dto.SalePriceUpdates);
+        PurchaseAverageCostRules.EnsureHostAppliedAverageCosts(input, closeOnSave, dto.AverageCostUpdates);
         return dto.Id;
     }
 
     public static void UpdatePurchase(int id, PurchaseInput input, bool closeOnSave)
     {
         EnsurePurchaseSalePriceCapability(input);
+        EnsurePurchaseAverageCostCapability(input, closeOnSave);
         TestPurchaseSendCount++;
         var dto = Run(() => SendAsync<StoreNetworkOkDto>(HttpMethod.Put, $"api/purchases/{id}",
             new { input, closeOnSave }));
         PurchaseSalePriceRules.EnsureHostAppliedSalePrices(input, closeOnSave, dto.SalePriceUpdates);
+        PurchaseAverageCostRules.EnsureHostAppliedAverageCosts(input, closeOnSave, dto.AverageCostUpdates);
     }
 
     public static void DeletePurchase(int id) =>
@@ -903,6 +924,8 @@ public sealed class StoreNetworkOkDto
     public string? Error { get; set; }
     /// <summary>Quantos itens tiveram sale_price aplicado na mesma tx da compra. Null = host antigo.</summary>
     public int? SalePriceUpdates { get; set; }
+    /// <summary>Quantos produtos tiveram custo médio aplicado na mesma tx da compra. Null = host antigo.</summary>
+    public int? AverageCostUpdates { get; set; }
 }
 
 public sealed class StoreNetworkIdDto
@@ -912,6 +935,8 @@ public sealed class StoreNetworkIdDto
     public string? Error { get; set; }
     /// <summary>Quantos itens tiveram sale_price aplicado na mesma tx da compra. Null = host antigo.</summary>
     public int? SalePriceUpdates { get; set; }
+    /// <summary>Quantos produtos tiveram custo médio aplicado na mesma tx da compra. Null = host antigo.</summary>
+    public int? AverageCostUpdates { get; set; }
 }
 
 public sealed class StoreNetworkExistsDto

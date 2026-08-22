@@ -26,6 +26,8 @@ public class PurchaseSalePriceUpdateTests
     {
         PurchaseService.TestBeforeApplySalePrice = null;
         PurchaseService.TestAfterApplySalePrice = null;
+        PurchaseService.TestBeforeApplyAverageCost = null;
+        PurchaseService.TestAfterApplyAverageCost = null;
         var db = TempDatabase.Create();
         StoreNetworkMode.SetRole(StoreNetworkMode.RoleStandalone);
         return db;
@@ -149,7 +151,7 @@ public class PurchaseSalePriceUpdateTests
 
         var product = ProductService.GetById(productId)!;
         Assert.Equal(8, product.SalePrice);
-        Assert.Equal(5, product.CostPrice);
+        Assert.Equal(5.08, product.CostPrice);
     }
 
     [Fact]
@@ -429,7 +431,8 @@ public class PurchaseSalePriceUpdateTests
         var purchaseId = CreateClosed(supplier, productId, "AUDIT PRECO", 1, 5.50, 9, true);
 
         var row = AuditService.List(new AuditQuery { Limit = 50 })
-            .First(r => r.Entity == "produto" && r.Action == "alterar");
+            .First(r => r.Entity == "produto" && r.Action == "alterar"
+                        && r.Details.Contains("preco_venda", StringComparison.Ordinal));
         Assert.Equal("admin_teste", row.UserLogin);
         Assert.True(AuditPayloadBuilder.TryParse(row.Details, out var doc));
         var payload = doc.Payload;

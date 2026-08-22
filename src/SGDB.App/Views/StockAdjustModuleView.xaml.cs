@@ -283,7 +283,8 @@ public partial class StockAdjustModuleView : UserControl
                 else if (TryParseUnitCost(out var entradaCost))
                 {
                     var avg = ProductPriceHelper.WeightedAverageCost(
-                        before, _selected.CostPrice, qty, entradaCost);
+                        PurchaseAverageCostRules.PhysicalStock(_selected.Stock, _selected.StockFridge),
+                        _selected.CostPrice, qty, entradaCost);
                     label =
                         $"Estoque: {after:N3} {_selected.Unit} (+{qty:N3}) · Custo médio → R$ {avg:N2}";
                     DValorAjuste.Text = $"R$ {qty * unitForValue:N2} (entrada)";
@@ -322,7 +323,8 @@ public partial class StockAdjustModuleView : UserControl
                 if (!IsFridgeLocation && delta > 1e-9 && TryParseUnitCost(out var saldoCost))
                 {
                     var avg = ProductPriceHelper.WeightedAverageCost(
-                        before, _selected.CostPrice, delta, saldoCost);
+                        PurchaseAverageCostRules.PhysicalStock(_selected.Stock, _selected.StockFridge),
+                        _selected.CostPrice, delta, saldoCost);
                     label =
                         $"Estoque: {after:N3} {_selected.Unit} (Δ {delta:+0.###;-0.###;0}) · Custo médio → R$ {avg:N2}";
                 }

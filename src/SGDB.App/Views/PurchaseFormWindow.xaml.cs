@@ -2073,8 +2073,7 @@ public partial class PurchaseFormWindow : Window
                 purchaseId = PurchaseService.Create(input, closeOnSave);
             }
 
-            if (closeOnSave)
-                ApplyPurchasePricesToProducts(updateSale: false);
+            // Custo médio / preco_compra / lucro já entram na mesma tx da compra (69D-C1).
 
             // Abre Contas a Pagar sempre que gerou financeiro (parcelas), com ou sem estoque
             if (closeOnSave && financeiro is not null)
@@ -2148,125 +2147,6 @@ public partial class PurchaseFormWindow : Window
             item.SyncSaleFromForm(sale, operatorEdited: _formSaleEdited);
 
         item.UpdateSalePrice = AjustaPrecoBox.IsChecked == true;
-    }
-
-    /// <summary>
-    /// Ao finalizar: atualiza Preço Compra (desta NF) e Preço Custo (média ponderada se gerou estoque).
-    /// Preço de venda do cadastro já foi gravado na transação da compra quando UpdateSalePrice.
-    /// Aqui o ramo updateSale permanece só para a promoção cigarro &lt; 5 → maço (sem checkbox).
-    /// </summary>
-    private void ApplyPurchasePricesToProducts(bool updateSale)
-    {
-        var gerarEstoque = GerarEstoqueBox.IsChecked == true;
-
-        foreach (var item in _items)
-        {
-            if (item.ProductId <= 0)
-                continue;
-            if (item.UnitPrice < 0)
-                continue;
-
-            var product = ProductService.GetById(item.ProductId);
-            if (product is null)
-                continue;
-
-            var costUnit = Math.Round(item.UnitPrice, 4);
-            var extra = ProductExtra.Parse(product.ExtraJson);
-            var group = product.GroupName;
-            ProductClassificationHelper.FillMissing(product.Name, ref group, extra);
-
-            var packFactor = extra.FatorEmbalagem > 1 ? extra.FatorEmbalagem
-                : extra.QtdAtacado > 1 ? extra.QtdAtacado : 1;
-            if (packFactor > 1)
-            {
-                if (extra.QtdAtacado <= 1)
-                    extra.QtdAtacado = packFactor;
-                if (extra.FatorEmbalagem <= 1)
-                    extra.FatorEmbalagem = packFactor;
-            }
-
-            var isCigPack = ProductClassificationHelper.UsesPackPurchasePrice(product.Name, group);
-            var cigsPerPack = isCigPack
-                ? ProductPriceHelper.ResolveCigarettesPerPack(product.Name, packFactor)
-                : packFactor;
-            if (isCigPack && cigsPerPack >= 2)
-            {
-                packFactor = cigsPerPack;
-                extra.FatorEmbalagem = cigsPerPack;
-                extra.QtdAtacado = cigsPerPack;
-            }
-
-            var lineTotal = ProductPriceCalculator.RoundPrice(item.Quantity * item.UnitPrice);
-            var lineCost = ProductPriceHelper.ResolveCatalogCost(
-                costUnit, packFactor, product.Name, group, lineTotal, item.Quantity);
-            extra.PrecoCompra = lineCost; // custo desta NF (pode ser 0 = brinde)
-
-            var sale = product.SalePrice;
-            if (updateSale)
-            {
-                var newSale = item.SalePrice > 0 ? item.SalePrice : item.SuggestedPrice;
-                if (newSale > 0)
-                    sale = ProductPriceHelper.ResolveCatalogSale(
-                        newSale, costUnit, packFactor, product.Name, group);
-
-                if (packFactor > 1 && sale > 0)
-                    extra.PrecoAtacado = isCigPack ? sale : ProductPriceCalculator.RoundPrice(sale * packFactor);
-            }
-            else if (isCigPack && sale > 0 && sale < 5 && packFactor >= 10)
-            {
-                // Venda ainda unitária no cadastro → promove a maço sem obrigar checkbox
-                sale = ProductPriceCalculator.RoundPrice(sale * packFactor);
-                if (extra.PrecoAtacado <= 0)
-                    extra.PrecoAtacado = sale;
-            }
-
-            double costToStore;
-            if (gerarEstoque)
-            {
-                // Estoque já foi somado em PurchaseService.ApplyStock
-                var stockBefore = Math.Max(0, product.Stock - item.Quantity);
-                if (isCigPack && cigsPerPack >= 2)
-                {
-                    var packsBefore = stockBefore / cigsPerPack;
-                    var packsIn = item.Quantity / cigsPerPack;
-                    costToStore = ProductPriceHelper.WeightedAverageCost(
-                        packsBefore, product.CostPrice, packsIn, lineCost);
-                }
-                else
-                {
-                    costToStore = ProductPriceHelper.WeightedAverageCost(
-                        stockBefore, product.CostPrice, item.Quantity, lineCost);
-                }
-            }
-            else if (item.UnitPrice > 0)
-            {
-                // Sem movimentar estoque: mantém comportamento de “último custo” (não zera com brinde)
-                costToStore = lineCost;
-            }
-            else
-            {
-                costToStore = product.CostPrice;
-            }
-
-            if (sale > 0 && costToStore > 0)
-                extra.LucroPercent = ProductPriceHelper.MarginOnSale(costToStore, sale);
-
-            ProductService.Update(product.Id, new ProductInput
-            {
-                Code = product.Code,
-                Barcode = product.Barcode,
-                Name = product.Name,
-                GroupName = group,
-                Unit = string.IsNullOrWhiteSpace(product.Unit) ? "UN" : product.Unit,
-                CostPrice = costToStore,
-                SalePrice = sale,
-                MinStock = product.MinStock,
-                Stock = product.Stock,
-                Location = product.Location,
-                Extra = extra,
-                Active = product.Active,
-            });
-        }
     }
 
     private void OpenProducts_Click(object sender, RoutedEventArgs e)
