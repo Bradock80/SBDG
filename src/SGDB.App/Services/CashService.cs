@@ -43,6 +43,17 @@ public static class CashService
     return (d, d, false, false);
   }
 
+  /// <summary>
+  /// Data do turno operacional ainda aberto (pode ser ontem se o caixa atravessou a meia-noite).
+  /// Null quando não há caixa aberto.
+  /// </summary>
+  public static DateTime? GetOpenWorkDate(DateTime? asOf = null)
+  {
+    using var conn = DatabaseService.OpenConnection();
+    var op = GetOperationalStatusFull(conn, (asOf ?? DateTime.Today).Date);
+    return op.IsOperational ? op.WorkDate.Date : null;
+  }
+
   public static void RequireOperational(DateTime? sessionDate = null)
   {
     using var conn = DatabaseService.OpenConnection();

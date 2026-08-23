@@ -279,18 +279,21 @@ public static class PdvService
             throw new PdvException("Adicione pelo menos um produto à venda.");
 
         using var conn = DatabaseService.OpenConnection();
+        double runningTotal = 0;
         foreach (var item in items)
         {
-            if (item.Quantity <= 0)
-                throw new PdvException("Quantidade inválida.");
-
             var product = LoadProduct(conn, null, item.ProductId)
                 ?? throw new PdvException($"Produto #{item.ProductId} não encontrado.");
             if (!product.Active)
                 throw new PdvException($"Produto inativo: {product.Name}");
 
+            var unitPrice = item.UnitPrice > 0 ? item.UnitPrice : product.SalePrice;
+            ThrowIfQuantityBlocked(item, product, unitPrice);
+            runningTotal += item.Quantity * unitPrice;
+
             EnsureAvailableStock(product, item.StockQuantity);
         }
+        ThrowIfCartTotalBlocked(runningTotal);
     }
 
     public static PdvFinalizeResult FinalizeSale(PdvFinalizeRequest request, DateTime? sessionDate = null)
@@ -327,9 +330,6 @@ public static class PdvService
 
         foreach (var item in request.Items)
         {
-            if (item.Quantity <= 0)
-                throw new PdvException("Quantidade inválida.");
-
             var product = LoadProduct(conn, tx, item.ProductId);
             if (product is null)
                 throw new PdvException($"Produto #{item.ProductId} não encontrado.");
@@ -339,6 +339,8 @@ public static class PdvService
             var unitPrice = item.UnitPrice > 0 ? item.UnitPrice : product.SalePrice;
             if (unitPrice < 0)
                 throw new PdvException("Preço inválido.");
+
+            ThrowIfQuantityBlocked(item, product, unitPrice);
 
             var stockQty = item.StockQuantity;
             EnsureAvailableStock(product, stockQty);
@@ -356,6 +358,7 @@ public static class PdvService
         total = ProductPriceHelper.RoundPrice(total - discount + surcharge);
         if (total <= 0)
             throw new PdvException("Total da venda deve ser maior que zero.");
+        ThrowIfCartTotalBlocked(total);
 
         var paymentParts = NormalizePaymentParts(request.PaymentType, total, request.Payments);
         var fiadoTotal = paymentParts.Where(p => IsFiado(p.PaymentType)).Sum(p => p.Amount);
@@ -454,9 +457,8 @@ public static class PdvService
             throw new PdvException("Sem permissão para cancelar venda do dia.");
 
         using var conn = DatabaseService.OpenConnection();
-        var d = (sessionDate ?? DateTime.Today).Date;
-        CashService.RequireOperational(conn, d);
 
+        DateTime saleDate;
         using (var pre = conn.CreateCommand())
         {
             pre.CommandText = "SELECT id, session_date, cancelled FROM sales WHERE id = $id LIMIT 1;";
@@ -466,10 +468,19 @@ public static class PdvService
                 throw new PdvException("Venda não encontrada.");
             if (preReader.GetInt32(2) != 0)
                 throw new PdvException("Venda já cancelada.");
-            var saleDate = DateTime.Parse(preReader.GetString(1)).Date;
-            if (saleDate != d)
-                throw new PdvException("Só é possível cancelar vendas de hoje com o caixa aberto.");
+            saleDate = DateTime.Parse(preReader.GetString(1)).Date;
         }
+
+        EnsureSaleNotAlreadyReversedByExchange(conn, saleId);
+
+        var workDate = CashService.GetOpenWorkDate();
+        if (workDate is null)
+            CashService.RequireOperational(conn, DateTime.Today);
+        else if (saleDate != workDate.Value)
+            throw new PdvException("Só é possível cancelar vendas do turno aberto.");
+
+        CashService.RequireOperational(conn, saleDate);
+        _ = sessionDate;
 
         PixSaleReverseService.ReverseForSale(saleId);
 
@@ -1415,11 +1426,82 @@ public static class PdvService
     /// Depósito: permite vender mesmo com estoque zerado/negativo
     /// (comum quando o inventário ainda não foi ajustado).
     /// Mantém só checagens de produto válido em ValidateItemsBeforePayment.
+    /// Quantidade absurda/EAN é bloqueada em ThrowIfQuantityBlocked — não aqui.
     /// </summary>
     private static void EnsureAvailableStock(Product product, double qtySale)
     {
         _ = product;
         _ = qtySale;
+    }
+
+    private static void ThrowIfQuantityBlocked(PdvCartLine item, Product product, double unitPrice)
+    {
+        var check = PdvQuantityValidationRules.EvaluateLine(
+            item.Quantity, unitPrice, product.Barcode, product.Code ?? item.Code);
+        if (check.Allowed)
+            return;
+        System.Diagnostics.Debug.WriteLine(
+            $"[PDV-QTY] user={AppSession.UserLogin} field=cart qty={item.Quantity} code={item.Code} reason={check.Reason}");
+        throw new PdvException(check.Message!);
+    }
+
+    private static void ThrowIfCartTotalBlocked(double total)
+    {
+        var check = PdvQuantityValidationRules.EvaluateCartTotal(total);
+        if (check.Allowed)
+            return;
+        System.Diagnostics.Debug.WriteLine(
+            $"[PDV-QTY] user={AppSession.UserLogin} field=total value={total} reason={check.Reason}");
+        throw new PdvException(check.Message!);
+    }
+
+    public const string MessageExchangeIntegralCancel =
+        "Esta venda já foi integralmente revertida por uma troca/devolução. Use o fluxo administrativo apropriado.";
+
+    public const string MessageExchangePartialCancel =
+        "Esta venda já possui troca/devolução. O cancelamento normal não pode ser usado. Use o fluxo administrativo apropriado.";
+
+    /// <summary>
+    /// Fail-closed: qualquer troca na venda bloqueia CancelSale.
+    /// Integral = todos os itens já devolvidos; parcial = há troca mas ainda resta quantidade.
+    /// </summary>
+    private static void EnsureSaleNotAlreadyReversedByExchange(SqliteConnection conn, int saleId)
+    {
+        using (var c = conn.CreateCommand())
+        {
+            c.CommandText = "SELECT COUNT(*) FROM sale_exchanges WHERE original_sale_id = $id;";
+            c.Parameters.AddWithValue("$id", saleId);
+            var n = Convert.ToInt32(c.ExecuteScalar());
+            if (n <= 0)
+                return;
+        }
+
+        var anyRemaining = false;
+        var anyReturned = false;
+        using (var items = conn.CreateCommand())
+        {
+            items.CommandText = """
+                SELECT si.quantity,
+                       IFNULL((SELECT SUM(r.qty) FROM sale_exchange_return_items r WHERE r.sale_item_id = si.id), 0)
+                FROM sale_items si
+                WHERE si.sale_id = $id;
+                """;
+            items.Parameters.AddWithValue("$id", saleId);
+            using var r = items.ExecuteReader();
+            while (r.Read())
+            {
+                var sold = r.GetDouble(0);
+                var returned = r.GetDouble(1);
+                if (returned > 0.0001)
+                    anyReturned = true;
+                if (returned + 0.0001 < sold)
+                    anyRemaining = true;
+            }
+        }
+
+        if (!anyRemaining && anyReturned)
+            throw new PdvException(MessageExchangeIntegralCancel);
+        throw new PdvException(MessageExchangePartialCancel);
     }
 
     private static string NormalizePayment(string? paymentType) =>

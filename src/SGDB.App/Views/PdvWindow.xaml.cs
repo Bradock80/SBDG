@@ -6,6 +6,7 @@ using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Threading;
 using SGDB.Application.Sales;
+using SGDB.Domain.Sales;
 using SGDB.Models;
 using SGDB.Services;
 using SGDB.Utils;
@@ -223,7 +224,6 @@ public partial class PdvWindow : Window
             if (_pendingProduct is not null)
             {
                 QtyBox.Focus();
-                QtyBox.SelectAll();
                 return;
             }
             if (_cart.Count > 0)
@@ -240,7 +240,6 @@ public partial class PdvWindow : Window
         if (_pendingProduct is not null && BuscaMatchesPending())
         {
             QtyBox.Focus();
-            QtyBox.SelectAll();
             return;
         }
 
@@ -256,7 +255,7 @@ public partial class PdvWindow : Window
                 }
                 scan = chosen ?? scan;
                 SetPendingFromScan(scan);
-                if (scan.IsPackSale)
+                if (PdvScanFocusPolicy.ShouldAutoInclude(true) || scan.IsPackSale)
                     TryIncludePending();
                 return;
             }
@@ -417,11 +416,8 @@ public partial class PdvWindow : Window
         _suppressSearchChange = true;
         SearchBox.Text = label;
         _suppressSearchChange = false;
-        if (!scan.IsPackSale)
-        {
+        if (!PdvScanFocusPolicy.ShouldAutoInclude(true) && !scan.IsPackSale)
             QtyBox.Focus();
-            QtyBox.SelectAll();
-        }
     }
 
     private void QtyBox_KeyDown(object sender, KeyEventArgs e)
@@ -498,6 +494,17 @@ public partial class PdvWindow : Window
         if (_pendingProduct is null)
             return;
 
+        var guard = PdvQtyBoxGuard.Evaluate(QtyBox.Text, _pendingProduct.Barcode, _pendingProduct.Code);
+        if (!guard.Accepted)
+        {
+            System.Diagnostics.Debug.WriteLine(
+                $"[PDV-QTY] user={AppSession.UserLogin} field=QtyBox value={QtyBox.Text} reason={guard.Reason}");
+            MessageBox.Show(guard.Message, "PDV", MessageBoxButton.OK, MessageBoxImage.Warning);
+            QtyBox.Text = guard.QtyTextAfter;
+            SearchBox.Focus();
+            return;
+        }
+
         var qty = ParseQty(QtyBox.Text);
         if (qty <= 0)
         {
@@ -506,14 +513,26 @@ public partial class PdvWindow : Window
             return;
         }
 
-        PdvCartHelper.IncludeOrMerge(
-            _cart,
-            _pendingProduct,
-            qty,
-            _pendingUnitPrice,
-            _pendingStockUnitsPerSale,
-            ref _lineCounter,
-            _pendingLineDisplayName);
+        try
+        {
+            PdvCartHelper.IncludeOrMerge(
+                _cart,
+                _pendingProduct,
+                qty,
+                _pendingUnitPrice,
+                _pendingStockUnitsPerSale,
+                ref _lineCounter,
+                _pendingLineDisplayName);
+        }
+        catch (PdvException ex)
+        {
+            System.Diagnostics.Debug.WriteLine(
+                $"[PDV-QTY] user={AppSession.UserLogin} field=cart value={QtyBox.Text} reason={ex.Message}");
+            MessageBox.Show(ex.Message, "PDV", MessageBoxButton.OK, MessageBoxImage.Warning);
+            QtyBox.Text = PdvQtyBoxGuard.ResetQtyText;
+            SearchBox.Focus();
+            return;
+        }
 
         _pendingProduct = null;
         _pendingUnitPrice = 0;

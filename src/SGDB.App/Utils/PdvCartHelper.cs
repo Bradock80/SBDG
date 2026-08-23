@@ -1,3 +1,4 @@
+using SGDB.Domain.Sales;
 using SGDB.Models;
 using SGDB.Services;
 
@@ -69,6 +70,8 @@ public static class PdvCartHelper
         if (qty <= 0)
             throw new ArgumentOutOfRangeException(nameof(qty));
 
+        ThrowIfQuantityBlocked(qty, product);
+
         var unitPrice = ResolveLineUnitPrice(product, qty, pendingUnitPrice, stockUnitsPerSale);
         var name = string.IsNullOrWhiteSpace(lineDisplayName) ? product.Name : lineDisplayName.Trim();
 
@@ -79,6 +82,7 @@ public static class PdvCartHelper
         if (existing is not null)
         {
             var newQty = ProductPriceHelper.RoundPrice(existing.Quantity + qty);
+            ThrowIfQuantityBlocked(newQty, product);
             var mergedPrice = ResolveLineUnitPrice(product, newQty, pendingUnitPrice, stockUnitsPerSale);
             var idx = cart.IndexOf(existing);
             var merged = new PdvCartLine
@@ -115,6 +119,13 @@ public static class PdvCartHelper
         string.IsNullOrWhiteSpace(modeLabel)
             ? product.Name
             : $"{product.Name} ({modeLabel})";
+
+    private static void ThrowIfQuantityBlocked(double qty, Product product)
+    {
+        var check = PdvQuantityValidationRules.EvaluateQuantity(qty, product.Barcode, product.Code);
+        if (!check.Allowed)
+            throw new PdvException(check.Message!);
+    }
 
     public static bool NeedsCigaretteModeChoice(Product product)
     {

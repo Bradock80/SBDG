@@ -489,9 +489,10 @@ public partial class ReportsModuleView : UserControl
                 MessageBoxButton.OK, MessageBoxImage.Information);
             return;
         }
-        if (!DateTime.TryParse(row.SessionDate, out var saleDay) || saleDay.Date != DateTime.Today)
+        var workDate = CashService.GetOpenWorkDate();
+        if (!DateTime.TryParse(row.SessionDate, out var saleDay) || workDate is null || saleDay.Date != workDate.Value)
         {
-            MessageBox.Show("Só é possível cancelar vendas do dia de hoje.", "Vendas PDV",
+            MessageBox.Show("Só é possível cancelar vendas do turno aberto.", "Vendas PDV",
                 MessageBoxButton.OK, MessageBoxImage.Information);
             return;
         }
