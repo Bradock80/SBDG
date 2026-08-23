@@ -33,6 +33,7 @@ public static class PurchaseCancelCostRules
             "entrada_compra" or "entrada_nfe" or "estorno_compra" => PostPurchaseMovementKind.SafePurchase,
             "venda" => PostPurchaseMovementKind.Sale,
             "cancelamento_venda" => PostPurchaseMovementKind.SaleRestore,
+            "unificacao_produto" => PostPurchaseMovementKind.Unsafe,
             _ => PostPurchaseMovementKind.Unsafe,
         };
     }
@@ -100,6 +101,55 @@ public static class PurchaseCancelCostRules
             """;
         cmd.Parameters.AddWithValue("$pid", productId);
         cmd.Parameters.AddWithValue("$exclude", excludePurchaseId);
+        using var reader = cmd.ExecuteReader();
+        if (!reader.Read())
+            return 0;
+
+        var qty = reader.GetDouble(0);
+        var unit = reader.GetDouble(1);
+        reader.Close();
+        if (qty <= 0.0001)
+            return 0;
+
+        PurchaseAverageCostRules.ToAverageUnits(
+            name, group, packFactor, qty, unit, out _, out var lineCost);
+        return Math.Round(lineCost, 4);
+    }
+
+    /// <summary>
+    /// Último custo de catálogo entre vários produtos (ex.: keep+absorb antes do remap do merge).
+    /// </summary>
+    public static double LastValidCatalogCostAmong(
+        SqliteConnection conn,
+        SqliteTransaction tx,
+        IReadOnlyList<int> productIds,
+        string name,
+        string? group,
+        double packFactor)
+    {
+        var ids = productIds.Where(id => id > 0).Distinct().ToList();
+        if (ids.Count == 0)
+            return 0;
+
+        using var cmd = conn.CreateCommand();
+        cmd.Transaction = tx;
+        var parms = new List<string>();
+        for (var i = 0; i < ids.Count; i++)
+        {
+            var p = $"$id{i}";
+            parms.Add(p);
+            cmd.Parameters.AddWithValue(p, ids[i]);
+        }
+
+        cmd.CommandText = $"""
+            SELECT pi.quantity, pi.unit_price
+            FROM purchase_items pi
+            INNER JOIN purchases p ON p.id = pi.purchase_id
+            WHERE pi.product_id IN ({string.Join(",", parms)})
+              AND p.status = 'fechada'
+            ORDER BY p.id DESC, pi.id DESC
+            LIMIT 1;
+            """;
         using var reader = cmd.ExecuteReader();
         if (!reader.Read())
             return 0;

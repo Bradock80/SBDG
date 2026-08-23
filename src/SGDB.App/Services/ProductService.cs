@@ -25,6 +25,18 @@ public sealed class ProductInput
 
 public static class ProductService
 {
+    /// <summary>
+    /// Somente testes: invocado imediatamente antes de gravar custo/estoque do merge.
+    /// Deve permanecer null em produção.
+    /// </summary>
+    public static Action? TestBeforeApplyMergeCost { get; set; }
+
+    /// <summary>
+    /// Somente testes: invocado depois de remapear FKs e antes de inativar o absorb/commit.
+    /// Deve permanecer null em produção.
+    /// </summary>
+    public static Action? TestAfterRemapProductIds { get; set; }
+
     public static IReadOnlyList<Product> List(
         string? search = null,
         string ativo = "ativos",
@@ -813,6 +825,30 @@ public static class ProductService
         var absorb = LoadProductTx(conn, tx, absorbId)
             ?? throw new InvalidOperationException("Produto a juntar não encontrado.");
 
+        var keepExtra = ProductExtra.Parse(keep.ExtraJson);
+        var absorbExtra = ProductExtra.Parse(absorb.ExtraJson);
+        ProductMergeRules.ThrowIfIncompatibleUnits(
+            keep.Name, keep.GroupName, keepExtra,
+            absorb.Name, absorb.GroupName, absorbExtra);
+
+        var keepPhys = PurchaseAverageCostRules.PhysicalStock(keep.Stock, keep.StockFridge);
+        var absorbPhys = PurchaseAverageCostRules.PhysicalStock(absorb.Stock, absorb.StockFridge);
+        if (keepPhys < -1e-4 || absorbPhys < -1e-4)
+            throw new InvalidOperationException(ProductMergeRules.NegativeStockMessage);
+
+        if (ProductMergeRules.HasOpenInventoryFor(conn, tx, keepId, absorbId))
+            throw new InvalidOperationException(ProductMergeRules.OpenInventoryMessage);
+
+        var isCig = ProductClassificationHelper.UsesPackPurchasePrice(keep.Name, keep.GroupName);
+        var packFactor = ProductMergeRules.ResolvePackFactor(keep.Name, keep.GroupName, keepExtra);
+        var cost = ProductMergeRules.WeightedPhysicalAverage(
+            keep.Stock, keep.StockFridge, keep.CostPrice,
+            absorb.Stock, absorb.StockFridge, absorb.CostPrice,
+            isCig, packFactor);
+
+        var lastCompra = PurchaseCancelCostRules.LastValidCatalogCostAmong(
+            conn, tx, [keepId, absorbId], keep.Name, keep.GroupName, packFactor);
+
         var newStock = keep.Stock + absorb.Stock;
         var newFridge = keep.StockFridge + absorb.StockFridge;
         var fridgeMin = Math.Max(keep.StockFridgeMin, absorb.StockFridgeMin);
@@ -821,40 +857,19 @@ public static class ProductService
         var group = string.IsNullOrWhiteSpace(keep.GroupName) ? absorb.GroupName : keep.GroupName;
         var location = string.IsNullOrWhiteSpace(keep.Location) ? absorb.Location : keep.Location;
 
-        // Custo médio ponderado (cigarro: média por maços).
-        double cost;
-        var isCig = ProductClassificationHelper.UsesPackPurchasePrice(keep.Name, keep.GroupName)
-                    || ProductClassificationHelper.UsesPackPurchasePrice(absorb.Name, absorb.GroupName);
-        if (keep.Stock > 0.0001 && absorb.Stock > 0.0001
-            && keep.CostPrice > 0.009 && absorb.CostPrice > 0.009)
-        {
-            if (isCig)
-            {
-                var cigs = ProductPriceHelper.ResolveCigarettesPerPack(
-                    keep.Name,
-                    ProductExtra.Parse(keep.ExtraJson).FatorEmbalagem);
-                if (cigs < 2) cigs = 20;
-                cost = ProductPriceHelper.WeightedAverageCost(
-                    keep.Stock / cigs, keep.CostPrice,
-                    absorb.Stock / cigs, absorb.CostPrice);
-            }
-            else
-            {
-                cost = ProductPriceHelper.WeightedAverageCost(
-                    keep.Stock, keep.CostPrice, absorb.Stock, absorb.CostPrice);
-            }
-        }
-        else
-        {
-            cost = keep.CostPrice > 0.009 ? keep.CostPrice : absorb.CostPrice;
-        }
-
         var mergedExtra = MergeExtraJson(keep.ExtraJson, absorb.ExtraJson, keep.Barcode, absorb.Barcode);
+        var extra = ProductExtra.Parse(mergedExtra);
+        extra.PrecoCompra = lastCompra;
+        mergedExtra = extra.ToJson();
+        var precoKeepBefore = keepExtra.PrecoCompra;
+        var precoAbsorbBefore = absorbExtra.PrecoCompra;
 
         if (!string.IsNullOrWhiteSpace(barcode)
             && BarcodeUsedByOther(conn, tx, barcode, keepId, absorbId))
             throw new InvalidOperationException(
                 $"O código de barras {barcode} já está em outro produto. Ajuste antes de unificar.");
+
+        TestBeforeApplyMergeCost?.Invoke();
 
         // Libera barcode do duplicado antes de gravar no principal (unique / conflito).
         using (var clearAbs = conn.CreateCommand())
@@ -896,11 +911,16 @@ public static class ProductService
 
         RemapProductId(conn, tx, "sale_items", absorbId, keepId);
         RemapProductId(conn, tx, "purchase_items", absorbId, keepId);
+        RemapProductId(conn, tx, "purchase_item_lots", absorbId, keepId);
         RemapProductId(conn, tx, "movements", absorbId, keepId);
         RemapProductId(conn, tx, "product_lots", absorbId, keepId);
         RemapProductId(conn, tx, "open_tab_items", absorbId, keepId);
+        RemapProductId(conn, tx, "sale_exchange_return_items", absorbId, keepId);
+        RemapProductId(conn, tx, "sale_exchange_new_items", absorbId, keepId);
         RemapInventoryItems(conn, tx, absorbId, keepId);
         RemapCompositionReferences(conn, tx, absorbId, keepId);
+
+        TestAfterRemapProductIds?.Invoke();
 
         using (var del = conn.CreateCommand())
         {
@@ -910,10 +930,28 @@ public static class ProductService
             del.ExecuteNonQuery();
         }
 
+        var notes = ProductMergeRules.MovementNotes(
+            keepId, absorbId,
+            keep.Stock, keep.StockFridge,
+            absorb.Stock, absorb.StockFridge,
+            newStock, newFridge,
+            keep.CostPrice, absorb.CostPrice, cost, lastCompra);
+        StockService.RegisterMovement(
+            conn, tx, keepId, "ajuste", Math.Max(0, absorbPhys), cost, notes,
+            stockBefore: keepPhys, stockAfter: keepPhys + absorbPhys,
+            operation: ProductMergeRules.MergeOperation, unit: keep.Unit,
+            refType: ProductMergeRules.MergeRefType, refId: absorbId);
+
         tx.Commit();
 
-        AuditService.Log("unificar", "produto", keepId.ToString(),
-            $"#{absorbId} {absorb.Name} → #{keepId} {keep.Name} · estoque {keep.Stock:G}+{absorb.Stock:G}={newStock:G}");
+        AuditService.LogJson("unificar", "produto", keepId.ToString(),
+            AuditPayloadBuilder.ProductMerge(
+                keepId, absorbId, keep.Name, absorb.Name,
+                keep.Stock, keep.StockFridge, absorb.Stock, absorb.StockFridge,
+                newStock, newFridge,
+                keep.CostPrice, absorb.CostPrice, cost,
+                precoKeepBefore, precoAbsorbBefore, lastCompra),
+            $"#{absorbId} {absorb.Name} → #{keepId} {keep.Name} · custo R$ {keep.CostPrice:N2}/{absorb.CostPrice:N2} → R$ {cost:N2}");
 
         return GetByIdLocal(keepId)!;
     }

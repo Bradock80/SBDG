@@ -59,6 +59,7 @@ public sealed class StoreNetworkHost : IDisposable
         PurchaseSalePriceRules.AtomicFeature,
         PurchaseAverageCostRules.AtomicFeature,
         PurchaseCancelCostRules.AtomicFeature,
+        ProductMergeRules.AtomicFeature,
     ];
 
     public static StoreNetworkHost StartNew(int? port = null)

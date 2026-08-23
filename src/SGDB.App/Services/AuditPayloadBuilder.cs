@@ -172,6 +172,45 @@ public static class AuditPayloadBuilder
             source,
         };
 
+    public static object ProductMerge(
+        int keepId,
+        int absorbId,
+        string keepName,
+        string absorbName,
+        double stockKeepBefore,
+        double fridgeKeepBefore,
+        double stockAbsorbBefore,
+        double fridgeAbsorbBefore,
+        double stockAfter,
+        double fridgeAfter,
+        double costKeepBefore,
+        double costAbsorbBefore,
+        double costAfter,
+        double precoCompraKeepBefore,
+        double precoCompraAbsorbBefore,
+        double precoCompraAfter) =>
+        new
+        {
+            op = "unificar_produto",
+            keep_id = keepId,
+            absorb_id = absorbId,
+            keep_name = keepName,
+            absorb_name = absorbName,
+            stock_keep_before = stockKeepBefore,
+            fridge_keep_before = fridgeKeepBefore,
+            stock_absorb_before = stockAbsorbBefore,
+            fridge_absorb_before = fridgeAbsorbBefore,
+            stock_after = stockAfter,
+            fridge_after = fridgeAfter,
+            cost_keep_before = costKeepBefore,
+            cost_absorb_before = costAbsorbBefore,
+            cost_after = costAfter,
+            preco_compra_keep_before = precoCompraKeepBefore,
+            preco_compra_absorb_before = precoCompraAbsorbBefore,
+            preco_compra_after = precoCompraAfter,
+            source = "merge_produtos",
+        };
+
     public static object PersonChange(int personId, string name, bool isNew, Dictionary<string, object>? changes = null) =>
         new { op = isNew ? "criar_pessoa" : "alterar_pessoa", person_id = personId, name, changes };
 }

@@ -65,6 +65,7 @@ public static class StoreNetworkClient
     internal static int TestStatusFetchCount { get; set; }
     internal static int TestPurchaseSendCount { get; set; }
     internal static int TestCancelSendCount { get; set; }
+    internal static int TestMergeSendCount { get; set; }
 
     public static string? SessionToken => _sessionToken;
     public static DateTime? SessionExpiresAt => _sessionExpiresAt;
@@ -450,6 +451,7 @@ public static class StoreNetworkClient
         TestStatusFetchCount = 0;
         TestPurchaseSendCount = 0;
         TestCancelSendCount = 0;
+        TestMergeSendCount = 0;
         _cachedFeatures = null;
     }
 
@@ -502,6 +504,20 @@ public static class StoreNetworkClient
         var status = Ping();
         if (!PurchaseCancelCostRules.SupportsCancelCostSafe(status.Features))
             throw new InvalidOperationException(PurchaseCancelCostRules.HostNeedsUpgradeBeforeCancelMessage);
+    }
+
+    internal static void EnsureProductMergeSafeCapability()
+    {
+        if (_cachedFeatures is not null)
+        {
+            if (ProductMergeRules.SupportsSafeMerge(_cachedFeatures))
+                return;
+            throw new InvalidOperationException(ProductMergeRules.HostNeedsUpgradeBeforeMergeMessage);
+        }
+
+        var status = Ping();
+        if (!ProductMergeRules.SupportsSafeMerge(status.Features))
+            throw new InvalidOperationException(ProductMergeRules.HostNeedsUpgradeBeforeMergeMessage);
     }
 
     private static void CacheFeatures(IReadOnlyList<string>? features) =>
@@ -601,13 +617,17 @@ public static class StoreNetworkClient
     public static void SoftDeleteProduct(int id) =>
         Run(() => SendAsync<StoreNetworkOkDto>(HttpMethod.Delete, $"api/products/{id}"));
 
-    public static Product MergeProducts(int keepId, int absorbId) =>
-        Run(() => SendAsync<StoreNetworkItemDto<Product>>(HttpMethod.Post, "api/products/merge", new
+    public static Product MergeProducts(int keepId, int absorbId)
+    {
+        EnsureProductMergeSafeCapability();
+        TestMergeSendCount++;
+        return Run(() => SendAsync<StoreNetworkItemDto<Product>>(HttpMethod.Post, "api/products/merge", new
         {
             keepId,
             absorbId,
         })).Item
         ?? throw new InvalidOperationException("Falha ao unificar produtos no servidor.");
+    }
 
     public static StockAdjustResult AdjustStock(
         int productId, StockAdjustMode mode, double? quantity, double? newStock, string? notes,

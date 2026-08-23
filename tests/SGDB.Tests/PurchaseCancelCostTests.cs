@@ -34,6 +34,7 @@ public class PurchaseCancelCostTests
     [InlineData("ajuste_manual", PostPurchaseMovementKind.Unsafe)]
     [InlineData("ajuste_geladeira", PostPurchaseMovementKind.Unsafe)]
     [InlineData("devolucao_troca", PostPurchaseMovementKind.Unsafe)]
+    [InlineData("unificacao_produto", PostPurchaseMovementKind.Unsafe)]
     [InlineData("", PostPurchaseMovementKind.Unsafe)]
     public void ClassificaOperacoesPosteriores(string op, PostPurchaseMovementKind expected)
     {
