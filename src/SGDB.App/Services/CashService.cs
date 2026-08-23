@@ -1,5 +1,6 @@
 using System.Globalization;
 using Microsoft.Data.Sqlite;
+using SGDB.Domain.Finance;
 using SGDB.Models;
 using SGDB.Utils;
 
@@ -240,7 +241,8 @@ public static class CashService
     }
 
     var cicloCalc = cicloMovs.Where(m => m.Kind != CashMovementKind.Fechamento).ToList();
-    var totals = CalcSessionTotals(cicloCalc, abAmountIn);
+    var reporting = LoadReportingSets(conn, movs);
+    var totals = CalcSessionTotals(cicloCalc, abAmountIn, reporting);
     var activeAb = ActiveAbertura(movs);
     var isOpen = fech is null && activeAb is not null && activeAb.Id == abId;
 
@@ -257,7 +259,7 @@ public static class CashService
       {
         Id = m.Id,
         DateTimeDisplay = FormatBrDateTime(m.CreatedAt, "dd/MM/yy HH:mm:ss"),
-        Historico = HistoricoText(m),
+        Historico = HistoricoText(m, reporting),
         EntradaDisplay = entrada > 0 ? ProductPriceHelper.MoneyBr(entrada) : "",
         SaidaDisplay = saida > 0 ? ProductPriceHelper.MoneyBr(saida) : "",
         FormaPagto = NormalizeFormaPagto(m.PaymentType),
@@ -886,12 +888,13 @@ public static class CashService
     }
 
     var openingAmount = Round(abertura?.AmountIn ?? session.OpeningAmount);
+    var reporting = LoadReportingSets(conn, movs);
     var movsDiaCalc = movs.Where(m => m.Kind is not (CashMovementKind.Abertura or CashMovementKind.Fechamento)).ToList();
-    var totals = TotalsExcludingAbertura(movsDiaCalc, openingAmount);
+    var totals = TotalsExcludingAbertura(movsDiaCalc, openingAmount, reporting);
 
     var ciclo = MovsCicloAtual(movs);
     var movsTurno = ciclo.Where(m => m.Kind != CashMovementKind.Abertura).ToList();
-    var totalsTurno = TotalsExcludingAbertura(movsTurno, openingAmount);
+    var totalsTurno = TotalsExcludingAbertura(movsTurno, openingAmount, reporting);
     totals.SaldoFinalGaveta = totalsTurno.SaldoFinalGaveta;
 
     if (abertura is not null)
@@ -908,7 +911,7 @@ public static class CashService
     view.SaldoFinalGaveta = totals.SaldoFinalGaveta;
     view.EntradasPorForma = totals.EntradasPorForma;
     view.VendasDiaPdv = Round(movs
-      .Where(m => m.Kind == CashMovementKind.Venda && m.AffectsBalance)
+      .Where(m => FlagsFor(m, reporting).IncludeInPdvSalesKpi)
       .Sum(m => m.AmountIn));
 
     if (!string.IsNullOrEmpty(session.ClosedAt))
@@ -929,7 +932,7 @@ public static class CashService
       {
         Id = m.Id,
         DateTimeDisplay = FormatBrDateTime(m.CreatedAt, "dd/MM/yy HH:mm:ss"),
-        Historico = HistoricoText(m),
+        Historico = HistoricoText(m, reporting),
         EntradaDisplay = entrada > 0 ? ProductPriceHelper.MoneyBr(entrada) : "",
         SaidaDisplay = saida > 0 ? ProductPriceHelper.MoneyBr(saida) : "",
         FormaPagto = NormalizeFormaPagto(m.PaymentType),
@@ -1015,8 +1018,9 @@ public static class CashService
     var expected = CalcExpectedBalance(session, movs);
     var closedAt = DateBrHelper.NowUtcIso();
     var fechamentoTxt = $"FECHAMENTO DO CX: CAIXA-{sessionDate:dd/MM/yyyy} {DateBrHelper.UtcNowAsBrazil():HH:mm}";
+    var reporting = LoadReportingSets(conn, movs, tx);
     var vendasDia = movs
-      .Where(m => m.Kind == CashMovementKind.Venda && m.AffectsBalance)
+      .Where(m => FlagsFor(m, reporting).IncludeInPdvSalesKpi)
       .Sum(m => m.AmountIn);
 
     using (var upd = conn.CreateCommand())
@@ -1292,6 +1296,127 @@ public static class CashService
     return list;
   }
 
+  private sealed class CashReportingSets
+  {
+    public HashSet<int> CancelledSaleIds { get; } = new();
+    public HashSet<int> NeutralizedSaleIds { get; } = new();
+    public HashSet<int> NeutralizedExchangeIds { get; } = new();
+  }
+
+  private static CashMovementReportFlags FlagsFor(CashMovementRecord m, CashReportingSets sets) =>
+    CashMovementReportingRules.Classify(
+      KindToDb(m.Kind),
+      m.RefType,
+      m.RefId ?? 0,
+      m.AffectsBalance,
+      sets.CancelledSaleIds,
+      sets.NeutralizedSaleIds,
+      sets.NeutralizedExchangeIds);
+
+  private static CashReportingSets LoadReportingSets(
+    SqliteConnection conn, List<CashMovementRecord> movs, SqliteTransaction? tx = null)
+  {
+    var sets = new CashReportingSets();
+    var saleIds = movs
+      .Where(m => string.Equals(m.RefType, CashMovementReportingRules.RefTypeSale, StringComparison.OrdinalIgnoreCase)
+                  && m.RefId is > 0)
+      .Select(m => m.RefId!.Value)
+      .Distinct()
+      .ToList();
+    var exchangeIds = movs
+      .Where(m => string.Equals(m.RefType, CashMovementReportingRules.RefTypeSaleExchange, StringComparison.OrdinalIgnoreCase)
+                  && m.RefId is > 0)
+      .Select(m => m.RefId!.Value)
+      .Distinct()
+      .ToList();
+
+    if (saleIds.Count == 0 && exchangeIds.Count == 0)
+      return sets;
+
+    if (saleIds.Count > 0)
+    {
+      using var cmd = conn.CreateCommand();
+      if (tx is not null) cmd.Transaction = tx;
+      var inSales = BindIntIn(cmd, "s", saleIds);
+      cmd.CommandText = $"SELECT id FROM sales WHERE cancelled != 0 AND id IN ({inSales});";
+      using var reader = cmd.ExecuteReader();
+      while (reader.Read())
+        sets.CancelledSaleIds.Add(reader.GetInt32(0));
+    }
+
+    if (sets.CancelledSaleIds.Count == 0 && exchangeIds.Count == 0)
+      return sets;
+
+    var exchanges = new List<(int Id, int OriginalSaleId, double NewTotal)>();
+    using (var cmd = conn.CreateCommand())
+    {
+      if (tx is not null) cmd.Transaction = tx;
+      var parts = new List<string>();
+      if (sets.CancelledSaleIds.Count > 0)
+        parts.Add($"original_sale_id IN ({BindIntIn(cmd, "cs", sets.CancelledSaleIds.ToList())})");
+      if (exchangeIds.Count > 0)
+        parts.Add($"id IN ({BindIntIn(cmd, "ex", exchangeIds)})");
+      if (parts.Count == 0)
+        return sets;
+      cmd.CommandText = $"""
+        SELECT id, original_sale_id, IFNULL(new_total, 0)
+        FROM sale_exchanges
+        WHERE {string.Join(" OR ", parts)};
+        """;
+      using var reader = cmd.ExecuteReader();
+      while (reader.Read())
+        exchanges.Add((reader.GetInt32(0), reader.GetInt32(1), reader.GetDouble(2)));
+    }
+
+    foreach (var saleId in sets.CancelledSaleIds)
+    {
+      var saleCashIn = movs
+        .Where(m => m.Kind == CashMovementKind.Venda
+                    && string.Equals(m.RefType, CashMovementReportingRules.RefTypeSale, StringComparison.OrdinalIgnoreCase)
+                    && m.RefId == saleId)
+        .Sum(m => m.AmountIn);
+      var saleExchanges = exchanges.Where(e => e.OriginalSaleId == saleId).ToList();
+      if (saleExchanges.Count == 0)
+        continue;
+      var exIdSet = saleExchanges.Select(e => e.Id).ToHashSet();
+      var exchangeCashIn = movs
+        .Where(m => m.Kind == CashMovementKind.Troca
+                    && string.Equals(m.RefType, CashMovementReportingRules.RefTypeSaleExchange, StringComparison.OrdinalIgnoreCase)
+                    && m.RefId is int rid && exIdSet.Contains(rid))
+        .Sum(m => m.AmountIn);
+      var exchangeCashOut = movs
+        .Where(m => m.Kind == CashMovementKind.Troca
+                    && string.Equals(m.RefType, CashMovementReportingRules.RefTypeSaleExchange, StringComparison.OrdinalIgnoreCase)
+                    && m.RefId is int rid && exIdSet.Contains(rid))
+        .Sum(m => m.AmountOut);
+      var newTotal = saleExchanges.Sum(e => e.NewTotal);
+      if (!CashMovementReportingRules.TryProveIntegralNeutralization(
+            saleCancelled: true,
+            saleCashIn: saleCashIn,
+            exchangeCashIn: exchangeCashIn,
+            exchangeCashOut: exchangeCashOut,
+            exchangeNewTotal: newTotal))
+        continue;
+      sets.NeutralizedSaleIds.Add(saleId);
+      foreach (var e in saleExchanges)
+        sets.NeutralizedExchangeIds.Add(e.Id);
+    }
+
+    return sets;
+  }
+
+  private static string BindIntIn(SqliteCommand cmd, string prefix, IReadOnlyList<int> ids)
+  {
+    var names = new string[ids.Count];
+    for (var i = 0; i < ids.Count; i++)
+    {
+      var name = $"${prefix}{i}";
+      names[i] = name;
+      cmd.Parameters.AddWithValue(name, ids[i]);
+    }
+    return string.Join(",", names);
+  }
+
   private static bool MovementExists(SqliteConnection conn, string refType, int refId, SqliteTransaction? tx = null)
   {
     using var cmd = conn.CreateCommand();
@@ -1334,17 +1459,20 @@ public static class CashService
     return CalcSessionTotals(ciclo, session.OpeningAmount).SaldoFinalGaveta;
   }
 
-  private static SessionTotals TotalsExcludingAbertura(List<CashMovementRecord> movs, double openingAmount)
+  private static SessionTotals TotalsExcludingAbertura(
+    List<CashMovementRecord> movs, double openingAmount, CashReportingSets? reporting = null)
   {
-    var raw = CalcSessionTotals(movs, openingAmount);
-    return raw;
+    return CalcSessionTotals(movs, openingAmount, reporting);
   }
 
-  private static SessionTotals CalcSessionTotals(List<CashMovementRecord> movs, double openingAmount)
+  private static SessionTotals CalcSessionTotals(
+    List<CashMovementRecord> movs, double openingAmount, CashReportingSets? reporting = null)
   {
     var saldoInicial = openingAmount;
     var entradasTudo = 0.0;
     var saidasTudo = 0.0;
+    var entradasKpi = 0.0;
+    var saidasKpi = 0.0;
     var entradasGaveta = 0.0;
     var saidasGaveta = 0.0;
     var entradasPorForma = new Dictionary<string, double>();
@@ -1359,8 +1487,13 @@ public static class CashService
         continue;
       }
 
+      var flags = reporting is null
+        ? CashMovementReportFlags.AllOperational
+        : FlagsFor(m, reporting);
+
       if (m.Kind is CashMovementKind.Venda or CashMovementKind.RecebimentoFiado or CashMovementKind.Troca
-          && (m.AmountIn > 0.009 || m.AmountOut > 0.009))
+          && (m.AmountIn > 0.009 || m.AmountOut > 0.009)
+          && flags.IncludeInFormaBreakdown)
       {
         var forma = NormalizeFormaPagto(m.PaymentType);
         // Com troco: amount_in = recebido, amount_out = troco → líquido é o que vale na forma.
@@ -1373,6 +1506,10 @@ public static class CashService
       {
         entradasTudo += m.AmountIn;
         saidasTudo += m.AmountOut;
+        if (flags.IncludeInOperationalInflows)
+          entradasKpi += m.AmountIn;
+        if (flags.IncludeInOperationalOutflows)
+          saidasKpi += m.AmountOut;
       }
 
       if (MovementAffectsGaveta(m))
@@ -1385,8 +1522,8 @@ public static class CashService
     return new SessionTotals
     {
       SaldoInicial = Round(saldoInicial),
-      EntradasCaixa = Round(entradasTudo),
-      SaidasCaixa = Round(saidasTudo),
+      EntradasCaixa = Round(entradasKpi),
+      SaidasCaixa = Round(saidasKpi),
       SaldoFinal = Round(saldoInicial + entradasTudo - saidasTudo),
       SaldoFinalGaveta = Round(saldoInicial + entradasGaveta - saidasGaveta),
       EntradasPorForma = entradasPorForma,
@@ -1404,15 +1541,24 @@ public static class CashService
     return false;
   }
 
-  private static string HistoricoText(CashMovementRecord m)
+  private static string HistoricoText(CashMovementRecord m, CashReportingSets? reporting = null)
   {
+    string text;
     if (m.Kind == CashMovementKind.Abertura)
-      return (m.Description ?? "ABERTURA DE CAIXA - CAIXA").Trim();
-    if (m.Kind == CashMovementKind.Fechamento)
-      return m.Description ?? "FECHAMENTO DO CX: CAIXA";
-    if (!string.IsNullOrWhiteSpace(m.PartyName) && m.Kind == CashMovementKind.Compra)
-      return m.PartyName.Trim().ToUpperInvariant();
-    return (m.Description ?? "").Trim();
+      text = (m.Description ?? "ABERTURA DE CAIXA - CAIXA").Trim();
+    else if (m.Kind == CashMovementKind.Fechamento)
+      text = m.Description ?? "FECHAMENTO DO CX: CAIXA";
+    else if (!string.IsNullOrWhiteSpace(m.PartyName) && m.Kind == CashMovementKind.Compra)
+      text = m.PartyName.Trim().ToUpperInvariant();
+    else
+      text = (m.Description ?? "").Trim();
+
+    if (reporting is null)
+      return text;
+    var badge = FlagsFor(m, reporting).DetailBadge;
+    if (string.IsNullOrEmpty(badge))
+      return text;
+    return string.IsNullOrWhiteSpace(text) ? badge : text + " — " + badge;
   }
 
   private static string NormalizeFormaPagto(string? paymentType)
