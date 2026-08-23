@@ -64,6 +64,7 @@ public static class StoreNetworkClient
     internal static IReadOnlyList<string>? TestStatusFeatures { get; set; }
     internal static int TestStatusFetchCount { get; set; }
     internal static int TestPurchaseSendCount { get; set; }
+    internal static int TestCancelSendCount { get; set; }
 
     public static string? SessionToken => _sessionToken;
     public static DateTime? SessionExpiresAt => _sessionExpiresAt;
@@ -448,6 +449,7 @@ public static class StoreNetworkClient
         TestStatusFeatures = null;
         TestStatusFetchCount = 0;
         TestPurchaseSendCount = 0;
+        TestCancelSendCount = 0;
         _cachedFeatures = null;
     }
 
@@ -486,6 +488,20 @@ public static class StoreNetworkClient
         var status = Ping();
         if (!PurchaseAverageCostRules.SupportsAtomicAverageCost(status.Features))
             throw new InvalidOperationException(PurchaseAverageCostRules.HostNeedsUpgradeBeforeCloseMessage);
+    }
+
+    internal static void EnsurePurchaseCancelCostSafeCapability()
+    {
+        if (_cachedFeatures is not null)
+        {
+            if (PurchaseCancelCostRules.SupportsCancelCostSafe(_cachedFeatures))
+                return;
+            throw new InvalidOperationException(PurchaseCancelCostRules.HostNeedsUpgradeBeforeCancelMessage);
+        }
+
+        var status = Ping();
+        if (!PurchaseCancelCostRules.SupportsCancelCostSafe(status.Features))
+            throw new InvalidOperationException(PurchaseCancelCostRules.HostNeedsUpgradeBeforeCancelMessage);
     }
 
     private static void CacheFeatures(IReadOnlyList<string>? features) =>
@@ -665,11 +681,19 @@ public static class StoreNetworkClient
     public static void DeletePurchase(int id) =>
         Run(() => SendAsync<StoreNetworkOkDto>(HttpMethod.Delete, $"api/purchases/{id}"));
 
-    public static void CancelPurchase(int id) =>
+    public static void CancelPurchase(int id)
+    {
+        EnsurePurchaseCancelCostSafeCapability();
+        TestCancelSendCount++;
         Run(() => SendAsync<StoreNetworkOkDto>(HttpMethod.Post, $"api/purchases/{id}/cancel"));
+    }
 
-    public static void ReopenPurchase(int id) =>
+    public static void ReopenPurchase(int id)
+    {
+        EnsurePurchaseCancelCostSafeCapability();
+        TestCancelSendCount++;
         Run(() => SendAsync<StoreNetworkOkDto>(HttpMethod.Post, $"api/purchases/{id}/reopen"));
+    }
 
     public static IReadOnlyList<Person> ListPeople(string? search, string ativo, string tipo)
     {

@@ -76,6 +76,18 @@ public static class PurchaseService
     /// </summary>
     public static Action? TestAfterApplyAverageCost { get; set; }
 
+    /// <summary>
+    /// Somente testes: invocado imediatamente antes de reverter cost_price / preco_compra no cancelamento.
+    /// Deve permanecer null em produção.
+    /// </summary>
+    public static Action? TestBeforeReverseCancelCost { get; set; }
+
+    /// <summary>
+    /// Somente testes: invocado depois de reverter o custo e antes do estorno de estoque/commit.
+    /// Deve permanecer null em produção.
+    /// </summary>
+    public static Action? TestAfterReverseCancelCost { get; set; }
+
     /// <summary>Última entrada do produto pela data de entrada da compra.</summary>
     public static ProductLastEntry? GetLastEntry(int productId)
     {
@@ -654,10 +666,9 @@ public static class PurchaseService
         if (status == "cancelada")
             return;
 
+        List<CostAuditPending> costAudits = [];
         if (status == "fechada")
-        {
-            ReverseClosedPurchaseEffects(conn, tx, id);
-        }
+            costAudits = ReverseClosedPurchaseEffects(conn, tx, id);
 
         using var cmd = conn.CreateCommand();
         cmd.Transaction = tx;
@@ -665,6 +676,7 @@ public static class PurchaseService
         cmd.Parameters.AddWithValue("$id", id);
         cmd.ExecuteNonQuery();
         tx.Commit();
+        LogCancelCostAudits(id, costAudits, "cancelamento_compra");
     }
 
     /// <summary>
@@ -698,7 +710,7 @@ public static class PurchaseService
         if (status != "fechada")
             throw new InvalidOperationException("Somente compras fechadas podem ser reabertas.");
 
-        ReverseClosedPurchaseEffects(conn, tx, id);
+        var costAudits = ReverseClosedPurchaseEffects(conn, tx, id);
 
         using var cmd = conn.CreateCommand();
         cmd.Transaction = tx;
@@ -708,27 +720,36 @@ public static class PurchaseService
         tx.Commit();
 
         AuditService.Log("compra_reabrir", "purchase", id.ToString(), "Reaberta para correção");
+        LogCancelCostAudits(id, costAudits, "reabertura_compra");
     }
 
     /// <summary>
     /// Estorno atômico de compra fechada: valida origem/estoque, depois aplica custo, global, lotes exatos e títulos.
     /// Compras anteriores à rastreabilidade (lot_origin_recorded=0) são bloqueadas.
+    /// gerar_estoque=false não estorna estoque físico nem aplica fórmula inversa de entrada inexistente.
     /// </summary>
-    private static void ReverseClosedPurchaseEffects(
+    private static List<CostAuditPending> ReverseClosedPurchaseEffects(
         SqliteConnection conn, SqliteTransaction tx, int purchaseId)
     {
         PayableService.ThrowIfPaidInstallmentsForPurchase(conn, tx, purchaseId);
 
         var lotOriginRecorded = 0;
+        var gerarEstoque = true;
+        var createdAt = "";
         using (var meta = conn.CreateCommand())
         {
             meta.Transaction = tx;
             meta.CommandText = """
-                SELECT IFNULL(lot_origin_recorded, 0)
+                SELECT IFNULL(lot_origin_recorded, 0), IFNULL(gerar_estoque, 1), IFNULL(created_at,'')
                 FROM purchases WHERE id = $id LIMIT 1;
                 """;
             meta.Parameters.AddWithValue("$id", purchaseId);
-            lotOriginRecorded = Convert.ToInt32(meta.ExecuteScalar() ?? 0);
+            using var reader = meta.ExecuteReader();
+            if (!reader.Read())
+                throw new InvalidOperationException("Compra não encontrada.");
+            lotOriginRecorded = reader.GetInt32(0);
+            gerarEstoque = reader.GetInt32(1) == 1;
+            createdAt = reader.IsDBNull(2) ? "" : reader.GetString(2);
         }
 
         if (lotOriginRecorded == 0)
@@ -738,22 +759,33 @@ public static class PurchaseService
         var items = LoadItemsForStock(conn, tx, purchaseId);
         var origins = LoadPurchaseItemLotsInTx(conn, tx, purchaseId);
 
-        ValidateExactReverse(conn, tx, items, origins);
+        if (gerarEstoque)
+            ValidateExactReverse(conn, tx, items, origins);
 
-        ReversePurchaseCostEffects(conn, tx, items);
-        ApplyStock(conn, tx, purchaseId, items, reverse: true);
-        foreach (var origin in origins)
+        foreach (var productId in items.Select(i => i.ProductId).Where(id => id > 0).Distinct())
         {
-            ProductLotService.DeductExact(
-                conn, tx,
-                origin.ProductId,
-                origin.ProductLotId,
-                origin.LotNumber,
-                origin.ExpiryDate,
-                origin.Quantity);
+            PurchaseCancelCostRules.ThrowIfUnsafeToReverse(
+                conn, tx, purchaseId, productId, gerarEstoque, createdAt);
+        }
+
+        var costAudits = ReversePurchaseCostEffects(conn, tx, purchaseId, items, gerarEstoque);
+        if (gerarEstoque)
+        {
+            ApplyStock(conn, tx, purchaseId, items, reverse: true);
+            foreach (var origin in origins)
+            {
+                ProductLotService.DeductExact(
+                    conn, tx,
+                    origin.ProductId,
+                    origin.ProductLotId,
+                    origin.LotNumber,
+                    origin.ExpiryDate,
+                    origin.Quantity);
+            }
         }
 
         PayableService.RemoveUnpaidTitlesForPurchase(conn, tx, purchaseId);
+        return costAudits;
     }
 
     private static void ValidateExactReverse(
@@ -846,19 +878,25 @@ public static class PurchaseService
     }
 
     /// <summary>
-    /// Desfaz a média ponderada aplicada no finalize (best-effort se houve vendas depois).
-    /// Agrega linhas do mesmo produto; usa depósito + geladeira na mesma unidade da média.
+    /// Reverte cost_price só quando a inversa é segura; preco_compra = última NF fechada restante.
     /// </summary>
-    private static void ReversePurchaseCostEffects(
-        SqliteConnection conn, SqliteTransaction tx, List<PurchaseItemInput> items)
+    private static List<CostAuditPending> ReversePurchaseCostEffects(
+        SqliteConnection conn,
+        SqliteTransaction tx,
+        int purchaseId,
+        List<PurchaseItemInput> items,
+        bool gerarEstoque)
     {
+        TestBeforeReverseCancelCost?.Invoke();
+        var pending = new List<CostAuditPending>();
+
         foreach (var group in items.Where(i => i.ProductId > 0 && i.Quantity > 0).GroupBy(i => i.ProductId))
         {
             using var get = conn.CreateCommand();
             get.Transaction = tx;
             get.CommandText = """
                 SELECT IFNULL(stock,0), IFNULL(stock_fridge,0), IFNULL(cost_price,0),
-                       IFNULL(name,''), IFNULL(group_name,''), IFNULL(extra_json,'')
+                       IFNULL(name,''), IFNULL(group_name,''), IFNULL(extra_json,''), IFNULL(code,'')
                 FROM products WHERE id = $id LIMIT 1;
                 """;
             get.Parameters.AddWithValue("$id", group.Key);
@@ -872,9 +910,11 @@ public static class PurchaseService
             var name = reader.IsDBNull(3) ? "" : reader.GetString(3);
             string? groupName = reader.IsDBNull(4) ? "" : reader.GetString(4);
             var extraJson = reader.IsDBNull(5) ? "" : reader.GetString(5);
+            var code = reader.IsDBNull(6) ? "" : reader.GetString(6);
             reader.Close();
 
             var extra = ProductExtra.Parse(extraJson);
+            var precoBefore = extra.PrecoCompra;
             ProductClassificationHelper.FillMissing(name, ref groupName, extra);
             var packFactor = extra.FatorEmbalagem > 1 ? extra.FatorEmbalagem
                 : extra.QtdAtacado > 1 ? extra.QtdAtacado : 1;
@@ -882,10 +922,37 @@ public static class PurchaseService
             var lines = group
                 .Select(i => (i.Quantity, i.UnitPrice))
                 .ToList();
-            var restored = PurchaseAverageCostRules.RemovePurchaseFromAverage(
-                warehouse, fridge, cost, name, groupName, packFactor, lines);
+            var thisLastCost = PurchaseAverageCostRules.LastLineCatalogCost(
+                name, groupName, packFactor, lines);
+            var lastRemaining = PurchaseCancelCostRules.LastValidCatalogCost(
+                conn, tx, group.Key, purchaseId, name, groupName, packFactor);
+            extra.PrecoCompra = lastRemaining;
 
-            extra.PrecoCompra = restored;
+            double restored;
+            if (!gerarEstoque)
+            {
+                restored = cost;
+                if (!PurchaseCancelCostRules.HasLaterClosedPurchase(conn, tx, purchaseId, group.Key))
+                {
+                    if (PurchaseCancelCostRules.TryReadCostFromAtPurchase(
+                            conn, tx, purchaseId, group.Key, out var costFrom))
+                        restored = costFrom;
+                    else if (PurchaseSalePriceRules.SameMoney(cost, thisLastCost))
+                        throw new InvalidOperationException(
+                            PurchaseCancelCostRules.InsufficientHistoryMessage);
+                }
+            }
+            else if (!PurchaseCancelCostRules.HasLaterClosedPurchase(conn, tx, purchaseId, group.Key)
+                     && PurchaseCancelCostRules.TryReadCostFromAtPurchase(
+                         conn, tx, purchaseId, group.Key, out var costFrom))
+            {
+                restored = costFrom;
+            }
+            else
+            {
+                restored = PurchaseAverageCostRules.RemovePurchaseFromAverage(
+                    warehouse, fridge, cost, name, groupName, packFactor, lines);
+            }
 
             using var upd = conn.CreateCommand();
             upd.Transaction = tx;
@@ -898,7 +965,21 @@ public static class PurchaseService
             upd.Parameters.AddWithValue("$extra", extra.ToJson());
             upd.Parameters.AddWithValue("$id", group.Key);
             upd.ExecuteNonQuery();
+
+            pending.Add(new CostAuditPending
+            {
+                ProductId = group.Key,
+                Code = code,
+                Name = name,
+                CostFrom = cost,
+                CostTo = restored,
+                PrecoCompraFrom = precoBefore,
+                PrecoCompraTo = extra.PrecoCompra,
+            });
         }
+
+        TestAfterReverseCancelCost?.Invoke();
+        return pending;
     }
 
     private sealed class SalePriceAuditPending
@@ -917,6 +998,7 @@ public static class PurchaseService
         public string Name { get; init; } = "";
         public double CostFrom { get; init; }
         public double CostTo { get; init; }
+        public double PrecoCompraFrom { get; init; }
         public double PrecoCompraTo { get; init; }
     }
 
@@ -1225,6 +1307,18 @@ public static class PurchaseService
                 AuditPayloadBuilder.ProductChange(
                     row.ProductId, row.Code, row.Name, changes, "compra", purchaseId),
                 $"{row.Name}: custo R$ {row.CostFrom:N2} → R$ {row.CostTo:N2}");
+        }
+    }
+
+    private static void LogCancelCostAudits(int purchaseId, List<CostAuditPending> pending, string source)
+    {
+        foreach (var row in pending)
+        {
+            AuditService.LogJson("alterar", "produto", row.ProductId.ToString(),
+                AuditPayloadBuilder.PurchaseCostReverse(
+                    purchaseId, row.ProductId, row.Code, row.Name,
+                    row.CostFrom, row.CostTo, row.PrecoCompraFrom, row.PrecoCompraTo, source),
+                $"{row.Name}: custo R$ {row.CostFrom:N2} → R$ {row.CostTo:N2} ({source})");
         }
     }
 

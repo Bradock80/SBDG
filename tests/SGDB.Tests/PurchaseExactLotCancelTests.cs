@@ -157,11 +157,14 @@ public class PurchaseExactLotCancelTests
         Assert.Equal(20, GetLotQty(productId, "B"));
         Assert.Equal(25, TestDataHelper.GetProductStock(productId));
 
-        PurchaseService.Cancel(purchaseB);
+        var ex = Assert.Throws<InvalidOperationException>(() => PurchaseService.Cancel(purchaseB));
+        Assert.Equal(PurchaseCancelCostRules.UnsafePostMovementMessage, ex.Message);
 
-        Assert.Equal(5, TestDataHelper.GetProductStock(productId));
+        Assert.Equal(25, TestDataHelper.GetProductStock(productId));
         Assert.Equal(5, GetLotQty(productId, "A"));
-        Assert.Equal(0, GetLotQty(productId, "B"));
+        Assert.Equal(20, GetLotQty(productId, "B"));
+        Assert.Equal("fechada", GetPurchaseStatus(purchaseB));
+        Assert.Equal(0, CountMovements(productId, "estorno_compra", purchaseB));
     }
 
     [Fact]

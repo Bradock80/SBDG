@@ -463,7 +463,9 @@ public class PurchaseAverageCostTests
 
         PurchaseService.Cancel(purchaseId);
 
-        Assert.Equal(5, ProductService.GetById(productId)!.CostPrice);
+        var product = ProductService.GetById(productId)!;
+        Assert.Equal(5, product.CostPrice);
+        Assert.Equal(0, PrecoCompra(product));
         Assert.Equal(10, TestDataHelper.GetProductStock(productId));
     }
 

@@ -123,12 +123,13 @@ public class PurchaseLotCancelCharacterizationTests
         Assert.Equal(20, GetLotQty(productId, "B"));
         Assert.Equal(25, TestDataHelper.GetProductStock(productId));
 
-        PurchaseService.Cancel(purchaseB);
+        var ex = Assert.Throws<InvalidOperationException>(() => PurchaseService.Cancel(purchaseB));
+        Assert.Equal(PurchaseCancelCostRules.UnsafePostMovementMessage, ex.Message);
 
-        // 61D: venda FEFO tirou 5 de A; cancelar B zera só B. Bug 61B era A=0, B=5, stock=5.
-        Assert.Equal(5, TestDataHelper.GetProductStock(productId));
+        Assert.Equal(25, TestDataHelper.GetProductStock(productId));
         Assert.Equal(5, GetLotQty(productId, "A"));
-        Assert.Equal(0, GetLotQty(productId, "B"));
+        Assert.Equal(20, GetLotQty(productId, "B"));
+        Assert.Equal("fechada", GetPurchaseStatus(purchaseB));
     }
 
     [Fact]

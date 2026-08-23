@@ -148,6 +148,30 @@ public static class AuditPayloadBuilder
     public static object PurchaseEntry(int purchaseId, int supplierId, string? supplierName, string? number, string? nfeKey, double total, int itemsCount, bool gerarEstoque, string source) =>
         new { op = "entrada_compra", purchase_id = purchaseId, supplier_id = supplierId, supplier_name = supplierName, number, nfe_key = nfeKey, total, items_count = itemsCount, gerar_estoque = gerarEstoque, source };
 
+    public static object PurchaseCostReverse(
+        int purchaseId,
+        int productId,
+        string code,
+        string name,
+        double costBefore,
+        double costAfter,
+        double precoCompraBefore,
+        double precoCompraAfter,
+        string source) =>
+        new
+        {
+            op = "cancelamento_compra",
+            purchase_id = purchaseId,
+            product_id = productId,
+            code,
+            name,
+            cost_before = costBefore,
+            cost_after = costAfter,
+            preco_compra_before = precoCompraBefore,
+            preco_compra_after = precoCompraAfter,
+            source,
+        };
+
     public static object PersonChange(int personId, string name, bool isNew, Dictionary<string, object>? changes = null) =>
         new { op = isNew ? "criar_pessoa" : "alterar_pessoa", person_id = personId, name, changes };
 }
