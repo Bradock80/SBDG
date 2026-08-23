@@ -55,21 +55,19 @@ public static class BusinessDashboardService
         var qtdPedidos = salesOk.Count;
         var ticket = qtdPedidos > 0 ? Round(faturamento / qtdPedidos) : 0;
 
-        var costCache = new Dictionary<int, double>();
-        double itens = 0, cmv = 0;
+        double itens = 0;
+        var cmvLines = new List<SaleLineCmv>();
         var topAgg = new Dictionary<int, (string Code, string Name, double Qty, double Total)>();
+        var itemsBySale = new Dictionary<int, List<ItemRow>>();
 
         foreach (var sale in salesOk)
         {
-            foreach (var item in LoadSaleItems(conn, sale.Id))
+            var items = LoadSaleItems(conn, sale.Id);
+            itemsBySale[sale.Id] = items;
+            foreach (var item in items)
             {
                 itens += item.Qty;
-                if (!costCache.TryGetValue(item.ProductId, out var cost))
-                {
-                    cost = GetProductCost(conn, item.ProductId);
-                    costCache[item.ProductId] = cost;
-                }
-                cmv += item.Qty * cost;
+                cmvLines.Add(item.Cmv);
 
                 if (!topAgg.TryGetValue(item.ProductId, out var t))
                     t = (item.Code, item.Name, 0, 0);
@@ -82,7 +80,8 @@ public static class BusinessDashboardService
         }
 
         itens = Round3(itens);
-        cmv = Round(cmv);
+        var periodCmv = HistoricalSaleCostRules.Sum(cmvLines);
+        var cmv = periodCmv.Total;
         var mediaItens = qtdPedidos > 0 ? Round(itens / qtdPedidos) : 0;
         var clientes = salesOk.Where(s => s.CustomerId is > 0).Select(s => s.CustomerId!.Value).Distinct().Count();
 
@@ -98,7 +97,7 @@ public static class BusinessDashboardService
         var daily = BuildDailyChart(salesOk, dFrom, dTo, mode);
         var top = BuildTop(topAgg);
         var insight = BuildVendasInsight(salesOk);
-        var mensal = BuildMensal(conn, salesOk, dFrom, dTo, costCache);
+        var mensal = BuildMensal(conn, salesOk, dFrom, dTo, itemsBySale);
         var margem = BuildMargemSaude(conn, mode, faturamento, cmv, qtdPedidos);
 
         var linhas = IterLinhasRecebimento(conn, salesOk, dFrom, dTo);
@@ -116,6 +115,13 @@ public static class BusinessDashboardService
             TicketMedio = ticket,
             QtdCancelados = salesCancel,
             Cmv = cmv,
+            CmvHistorico = periodCmv.Historical,
+            CmvEstimado = periodCmv.EstimatedLegacy,
+            HasEstimatedLegacyCost = periodCmv.HasEstimatedLegacyCost,
+            CmvUsesHistoricalSnapshot = HistoricalSaleCostRules.ReportsUseHistoricalSnapshot,
+            ProfitIsEstimated = periodCmv.ProfitIsEstimated,
+            MarginIsEstimated = periodCmv.MarginIsEstimated,
+            CmvReliabilityNote = periodCmv.ReliabilityNote,
             ItensVendidos = itens,
             MediaItensPedido = mediaItens,
             ClientesAtendidos = clientes,
@@ -164,7 +170,8 @@ public static class BusinessDashboardService
         public int? CustomerId { get; init; }
     }
 
-    private sealed record ItemRow(int ProductId, string Code, string Name, double Qty, double Subtotal);
+    private sealed record ItemRow(
+        int ProductId, string Code, string Name, double Qty, double Subtotal, SaleLineCmv Cmv);
 
     private sealed record RecebimentoLine(DateTime Day, double Amount, string PaymentType);
 
@@ -237,31 +244,35 @@ public static class BusinessDashboardService
         var list = new List<ItemRow>();
         using var cmd = conn.CreateCommand();
         cmd.CommandText = """
-            SELECT product_id, IFNULL(product_code,''), IFNULL(product_name,''),
-                   quantity, subtotal
-            FROM sale_items WHERE sale_id = $id;
+            SELECT si.product_id, IFNULL(si.product_code,''), IFNULL(si.product_name,''),
+                   si.quantity, si.subtotal, si.unit_price, si.cost_at_sale,
+                   IFNULL(p.cost_price,0), IFNULL(p.extra_json,''), IFNULL(p.group_name,'')
+            FROM sale_items si
+            LEFT JOIN products p ON p.id = si.product_id
+            WHERE si.sale_id = $id;
             """;
         cmd.Parameters.AddWithValue("$id", saleId);
         using var reader = cmd.ExecuteReader();
         while (reader.Read())
         {
+            var name = reader.GetString(2);
+            var qty = reader.GetDouble(3);
+            var unitSale = reader.IsDBNull(5) ? 0 : reader.GetDouble(5);
+            var costAtSale = HistoricalSaleCostRules.ReadCostAtSale(reader, 6);
+            var catalogCost = reader.IsDBNull(7) ? 0 : reader.GetDouble(7);
+            var extra = ProductExtra.Parse(reader.IsDBNull(8) ? null : reader.GetString(8));
+            var group = reader.IsDBNull(9) ? "" : reader.GetString(9);
+            var cmv = HistoricalSaleCostRules.ResolveLine(
+                qty, costAtSale, catalogCost, unitSale, name, group, extra);
             list.Add(new ItemRow(
                 reader.GetInt32(0),
                 reader.GetString(1),
-                reader.GetString(2),
-                reader.GetDouble(3),
-                reader.GetDouble(4)));
+                name,
+                qty,
+                reader.GetDouble(4),
+                cmv));
         }
         return list;
-    }
-
-    private static double GetProductCost(SqliteConnection conn, int productId)
-    {
-        using var cmd = conn.CreateCommand();
-        cmd.CommandText = "SELECT IFNULL(cost_price,0) FROM products WHERE id = $id LIMIT 1;";
-        cmd.Parameters.AddWithValue("$id", productId);
-        var obj = cmd.ExecuteScalar();
-        return obj is null or DBNull ? 0 : Convert.ToDouble(obj);
     }
 
     private static List<CashMovRow> LoadCashMovements(SqliteConnection conn, DateTime dFrom, DateTime dTo)
@@ -1185,7 +1196,7 @@ public static class BusinessDashboardService
         List<SaleRow> salesOk,
         DateTime dFrom,
         DateTime dTo,
-        Dictionary<int, double> costCache)
+        Dictionary<int, List<ItemRow>> itemsBySale)
     {
         var map = new Dictionary<string, (double Fat, double Custo, double Sangria, double Pag)>();
 
@@ -1205,15 +1216,8 @@ public static class BusinessDashboardService
                 continue;
             var cur = map[key];
             double saleCmv = 0;
-            foreach (var item in LoadSaleItems(conn, sale.Id))
-            {
-                if (!costCache.TryGetValue(item.ProductId, out var cost))
-                {
-                    cost = GetProductCost(conn, item.ProductId);
-                    costCache[item.ProductId] = cost;
-                }
-                saleCmv += item.Qty * cost;
-            }
+            foreach (var item in itemsBySale.GetValueOrDefault(sale.Id) ?? [])
+                saleCmv += item.Cmv.TotalCost;
             map[key] = (Round(cur.Fat + sale.Total), Round(cur.Custo + saleCmv), cur.Sangria, cur.Pag);
         }
 
@@ -1498,32 +1502,8 @@ public static class BusinessDashboardService
             qtd = reader.GetInt32(1);
         }
 
-        using var cmdCmv = conn.CreateCommand();
-        cmdCmv.CommandText = """
-            SELECT si.quantity, si.unit_price, IFNULL(p.cost_price,0),
-                   IFNULL(si.product_name,''), IFNULL(p.extra_json,''), IFNULL(p.group_name,'')
-            FROM sale_items si
-            INNER JOIN sales s ON si.sale_id = s.id
-            LEFT JOIN products p ON si.product_id = p.id
-            WHERE IFNULL(s.cancelled,0) = 0;
-            """;
-        double cmvSum = 0;
-        using (var cmvReader = cmdCmv.ExecuteReader())
-        {
-            while (cmvReader.Read())
-            {
-                var qty = cmvReader.GetDouble(0);
-                var unitSale = cmvReader.GetDouble(1);
-                var catalogCost = cmvReader.IsDBNull(2) ? 0 : cmvReader.GetDouble(2);
-                var name = cmvReader.IsDBNull(3) ? "" : cmvReader.GetString(3);
-                var extra = ProductExtra.Parse(cmvReader.IsDBNull(4) ? null : cmvReader.GetString(4));
-                var group = cmvReader.IsDBNull(5) ? "" : cmvReader.GetString(5);
-                var unitCost = ProductPriceHelper.UnitCostForSoldLine(
-                    catalogCost, unitSale, extra, name, group);
-                cmvSum += qty * unitCost;
-            }
-        }
-        var cmv = Round(cmvSum);
+        var periodCmv = HistoricalSaleCostRules.SumAllNonCancelled(conn);
+        var cmv = periodCmv.Total;
 
         string fromBr = "—", toBr = "—";
         using var cmdRange = conn.CreateCommand();

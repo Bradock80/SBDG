@@ -186,6 +186,8 @@ public partial class StockReportModuleView : UserControl
             AddBadge("Total R$", result.TotalValor.ToString("N2"), boldValue: true);
             if (_kind is StockReportKind.MaisLucrativos or StockReportKind.MenosLucrativos || result.TotalLucro != 0)
                 AddBadge("Lucro R$", result.TotalLucro.ToString("N2"), boldValue: true, accent: true);
+            if (result.CmvUsesHistoricalSnapshot && result.HasEstimatedLegacyCost)
+                AddBadge("CMV", "contém estimativa", boldValue: false);
         }
         else
         {

@@ -65,7 +65,10 @@ public partial class PdvResumoDiaWindow : Window
         TopGrid.ItemsSource = resumo.TopProdutos;
 
         MetaText.Text =
-            "Lucro = vendas − custo dos produtos · Fiado não entra no caixa em dinheiro.";
+            "Lucro = vendas − CMV da venda · Fiado não entra no caixa em dinheiro.";
+        if (resumo.CmvUsesHistoricalSnapshot && resumo.HasEstimatedLegacyCost
+            && !string.IsNullOrWhiteSpace(resumo.CmvReliabilityNote))
+            MetaText.Text += " " + resumo.CmvReliabilityNote;
         FooterHintText.Text = $"Atualizado às {DateTime.Now:HH:mm:ss}";
     }
 

@@ -83,7 +83,8 @@ public static class DreService
 
         var deducoes = Round(descontos);
 
-        var cmv = CalcCmv(conn, fromStr, toStr);
+        var periodCmv = HistoricalSaleCostRules.SumNonCancelledBySession(conn, fromStr, toStr);
+        var cmv = periodCmv.Total;
         var lucroBruto = Round(receitaLiquida - cmv);
         var margemBruta = receitaLiquida > 0.009
             ? Round(lucroBruto / receitaLiquida * 100.0)
@@ -97,7 +98,7 @@ public static class DreService
 
         var lines = BuildCascade(
             receitaBruta, descontos, cancelamentos, deducoes,
-            receitaLiquida, cmv, lucroBruto, margemBruta,
+            receitaLiquida, periodCmv, lucroBruto, margemBruta,
             despesas, lucroLiquido, margemLiquida);
 
         return new DreSimplificadoResult
@@ -112,6 +113,13 @@ public static class DreService
             DeducoesVendas = deducoes,
             ReceitaLiquida = receitaLiquida,
             Cmv = cmv,
+            CmvHistorico = periodCmv.Historical,
+            CmvEstimado = periodCmv.EstimatedLegacy,
+            HasEstimatedLegacyCost = periodCmv.HasEstimatedLegacyCost,
+            CmvUsesHistoricalSnapshot = HistoricalSaleCostRules.ReportsUseHistoricalSnapshot,
+            ProfitIsEstimated = periodCmv.ProfitIsEstimated,
+            MarginIsEstimated = periodCmv.MarginIsEstimated,
+            CmvReliabilityNote = periodCmv.ReliabilityNote,
             LucroBruto = lucroBruto,
             MargemBrutaPercent = margemBruta,
             DespesasOperacionais = despesas,
@@ -120,37 +128,6 @@ public static class DreService
             DespesasPorCategoria = porCat,
             CascadeLines = lines,
         };
-    }
-
-    private static double CalcCmv(Microsoft.Data.Sqlite.SqliteConnection conn, string fromStr, string toStr)
-    {
-        double cmvSum = 0;
-        using var cmd = conn.CreateCommand();
-        cmd.CommandText = """
-            SELECT si.quantity, si.unit_price, IFNULL(p.cost_price,0),
-                   IFNULL(si.product_name,''), IFNULL(p.extra_json,''), IFNULL(p.group_name,'')
-            FROM sale_items si
-            JOIN sales s ON s.id = si.sale_id
-            LEFT JOIN products p ON p.id = si.product_id
-            WHERE IFNULL(s.cancelled,0) = 0
-              AND s.session_date >= $from AND s.session_date <= $to;
-            """;
-        cmd.Parameters.AddWithValue("$from", fromStr);
-        cmd.Parameters.AddWithValue("$to", toStr);
-        using var reader = cmd.ExecuteReader();
-        while (reader.Read())
-        {
-            var qty = reader.GetDouble(0);
-            var unitSale = reader.GetDouble(1);
-            var catalogCost = reader.IsDBNull(2) ? 0 : reader.GetDouble(2);
-            var name = reader.IsDBNull(3) ? "" : reader.GetString(3);
-            var extra = ProductExtra.Parse(reader.IsDBNull(4) ? null : reader.GetString(4));
-            var group = reader.IsDBNull(5) ? "" : reader.GetString(5);
-            var unitCost = ProductPriceHelper.UnitCostForSoldLine(
-                catalogCost, unitSale, extra, name, group);
-            cmvSum += qty * unitCost;
-        }
-        return Round(cmvSum);
     }
 
     /// <summary>
@@ -235,26 +212,26 @@ public static class DreService
 
     private static List<DreLineRow> BuildCascade(
         double bruta, double descontos, double cancelamentos, double deducoes,
-        double liquida, double cmv, double lucroBruto, double margemBruta,
+        double liquida, PeriodSaleCmv periodCmv, double lucroBruto, double margemBruta,
         double despesas, double lucroLiquido, double margemLiquida)
     {
-        return
-        [
-            new DreLineRow { Sign = "(+)", Label = "Receita Bruta de Vendas", Amount = bruta },
-            new DreLineRow
+        var lines = new List<DreLineRow>
+        {
+            new() { Sign = "(+)", Label = "Receita Bruta de Vendas", Amount = bruta },
+            new()
             {
                 Sign = "(-)",
                 Label = "Devoluções / Cancelamentos / Descontos",
                 Amount = deducoes,
             },
-            new DreLineRow
+            new()
             {
                 Sign = "",
                 Label = $"    · Descontos concedidos: {ProductPriceHelper.MoneyBr(descontos)}",
                 Amount = descontos,
                 IsSubNote = true,
             },
-            new DreLineRow
+            new()
             {
                 Sign = "",
                 Label = cancelamentos > 0.009
@@ -263,49 +240,84 @@ public static class DreService
                 Amount = cancelamentos,
                 IsSubNote = true,
             },
-            new DreLineRow
+            new()
             {
                 Sign = "(=)",
                 Label = "Receita Líquida",
                 Amount = liquida,
                 IsTotal = true,
             },
-            new DreLineRow { Sign = "(-)", Label = "Custo das Mercadorias Vendidas (CMV)", Amount = cmv },
-            new DreLineRow
+            new() { Sign = "(-)", Label = "Custo das Mercadorias Vendidas (CMV)", Amount = periodCmv.Total },
+        };
+
+        if (periodCmv.HasEstimatedLegacyCost)
+        {
+            if (periodCmv.HasHistoricalCost)
             {
-                Sign = "(=)",
-                Label = "Lucro Bruto",
-                Amount = lucroBruto,
-                IsTotal = true,
-            },
-            new DreLineRow
-            {
-                Sign = "",
-                Label = $"    ↳ Margem Bruta {margemBruta:N1}%",
-                Amount = margemBruta,
-                IsSubNote = true,
-            },
-            new DreLineRow
-            {
-                Sign = "(-)",
-                Label = "Despesas Operacionais (Contas a Pagar*)",
-                Amount = despesas,
-            },
-            new DreLineRow
-            {
-                Sign = "(=)",
-                Label = lucroLiquido >= 0 ? "Lucro Líquido do Exercício" : "Prejuízo do Exercício",
-                Amount = lucroLiquido,
-                IsTotal = true,
-            },
-            new DreLineRow
+                lines.Add(new DreLineRow
+                {
+                    Sign = "",
+                    Label = $"    · CMV histórico confiável: {ProductPriceHelper.MoneyBr(periodCmv.Historical)}",
+                    Amount = periodCmv.Historical,
+                    IsSubNote = true,
+                });
+                lines.Add(new DreLineRow
+                {
+                    Sign = "",
+                    Label = $"    · CMV estimado legado: {ProductPriceHelper.MoneyBr(periodCmv.EstimatedLegacy)}",
+                    Amount = periodCmv.EstimatedLegacy,
+                    IsSubNote = true,
+                });
+            }
+
+            lines.Add(new DreLineRow
             {
                 Sign = "",
-                Label = $"    ↳ Margem Líquida {margemLiquida:N1}%",
-                Amount = margemLiquida,
+                Label = "    · " + HistoricalSaleCostRules.EstimatedLegacyPeriodNote,
+                Amount = periodCmv.EstimatedLegacy,
                 IsSubNote = true,
-            },
-        ];
+            });
+        }
+
+        lines.Add(new DreLineRow
+        {
+            Sign = "(=)",
+            Label = "Lucro Bruto",
+            Amount = lucroBruto,
+            IsTotal = true,
+        });
+        lines.Add(new DreLineRow
+        {
+            Sign = "",
+            Label = periodCmv.MarginIsEstimated
+                ? $"    ↳ Margem Bruta {margemBruta:N1}% (contém estimativa)"
+                : $"    ↳ Margem Bruta {margemBruta:N1}%",
+            Amount = margemBruta,
+            IsSubNote = true,
+        });
+        lines.Add(new DreLineRow
+        {
+            Sign = "(-)",
+            Label = "Despesas Operacionais (Contas a Pagar*)",
+            Amount = despesas,
+        });
+        lines.Add(new DreLineRow
+        {
+            Sign = "(=)",
+            Label = lucroLiquido >= 0 ? "Lucro Líquido do Exercício" : "Prejuízo do Exercício",
+            Amount = lucroLiquido,
+            IsTotal = true,
+        });
+        lines.Add(new DreLineRow
+        {
+            Sign = "",
+            Label = periodCmv.MarginIsEstimated
+                ? $"    ↳ Margem Líquida {margemLiquida:N1}% (contém estimativa)"
+                : $"    ↳ Margem Líquida {margemLiquida:N1}%",
+            Amount = margemLiquida,
+            IsSubNote = true,
+        });
+        return lines;
     }
 
     private static string Trunc(string s, int max) =>

@@ -53,6 +53,13 @@ public sealed class DreSimplificadoResult
     public double ReceitaLiquida { get; init; }
 
     public double Cmv { get; init; }
+    public double CmvHistorico { get; init; }
+    public double CmvEstimado { get; init; }
+    public bool HasEstimatedLegacyCost { get; init; }
+    public bool CmvUsesHistoricalSnapshot { get; init; }
+    public bool ProfitIsEstimated { get; init; }
+    public bool MarginIsEstimated { get; init; }
+    public string? CmvReliabilityNote { get; init; }
     public double LucroBruto { get; init; }
     public double MargemBrutaPercent { get; init; }
 

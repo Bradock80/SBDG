@@ -325,7 +325,9 @@ public partial class ReportsModuleView : UserControl
             FcRecebidoFiado.Text = $"R$ {r.TotalRecebidoFiado:N2}";
             FcCmv.Text = $"R$ {r.Cmv:N2}";
             FcLucro.Text = $"R$ {r.LucroEstimado:N2}  ({r.MargemPercent:N1}%)";
-            FcMeta.Text = $"{r.QtdVendas} venda(s) no período · Lucro ≈ faturamento − custo cadastrado dos produtos.";
+            FcMeta.Text = $"{r.QtdVendas} venda(s) no período · Lucro = faturamento − CMV.";
+            if (r.HasEstimatedLegacyCost && !string.IsNullOrWhiteSpace(r.CmvReliabilityNote))
+                FcMeta.Text += " " + r.CmvReliabilityNote;
             FcFormaGrid.ItemsSource = r.PorForma
                 .OrderByDescending(kv => kv.Value)
                 .Select(kv => new { kv.Key, kv.Value })

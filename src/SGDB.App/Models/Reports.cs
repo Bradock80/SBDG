@@ -186,6 +186,13 @@ public class FechamentoConsolidadoResult
     public double TotalFiado { get; init; }
     public double TotalRecebidoFiado { get; init; }
     public double Cmv { get; init; }
+    public double CmvHistorico { get; init; }
+    public double CmvEstimado { get; init; }
+    public bool HasEstimatedLegacyCost { get; init; }
+    public bool CmvUsesHistoricalSnapshot { get; init; }
+    public bool ProfitIsEstimated { get; init; }
+    public bool MarginIsEstimated { get; init; }
+    public string? CmvReliabilityNote { get; init; }
     public double LucroEstimado { get; init; }
     public double MargemPercent { get; init; }
     public Dictionary<string, double> PorForma { get; init; } = new();

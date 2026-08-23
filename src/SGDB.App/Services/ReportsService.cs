@@ -420,25 +420,9 @@ public static class ReportsService
         totalAVista = ProductPriceHelper.RoundPrice(totalAVista);
         totalFiado = ProductPriceHelper.RoundPrice(totalFiado);
 
-        double cmv = 0;
-        using (var cmd = conn.CreateCommand())
-        {
-            cmd.CommandText = """
-                SELECT SUM(si.quantity * IFNULL(p.cost_price, 0))
-                FROM sale_items si
-                JOIN sales s ON s.id = si.sale_id
-                LEFT JOIN products p ON p.id = si.product_id
-                WHERE s.cancelled = 0
-                  AND s.session_date >= $from
-                  AND s.session_date <= $to;
-                """;
-            cmd.Parameters.AddWithValue("$from", dFrom.ToString("yyyy-MM-dd"));
-            cmd.Parameters.AddWithValue("$to", dTo.ToString("yyyy-MM-dd"));
-            var obj = cmd.ExecuteScalar();
-            if (obj is not null and not DBNull)
-                cmv = Convert.ToDouble(obj);
-        }
-        cmv = ProductPriceHelper.RoundPrice(cmv);
+        var periodCmv = HistoricalSaleCostRules.SumNonCancelledBySession(
+            conn, dFrom.ToString("yyyy-MM-dd"), dTo.ToString("yyyy-MM-dd"));
+        var cmv = periodCmv.Total;
 
         double recebidoFiado = 0;
         using (var cmd = conn.CreateCommand())
@@ -470,6 +454,13 @@ public static class ReportsService
             TotalFiado = totalFiado,
             TotalRecebidoFiado = recebidoFiado,
             Cmv = cmv,
+            CmvHistorico = periodCmv.Historical,
+            CmvEstimado = periodCmv.EstimatedLegacy,
+            HasEstimatedLegacyCost = periodCmv.HasEstimatedLegacyCost,
+            CmvUsesHistoricalSnapshot = HistoricalSaleCostRules.ReportsUseHistoricalSnapshot,
+            ProfitIsEstimated = periodCmv.ProfitIsEstimated,
+            MarginIsEstimated = periodCmv.MarginIsEstimated,
+            CmvReliabilityNote = periodCmv.ReliabilityNote,
             LucroEstimado = lucro,
             MargemPercent = margem,
             PorForma = porForma.ToDictionary(

@@ -191,6 +191,13 @@ public class NegocioDashboard
     public double TicketMedio { get; set; }
     public int QtdCancelados { get; set; }
     public double Cmv { get; set; }
+    public double CmvHistorico { get; set; }
+    public double CmvEstimado { get; set; }
+    public bool HasEstimatedLegacyCost { get; set; }
+    public bool CmvUsesHistoricalSnapshot { get; set; }
+    public bool ProfitIsEstimated { get; set; }
+    public bool MarginIsEstimated { get; set; }
+    public string? CmvReliabilityNote { get; set; }
     public double ItensVendidos { get; set; }
     public double MediaItensPedido { get; set; }
     public int ClientesAtendidos { get; set; }

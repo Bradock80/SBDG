@@ -251,6 +251,8 @@
                                 <StackPanel>
                                     <TextBlock Text="CMV" Style="{StaticResource MnKpiLabel}"/>
                                     <TextBlock x:Name="KpiCmv" Style="{StaticResource MnKpiValue}"/>
+                                    <TextBlock x:Name="KpiCmvNote" FontSize="9" Foreground="#64748B"
+                                               TextWrapping="Wrap" Visibility="Collapsed" Margin="0,2,0,0"/>
                                 </StackPanel>
                             </Border>
                             <Border Style="{StaticResource MnKpiCard}">

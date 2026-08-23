@@ -231,6 +231,11 @@ public class PdvResumoDia
     public double Faturamento { get; set; }
     public double LucroReal { get; set; }
     public double MargemPercent { get; set; }
+    public bool HasEstimatedLegacyCost { get; set; }
+    public bool CmvUsesHistoricalSnapshot { get; set; }
+    public bool ProfitIsEstimated { get; set; }
+    public bool MarginIsEstimated { get; set; }
+    public string? CmvReliabilityNote { get; set; }
     public int QtdVendas { get; set; }
     public double TicketMedio { get; set; }
     public int QtdCancelados { get; set; }

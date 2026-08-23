@@ -942,6 +942,7 @@ public static class StockService
                    si.quantity,
                    si.unit_price,
                    si.subtotal,
+                   si.cost_at_sale,
                    IFNULL(p.cost_price, 0),
                    IFNULL(p.extra_json, '')
             FROM sale_items si
@@ -955,6 +956,7 @@ public static class StockService
         cmd.Parameters.AddWithValue("$to", dTo.ToString("yyyy-MM-dd"));
 
         var agg = new Dictionary<int, (string Code, string Name, string Group, double Qty, double Total, double Cost)>();
+        var cmvLines = new List<SaleLineCmv>();
         using (var reader = cmd.ExecuteReader())
         {
             while (reader.Read())
@@ -965,11 +967,13 @@ public static class StockService
                 var qty = reader.GetDouble(4);
                 var unitSale = reader.GetDouble(5);
                 var subtotal = reader.GetDouble(6);
-                var catalogCost = reader.IsDBNull(7) ? 0 : reader.GetDouble(7);
-                var extra = ProductExtra.Parse(reader.IsDBNull(8) ? null : reader.GetString(8));
-                var unitCost = ProductPriceHelper.UnitCostForSoldLine(
-                    catalogCost, unitSale, extra, name, group);
-                var lineCost = ProductPriceHelper.RoundPrice(qty * unitCost);
+                var costAtSale = HistoricalSaleCostRules.ReadCostAtSale(reader, 7);
+                var catalogCost = reader.IsDBNull(8) ? 0 : reader.GetDouble(8);
+                var extra = ProductExtra.Parse(reader.IsDBNull(9) ? null : reader.GetString(9));
+                var line = HistoricalSaleCostRules.ResolveLine(
+                    qty, costAtSale, catalogCost, unitSale, name, group, extra);
+                cmvLines.Add(line);
+                var lineCost = line.TotalCost;
 
                 if (agg.TryGetValue(pid, out var prev))
                 {
@@ -1024,6 +1028,7 @@ public static class StockService
             });
         }
 
+        var periodCmv = HistoricalSaleCostRules.Sum(cmvLines);
         return new StockReportResult
         {
             Kind = kind,
@@ -1034,6 +1039,9 @@ public static class StockService
             TotalLucro = ProductPriceHelper.RoundPrice(totalLucro),
             DateFrom = dFrom,
             DateTo = dTo,
+            HasEstimatedLegacyCost = periodCmv.HasEstimatedLegacyCost,
+            CmvUsesHistoricalSnapshot = HistoricalSaleCostRules.ReportsUseHistoricalSnapshot,
+            CmvReliabilityNote = periodCmv.ReliabilityNote,
         };
     }
 

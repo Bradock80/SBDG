@@ -47,7 +47,8 @@ public static class MovimentacaoService
                    si.product_id,
                    IFNULL(p.extra_json, ''),
                    IFNULL(p.group_name, ''),
-                   s.total
+                   s.total,
+                   si.cost_at_sale
             FROM sale_items si
             JOIN sales s ON s.id = si.sale_id
             LEFT JOIN products p ON p.id = si.product_id
@@ -77,9 +78,11 @@ public static class MovimentacaoService
                 var extraJson = reader.IsDBNull(10) ? "" : reader.GetString(10);
                 var extra = ProductExtra.Parse(extraJson);
                 var groupName = reader.IsDBNull(11) ? "" : reader.GetString(11);
-                var unitCost = ProductPriceHelper.UnitCostForSoldLine(
-                    catalogCost, unitSale, extra, productName, groupName);
-                var costTotal = ProductPriceHelper.RoundPrice(qty * unitCost);
+                var costAtSale = HistoricalSaleCostRules.ReadCostAtSale(reader, 13);
+                var lineCmv = HistoricalSaleCostRules.ResolveLine(
+                    qty, costAtSale, catalogCost, unitSale, productName, groupName, extra);
+                var unitCost = lineCmv.UnitCost;
+                var costTotal = ProductPriceHelper.RoundPrice(lineCmv.TotalCost);
                 var (discount, acrescimo) = LineDiscountAcrescimo(qty, unitSale, subtotal);
                 var saleTotal = reader.GetDouble(12);
 
@@ -613,7 +616,8 @@ public static class MovimentacaoService
                    IFNULL(p.cost_price, 0),
                    IFNULL(si.product_name, ''),
                    IFNULL(p.extra_json, ''),
-                   IFNULL(p.group_name, '')
+                   IFNULL(p.group_name, ''),
+                   si.cost_at_sale
             FROM sale_items si
             JOIN sales s ON s.id = si.sale_id
             LEFT JOIN products p ON p.id = si.product_id
@@ -635,9 +639,10 @@ public static class MovimentacaoService
             var name = reader.IsDBNull(4) ? "" : reader.GetString(4);
             var extra = ProductExtra.Parse(reader.IsDBNull(5) ? null : reader.GetString(5));
             var group = reader.IsDBNull(6) ? "" : reader.GetString(6);
-            var unitCost = ProductPriceHelper.UnitCostForSoldLine(
-                catalogCost, unitSale, extra, name, group);
-            var lineCost = ProductPriceHelper.RoundPrice(qty * unitCost);
+            var costAtSale = HistoricalSaleCostRules.ReadCostAtSale(reader, 7);
+            var line = HistoricalSaleCostRules.ResolveLine(
+                qty, costAtSale, catalogCost, unitSale, name, group, extra);
+            var lineCost = ProductPriceHelper.RoundPrice(line.TotalCost);
             map[saleId] = ProductPriceHelper.RoundPrice(
                 (map.TryGetValue(saleId, out var prev) ? prev : 0) + lineCost);
         }

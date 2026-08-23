@@ -105,6 +105,9 @@ public sealed class StockReportResult
     public double TotalLucro { get; set; }
     public DateTime? DateFrom { get; set; }
     public DateTime? DateTo { get; set; }
+    public bool HasEstimatedLegacyCost { get; set; }
+    public bool CmvUsesHistoricalSnapshot { get; set; }
+    public string? CmvReliabilityNote { get; set; }
 }
 
 public sealed class StockAdjustResult

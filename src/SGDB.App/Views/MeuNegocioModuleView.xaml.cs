@@ -141,6 +141,16 @@ public partial class MeuNegocioModuleView : UserControl
         KpiServicos.Text = $"R$ {d.Recebimentos.TotalServicos:N2}";
         KpiCancelados.Text = d.QtdCancelados.ToString("N0");
         KpiCmv.Text = $"R$ {d.Cmv:N2}";
+        if (d.CmvUsesHistoricalSnapshot && d.HasEstimatedLegacyCost)
+        {
+            KpiCmvNote.Text = d.CmvReliabilityNote ?? HistoricalSaleCostRules.EstimatedLegacyPeriodNote;
+            KpiCmvNote.Visibility = Visibility.Visible;
+        }
+        else
+        {
+            KpiCmvNote.Text = "";
+            KpiCmvNote.Visibility = Visibility.Collapsed;
+        }
         KpiItens.Text = d.ItensVendidos % 1 == 0
             ? d.ItensVendidos.ToString("N0")
             : d.ItensVendidos.ToString("N2");

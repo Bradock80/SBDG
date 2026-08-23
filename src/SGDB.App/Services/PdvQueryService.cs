@@ -169,7 +169,7 @@ public static class PdvQueryService
             SELECT s.id, s.total, s.payment_type, s.cancelled,
                    si.product_id, si.quantity, si.subtotal, si.product_name,
                    IFNULL(p.group_name, '') AS group_name, IFNULL(p.cost_price, 0) AS cost_price,
-                   IFNULL(p.extra_json, '') AS extra_json
+                   IFNULL(p.extra_json, '') AS extra_json, si.unit_price, si.cost_at_sale
             FROM sales s
             JOIN sale_items si ON si.sale_id = s.id
             LEFT JOIN products p ON p.id = si.product_id
@@ -185,6 +185,7 @@ public static class PdvQueryService
         var top = new Dictionary<int, (string name, double qty, double total)>();
         double faturamento = 0;
         double lucro = 0;
+        var cmvLines = new List<SaleLineCmv>();
 
         using var reader = cmd.ExecuteReader();
         while (reader.Read())
@@ -207,11 +208,12 @@ public static class PdvQueryService
             var productName = reader.GetString(7);
             var catalogCost = reader.GetDouble(9);
             var extra = ProductExtra.Parse(reader.IsDBNull(10) ? null : reader.GetString(10));
-            // Mesmo cálculo das outras telas: custo cadastrado em fardo/cartela vira custo unitário.
-            var unitSale = qty > 0 ? ProductPriceHelper.RoundPrice(subtotal / qty) : 0;
-            var unitCost = ProductPriceHelper.UnitCostForSoldLine(
-                catalogCost, unitSale, extra, productName, rawGroup);
-            var costTotal = ProductPriceHelper.RoundPrice(unitCost * qty);
+            var unitSale = reader.IsDBNull(11) ? 0 : reader.GetDouble(11);
+            var costAtSale = HistoricalSaleCostRules.ReadCostAtSale(reader, 12);
+            var lineCmv = HistoricalSaleCostRules.ResolveLine(
+                qty, costAtSale, catalogCost, unitSale, productName, rawGroup, extra);
+            cmvLines.Add(lineCmv);
+            var costTotal = ProductPriceHelper.RoundPrice(lineCmv.TotalCost);
             var lineLucro = ProductPriceHelper.RoundPrice(subtotal - costTotal);
 
             faturamento += subtotal;
@@ -246,6 +248,7 @@ public static class PdvQueryService
 
         faturamento = ProductPriceHelper.RoundPrice(faturamento);
         lucro = ProductPriceHelper.RoundPrice(lucro);
+        var periodCmv = HistoricalSaleCostRules.Sum(cmvLines);
         var qtd = salesOk.Count;
         var margem = faturamento > 0 ? ProductPriceHelper.RoundPrice(lucro / faturamento * 100) : 0;
         var ticket = qtd > 0 ? ProductPriceHelper.RoundPrice(faturamento / qtd) : 0;
@@ -271,6 +274,11 @@ public static class PdvQueryService
             Faturamento = faturamento,
             LucroReal = lucro,
             MargemPercent = margem,
+            HasEstimatedLegacyCost = periodCmv.HasEstimatedLegacyCost,
+            CmvUsesHistoricalSnapshot = HistoricalSaleCostRules.ReportsUseHistoricalSnapshot,
+            ProfitIsEstimated = periodCmv.ProfitIsEstimated,
+            MarginIsEstimated = periodCmv.MarginIsEstimated,
+            CmvReliabilityNote = periodCmv.ReliabilityNote,
             QtdVendas = qtd,
             TicketMedio = ticket,
             QtdCancelados = salesCancel,

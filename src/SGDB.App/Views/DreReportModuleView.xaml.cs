@@ -123,8 +123,11 @@ public partial class DreReportModuleView : UserControl
         MetaText.Text =
             $"{r.QtdVendas} venda(s) ativa(s)" +
             (r.QtdCanceladas > 0 ? $" · {r.QtdCanceladas} cancelada(s)" : "") +
-            $" · Margem bruta {r.MargemBrutaPercent:N1}% · Margem líquida {r.MargemLiquidaPercent:N1}%." +
-            " CMV usa o custo cadastrado atual dos produtos.";
+            $" · Margem bruta {r.MargemBrutaPercent:N1}% · Margem líquida {r.MargemLiquidaPercent:N1}%.";
+        if (r.HasEstimatedLegacyCost && !string.IsNullOrWhiteSpace(r.CmvReliabilityNote))
+            MetaText.Text += " " + r.CmvReliabilityNote;
+        else if (r.CmvUsesHistoricalSnapshot)
+            MetaText.Text += " CMV usa o custo histórico da venda.";
     }
 
     private void Print_Click(object sender, RoutedEventArgs e)
@@ -205,9 +208,14 @@ public partial class DreReportModuleView : UserControl
                 children.Children.Add(MakePrintLine(row.Category, row.AmountDisplay));
         }
 
+        var cmvFoot = r.HasEstimatedLegacyCost
+            ? HistoricalSaleCostRules.EstimatedLegacyPeriodNote
+            : r.CmvUsesHistoricalSnapshot
+                ? "CMV pelo custo histórico da venda."
+                : "CMV conforme o servidor.";
         children.Children.Add(new TextBlock
         {
-            Text = "* Despesas: Contas a Pagar por vencimento (sem mercadoria). CMV pelo custo cadastrado.",
+            Text = "* Despesas: Contas a Pagar por vencimento (sem mercadoria). " + cmvFoot,
             FontSize = 10,
             Foreground = Brushes.Gray,
             TextWrapping = TextWrapping.Wrap,
