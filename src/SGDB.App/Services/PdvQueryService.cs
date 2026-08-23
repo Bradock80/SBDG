@@ -308,7 +308,8 @@ public static class PdvQueryService
     {
         using var cmd = conn.CreateCommand();
         cmd.CommandText = """
-            SELECT id, product_id, product_code, product_name, unit, quantity, unit_price, subtotal
+            SELECT id, product_id, product_code, product_name, unit, quantity, unit_price, subtotal,
+                   cost_at_sale
             FROM sale_items WHERE sale_id = $id ORDER BY id;
             """;
         cmd.Parameters.AddWithValue("$id", saleId);
@@ -326,6 +327,7 @@ public static class PdvQueryService
                 Quantity = reader.GetDouble(5),
                 UnitPrice = reader.GetDouble(6),
                 Subtotal = reader.GetDouble(7),
+                CostAtSale = reader.IsDBNull(8) ? null : reader.GetDouble(8),
             });
         }
         return list;

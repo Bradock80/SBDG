@@ -695,6 +695,7 @@ public static partial class DatabaseService
                 quantity REAL NOT NULL DEFAULT 0,
                 unit_price REAL NOT NULL DEFAULT 0,
                 subtotal REAL NOT NULL DEFAULT 0,
+                cost_at_sale REAL,
                 FOREIGN KEY (sale_id) REFERENCES sales(id) ON DELETE CASCADE,
                 FOREIGN KEY (product_id) REFERENCES products(id)
             );

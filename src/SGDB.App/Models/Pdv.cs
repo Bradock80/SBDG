@@ -123,6 +123,7 @@ public class PdvSaleItemRow
     public double Quantity { get; set; }
     public double UnitPrice { get; set; }
     public double Subtotal { get; set; }
+    public double? CostAtSale { get; set; }
     [System.Text.Json.Serialization.JsonIgnore] public string QuantityDisplay => Quantity.ToString("N3");
     [System.Text.Json.Serialization.JsonIgnore] public string UnitPriceDisplay => ProductPriceHelper.MoneyBr(UnitPrice);
     [System.Text.Json.Serialization.JsonIgnore] public string SubtotalDisplay => ProductPriceHelper.MoneyBr(Subtotal);

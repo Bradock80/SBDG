@@ -8,6 +8,15 @@ namespace SGDB.Services;
 
 public static class PdvService
 {
+    /// <summary>Somente testes: antes de inserir sale_items. Deve permanecer null em produção.</summary>
+    public static Action? TestBeforeInsertSaleItems { get; set; }
+
+    /// <summary>Somente testes: depois de gravar sale_items (com cost_at_sale) e a baixa, antes do caixa.</summary>
+    public static Action? TestAfterInsertSaleItems { get; set; }
+
+    /// <summary>Somente testes: depois do UPDATE de swap do item. Deve permanecer null em produção.</summary>
+    public static Action? TestAfterSwapItemUpdate { get; set; }
+
     public static Product? FindProduct(string? term)
     {
         return ResolveScan(term)?.Product;
@@ -390,15 +399,18 @@ public static class PdvService
             saleId = Convert.ToInt32(insSale.ExecuteScalar());
         }
 
+        TestBeforeInsertSaleItems?.Invoke();
+
         foreach (var (product, qty, stockQty, unitPrice, subtotal) in lines)
         {
+            var costAtSale = SaleCostSnapshotRules.ComputeForProduct(product, qty, stockQty);
             using var insItem = conn.CreateCommand();
             insItem.Transaction = tx;
             insItem.CommandText = """
                 INSERT INTO sale_items (
                   sale_id, product_id, product_code, product_name, unit,
-                  quantity, unit_price, subtotal, stock_qty
-                ) VALUES ($sale, $pid, $code, $name, $unit, $qty, $price, $sub, $stock);
+                  quantity, unit_price, subtotal, stock_qty, cost_at_sale
+                ) VALUES ($sale, $pid, $code, $name, $unit, $qty, $price, $sub, $stock, $cost);
                 """;
             insItem.Parameters.AddWithValue("$sale", saleId);
             insItem.Parameters.AddWithValue("$pid", product.Id);
@@ -409,6 +421,7 @@ public static class PdvService
             insItem.Parameters.AddWithValue("$price", unitPrice);
             insItem.Parameters.AddWithValue("$sub", subtotal);
             insItem.Parameters.AddWithValue("$stock", stockQty);
+            insItem.Parameters.AddWithValue("$cost", costAtSale);
             insItem.ExecuteNonQuery();
 
             var movements = ProductCompositionService.StockMovementsForSale(product, stockQty);
@@ -419,6 +432,8 @@ public static class PdvService
                     refType: "sale", refId: saleId);
             }
         }
+
+        TestAfterInsertSaleItems?.Invoke();
 
         WriteSalePaymentMovements(
             conn, tx, d, saleId, paymentParts, customerName, cashReceived, changeAmount);
@@ -629,6 +644,8 @@ public static class PdvService
                 refType: "sale_edit", refId: saleId);
         }
 
+        var swapCostAtSale = SaleCostSnapshotRules.ComputeForProduct(
+            plan.NewProduct, plan.Qty, plan.NewStockQty);
         using (var updItem = conn.CreateCommand())
         {
             updItem.Transaction = tx;
@@ -636,7 +653,7 @@ public static class PdvService
                 UPDATE sale_items SET
                   product_id = $pid, product_code = $code, product_name = $name,
                   unit = $unit, quantity = $qty, unit_price = $price, subtotal = $sub,
-                  stock_qty = $stock
+                  stock_qty = $stock, cost_at_sale = $cost
                 WHERE id = $id;
                 """;
             updItem.Parameters.AddWithValue("$pid", plan.NewProduct.Id);
@@ -647,9 +664,12 @@ public static class PdvService
             updItem.Parameters.AddWithValue("$price", plan.UnitPrice);
             updItem.Parameters.AddWithValue("$sub", plan.LineSubtotal);
             updItem.Parameters.AddWithValue("$stock", plan.NewStockQty);
+            updItem.Parameters.AddWithValue("$cost", swapCostAtSale);
             updItem.Parameters.AddWithValue("$id", itemId);
             updItem.ExecuteNonQuery();
         }
+
+        TestAfterSwapItemUpdate?.Invoke();
 
         // Confere bruto pós-update (mesma fórmula do preview).
         var newGrossItemsTotal = SumSaleItemsSubtotal(conn, tx, saleId);

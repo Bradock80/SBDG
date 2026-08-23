@@ -231,6 +231,7 @@ public static partial class DatabaseService
         AddColumnIfMissing(conn, "sale_items", ref itemColumns, "unit_price", "REAL NOT NULL DEFAULT 0");
         AddColumnIfMissing(conn, "sale_items", ref itemColumns, "subtotal", "REAL NOT NULL DEFAULT 0");
         AddColumnIfMissing(conn, "sale_items", ref itemColumns, "stock_qty", "REAL NOT NULL DEFAULT 0");
+        AddColumnIfMissing(conn, "sale_items", ref itemColumns, "cost_at_sale", "REAL");
     }
 
     private static void MigrateFiadoTable(SqliteConnection conn)
