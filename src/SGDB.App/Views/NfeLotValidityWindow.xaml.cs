@@ -8,7 +8,6 @@ using System.Windows.Input;
 using System.Windows.Threading;
 using SGDB.Models;
 using SGDB.Services;
-using SGDB.Utils;
 
 namespace SGDB.Views;
 
@@ -66,22 +65,10 @@ public partial class NfeLotValidityWindow : Window
         return dlg.ShowDialog() == true;
     }
 
-    public static bool ResolveRequiresExpiry(NfeImportItem item)
-    {
-        if (item.MatchedProductId is int pid)
-        {
-            var product = ProductService.GetById(pid);
-            if (product is not null)
-            {
-                var extra = ProductExtra.Parse(product.ExtraJson);
-                if (extra.ControleValidade is bool explicitFlag)
-                    return explicitFlag;
-                return ProductClassificationHelper.SuggestsExpiryControl(product.Name, product.GroupName);
-            }
-        }
-
-        return ProductClassificationHelper.SuggestsExpiryControl(item.Name);
-    }
+    public static bool ResolveRequiresExpiry(NfeImportItem item) =>
+        ProductExpiryService.RequiresExpiryControl(
+            item.MatchedProductId is int pid ? ProductService.GetById(pid) : null,
+            item.Name);
 
     private void Window_Loaded(object sender, RoutedEventArgs e)
     {

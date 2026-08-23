@@ -1,7 +1,6 @@
 <Window x:Class="SGDB.Views.ProductFormWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        xmlns:controls="clr-namespace:SGDB.Controls"
         Title="Cadastro de Produtos"
         Width="900" Height="700" MinWidth="780" MinHeight="520"
         WindowStartupLocation="CenterOwner"
@@ -422,12 +421,16 @@
                                                 <ColumnDefinition Width="Auto" SharedSizeGroup="LblCol"/>
                                                 <ColumnDefinition Width="*"/>
                                             </Grid.ColumnDefinitions>
-                                            <TextBlock Text="Data Validade" Style="{StaticResource FormColLabel}"/>
-                                            <controls:BrDateBox x:Name="DataValidadeBox" Grid.Column="1"/>
+                                            <TextBlock Text="Próxima validade" Style="{StaticResource FormColLabel}"
+                                                       ToolTip="Calculada pelos lotes com estoque (a mais próxima de vencer). Somente leitura."/>
+                                            <TextBox x:Name="ProximaValidadeBox" Grid.Column="1"
+                                                     Style="{StaticResource WpdvReadOnly}"
+                                                     IsReadOnly="True"
+                                                     ToolTip="Menor validade entre os lotes ativos. Não use extra_json.data_validade."/>
                                         </Grid>
                                         <CheckBox x:Name="ControleValidadeBox" Content="Controle de validade (lote / FEFO)"
                                                   FontSize="11" Margin="0,6,0,0"
-                                                  ToolTip="Quando marcado, a entrada via XML exige Data de Validade (impressa na caixa/fardo)."/>
+                                                  ToolTip="Quando marcado, a entrada de estoque (XML ou compra manual) exige Data de Validade."/>
                                     </StackPanel>
 
                                     <StackPanel Grid.Column="2">

@@ -296,7 +296,6 @@ public partial class PurchaseFormWindow : Window
     private bool _suppressNfeKeyLookup;
     private string? _lastNfeKeyLookup;
     private string? _lastXmlPath;
-    private bool _fromNfeXml;
     private bool _nfeLookupBusy;
 
     public PurchaseFormWindow(int? purchaseId, bool readOnly = false)
@@ -1550,8 +1549,6 @@ public partial class PurchaseFormWindow : Window
                     return;
             }
 
-            _fromNfeXml = true;
-
             // Fornecedor antes de criar produtos (evita misturar erros de people × products)
             int supplierId;
             try
@@ -1999,7 +1996,7 @@ public partial class PurchaseFormWindow : Window
 
         var gerarEstoque = GerarEstoqueBox.IsChecked == true;
         SyncActiveItemBeforeSave();
-        if (closeOnSave && gerarEstoque && _fromNfeXml && _items.Count > 0)
+        if (closeOnSave && gerarEstoque && _items.Count > 0)
         {
             var proxy = _items.Select(i => new NfeImportItem
             {

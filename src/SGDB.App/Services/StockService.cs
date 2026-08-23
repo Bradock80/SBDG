@@ -871,6 +871,10 @@ public static class StockService
         };
     }
 
+    /// <summary>
+    /// Relatório legado (B3 substituirá): usa extra_json.data_validade, não product_lots.
+    /// Não misturar as duas fontes nesta etapa.
+    /// </summary>
     private static StockReportResult ListValidade7d(int limit)
     {
         var lim = Math.Clamp(limit, 1, 500);

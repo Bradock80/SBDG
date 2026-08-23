@@ -171,7 +171,10 @@ public static class ProductService
             FROM products WHERE id = $id LIMIT 1;
             """;
         cmd.Parameters.AddWithValue("$id", id);
-        return ReadAll(cmd).FirstOrDefault();
+        var product = ReadAll(cmd).FirstOrDefault();
+        if (product is not null)
+            product.NextExpiry = ProductExpiryService.GetNextExpiry(product.Id);
+        return product;
     }
 
     /// <summary>Busca produto ativo por código de barras, tolerando zeros à esquerda.</summary>

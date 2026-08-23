@@ -40,6 +40,12 @@ public sealed class Product
     public string LastEntryDisplay { get; set; } = "";
 
     /// <summary>
+    /// Próxima validade operacional (MIN dos lotes ativos). Calculada em GetById;
+    /// não é coluna de products e não deve ser gravada em extra_json.
+    /// </summary>
+    public DateTime? NextExpiry { get; set; }
+
+    /// <summary>
     /// Ex.: 24 UN (2 CX) · 19 UN (1 CX + 7) · 7 UN (sem CX fechada).
     /// </summary>
     public static string FormatStockWithPacks(double quantity, string? unitLabel, string? extraJson)

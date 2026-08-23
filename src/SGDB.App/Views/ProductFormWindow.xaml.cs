@@ -29,6 +29,8 @@ public partial class ProductFormWindow : Window
     private readonly ObservableCollection<ProductCompositionItem> _composition = new();
     private DispatcherTimer? _compSuggestTimer;
     private bool _compSuggestSuppress;
+    /// <summary>Cópia legado de extra_json.data_validade — preservada no save, nunca usada como validade operacional.</summary>
+    private string? _legacyDataValidade;
 
     public ProductFormWindow(int? productId)
     {
@@ -46,6 +48,7 @@ public partial class ProductFormWindow : Window
             TitleText.Text = "Cadastro de Produtos — Novo";
             LastEntryBox.Text = "Sem entrada de compra";
             ControleValidadeBox.IsChecked = true;
+            ProximaValidadeBox.Text = ProductExpiryService.UninformedDisplay;
         }
         else
             LoadProduct(productId.Value);
@@ -170,7 +173,8 @@ public partial class ProductFormWindow : Window
         PesoBrutoBox.Text = extra.PesoBrutoKg.ToString("G", CultureInfo.CurrentCulture);
         PesoLiquidoBox.Text = extra.PesoLiquidoKg.ToString("G", CultureInfo.CurrentCulture);
         ValidadeBalancaBox.Text = extra.ValidadeBalanca.ToString("G", CultureInfo.CurrentCulture);
-        DataValidadeBox.Text = extra.DataValidade ?? "";
+        _legacyDataValidade = extra.DataValidade;
+        ProximaValidadeBox.Text = ProductExpiryService.FormatDisplay(product.NextExpiry);
         ControleValidadeBox.IsChecked = extra.ControleValidade
             ?? ProductClassificationHelper.SuggestsExpiryControl(NameBox.Text, GroupBox.Text);
         PrecoPromoBox.Text = ProductPriceHelper.FormatBr(extra.PrecoPromocional);
@@ -446,7 +450,7 @@ public partial class ProductFormWindow : Window
             PesoBrutoKg = ProductPriceHelper.ParseBr(PesoBrutoBox.Text),
             PesoLiquidoKg = ProductPriceHelper.ParseBr(PesoLiquidoBox.Text),
             ValidadeBalanca = ProductPriceHelper.ParseBr(ValidadeBalancaBox.Text),
-            DataValidade = string.IsNullOrWhiteSpace(DataValidadeBox.Text) ? null : DataValidadeBox.Text.Trim(),
+            DataValidade = _legacyDataValidade,
             ControleValidade = ControleValidadeBox.IsChecked == true,
             PermiteVenda = PermiteVendaBox.IsChecked == true,
             Composicao = ComposicaoBox.IsChecked == true,
