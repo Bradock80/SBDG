@@ -69,6 +69,7 @@
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="Auto"/>
                         <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
                     </Grid.ColumnDefinitions>
                     <Border Background="#DDB8AE" BorderBrush="#B08070" BorderThickness="1"
                             Padding="10,6" Margin="0,0,8,0" VerticalAlignment="Center">
@@ -82,6 +83,24 @@
                                  PreviewKeyDown="SearchBox_PreviewKeyDown"
                                  KeyDown="SearchBox_KeyDown"/>
                     </StackPanel>
+                    <Border Grid.Column="2" Background="#E8D4CC" BorderBrush="#B08070" BorderThickness="1"
+                            Padding="10,4" Margin="8,0,0,0" VerticalAlignment="Center" MinWidth="148">
+                        <StackPanel>
+                            <TextBlock Text="F6 Quantidade" FontSize="11" FontWeight="Bold"
+                                       Foreground="#5C4038"/>
+                            <TextBox x:Name="F6QtyBox"
+                                     FontSize="16" FontWeight="Bold" Height="28" Width="100"
+                                     HorizontalAlignment="Left" HorizontalContentAlignment="Right"
+                                     Padding="6,2" Margin="0,4,0,0"
+                                     Visibility="Collapsed"
+                                     InputMethod.IsInputMethodEnabled="False"
+                                     PreviewTextInput="QtyBox_PreviewTextInput"
+                                     PreviewKeyDown="F6QtyBox_PreviewKeyDown"
+                                     KeyDown="F6QtyBox_KeyDown"/>
+                            <TextBlock x:Name="F6ArmedHint" FontSize="11" Foreground="#5C4038"
+                                       Margin="0,4,0,0" Visibility="Collapsed"/>
+                        </StackPanel>
+                    </Border>
                 </Grid>
             </Border>
 
@@ -181,7 +200,7 @@
                     </Border>
                     <TextBlock Grid.Row="2" TextWrapping="Wrap" FontSize="11" Foreground="#333333"
                                Background="#E0E0E0" Padding="6,6,6,6"
-                               Text="↑↓ Selecionar · Leitor Enter → Qtd → Enter · Enter busca vazia → pagamento · F1 Resumo · F9 Vendas · F2 Caixa · Del excluir · Esc sair"/>
+                               Text="↑↓ Selecionar · Leitor adiciona 1 · Nome Enter → Qtd · F6 quantidade · 10* ou 10x + leitor · Enter busca vazia → pagamento · F1 Resumo · F9 Vendas · F2 Caixa · Del excluir · Esc sair"/>
                     <Grid Grid.Row="3" Background="#D8D8D8">
                         <TextBlock x:Name="StatusTerminalText" Text="Terminal: SGDB" FontSize="11"
                                    Foreground="#444444" Margin="12,4" HorizontalAlignment="Left"/>

@@ -25,6 +25,9 @@ public partial class PdvWindow : Window
     private int _lineCounter;
     private long _lastBuscaKeyAt;
     private bool _suppressSearchChange;
+    private readonly PdvScanMultiplierState _scanMultiplier = new();
+    private readonly PdvF6QuantitySession _f6Quantity = new();
+    private readonly CultureInfo _qtyCulture = CultureInfo.GetCultureInfo("pt-BR");
 
     public PdvWindow()
     {
@@ -38,12 +41,14 @@ public partial class PdvWindow : Window
         };
         Loaded += OnLoaded;
         DataObject.AddPastingHandler(QtyBox, QtyBox_Pasting);
+        DataObject.AddPastingHandler(F6QtyBox, QtyBox_Pasting);
     }
 
     private void OnLoaded(object sender, RoutedEventArgs e)
     {
         TitleText.Text = $"PDV - Venda de Balcão | CAIXA | {DateTime.Today:dd/MM/yyyy}";
         StatusTerminalText.Text = $"Terminal: {Environment.MachineName}";
+        RefreshMultiplierHint();
         ApplyResumoPermissionUi();
         RefreshCaixaState();
         SearchBox.Focus();
@@ -124,6 +129,13 @@ public partial class PdvWindow : Window
             && !term.Equals(_pendingBuscaLabel, StringComparison.OrdinalIgnoreCase))
         {
             ClearPendingProduct();
+        }
+
+        if (PdvScanMultiplierParser.Parse(term).IsExplicit)
+        {
+            _lookupTimer.Stop();
+            HideLookup();
+            return;
         }
 
         if (LooksLikeBarcode(term))
@@ -219,11 +231,41 @@ public partial class PdvWindow : Window
         _lookupTimer.Stop();
         var term = SearchBox.Text.Trim();
 
+        var multiplier = PdvScanMultiplierParser.Parse(term);
+        if (!multiplier.Check.Allowed)
+        {
+            ClearScanMultiplier();
+            MessageBox.Show(multiplier.Check.Message, "PDV", MessageBoxButton.OK, MessageBoxImage.Warning);
+            SearchBox.SelectAll();
+            return;
+        }
+
+        if (multiplier.Kind == PdvScanMultiplierKind.Armed)
+        {
+            _scanMultiplier.TryArm(multiplier.Quantity);
+            _suppressSearchChange = true;
+            SearchBox.Text = "";
+            _suppressSearchChange = false;
+            HideLookup();
+            RefreshMultiplierHint();
+            SearchBox.Focus();
+            return;
+        }
+
+        if (multiplier.Kind == PdvScanMultiplierKind.Combined)
+        {
+            term = multiplier.Remainder;
+            _scanMultiplier.Clear();
+            _scanMultiplier.TryArm(multiplier.Quantity);
+        }
+
         if (string.IsNullOrEmpty(term))
         {
+            if (_scanMultiplier.IsArmed)
+                return;
             if (_pendingProduct is not null)
             {
-                QtyBox.Focus();
+                FocusQtyBoxForManualEdit();
                 return;
             }
             if (_cart.Count > 0)
@@ -231,7 +273,8 @@ public partial class PdvWindow : Window
             return;
         }
 
-        if (LookupPanel.Visibility == Visibility.Visible && LookupGrid.Items.Count > 0)
+        if (LookupPanel.Visibility == Visibility.Visible && LookupGrid.Items.Count > 0
+            && multiplier.Kind != PdvScanMultiplierKind.Combined)
         {
             SelectLookupProduct();
             return;
@@ -239,7 +282,7 @@ public partial class PdvWindow : Window
 
         if (_pendingProduct is not null && BuscaMatchesPending())
         {
-            QtyBox.Focus();
+            FocusQtyBoxForManualEdit();
             return;
         }
 
@@ -250,17 +293,20 @@ public partial class PdvWindow : Window
             {
                 if (!TryResolveCigaretteModeForUi(scan.Product, out var chosen))
                 {
+                    ClearScanMultiplier();
                     SearchBox.SelectAll();
                     return;
                 }
                 scan = chosen ?? scan;
-                SetPendingFromScan(scan);
+                SetPendingFromScan(scan, fromBarcodeScan: true);
+                ApplyArmedMultiplierToQtyBox();
                 if (PdvScanFocusPolicy.ShouldAutoInclude(true) || scan.IsPackSale)
                     TryIncludePending();
                 return;
             }
             if (DigitsOnly(term).Length >= 8)
             {
+                ClearScanMultiplier();
                 MessageBox.Show("Produto não encontrado para este código.", "PDV",
                     MessageBoxButton.OK, MessageBoxImage.Information);
                 SearchBox.SelectAll();
@@ -285,6 +331,7 @@ public partial class PdvWindow : Window
             return;
         }
 
+        ClearScanMultiplier();
         MessageBox.Show("Nenhum produto encontrado.", "PDV", MessageBoxButton.OK, MessageBoxImage.Information);
         SearchBox.SelectAll();
     }
@@ -364,12 +411,14 @@ public partial class PdvWindow : Window
     {
         if (!TryResolveCigaretteModeForUi(product, out var scan))
         {
+            ClearScanMultiplier();
             ClearPendingProduct();
             SearchBox.Focus();
             SearchBox.SelectAll();
             return;
         }
-        SetPendingFromScan(scan ?? PdvService.ResolveManualSale(product));
+        ClearScanMultiplier();
+        SetPendingFromScan(scan ?? PdvService.ResolveManualSale(product), fromBarcodeScan: false);
     }
 
     /// <summary>
@@ -399,7 +448,7 @@ public partial class PdvWindow : Window
         return true;
     }
 
-    private void SetPendingFromScan(PdvScanResult scan)
+    private void SetPendingFromScan(PdvScanResult scan, bool fromBarcodeScan)
     {
         _pendingProduct = scan.Product;
         _pendingUnitPrice = scan.UnitPrice;
@@ -407,7 +456,7 @@ public partial class PdvWindow : Window
         _pendingLineDisplayName = PdvCartHelper.LineDisplayName(scan.Product, scan.ModeLabel);
         HideLookup();
         CurrentPriceText.Text = ProductPriceHelper.FormatBr(scan.UnitPrice);
-        QtyBox.Text = scan.Quantity.ToString("0.000", CultureInfo.GetCultureInfo("pt-BR"));
+        QtyBox.Text = scan.Quantity.ToString("0.000", _qtyCulture);
         UpdateItemTotalPreview();
         var label = !string.IsNullOrWhiteSpace(scan.ModeLabel)
             ? $"{scan.Product.Name} [{scan.ModeLabel}]"
@@ -416,8 +465,111 @@ public partial class PdvWindow : Window
         _suppressSearchChange = true;
         SearchBox.Text = label;
         _suppressSearchChange = false;
-        if (!PdvScanFocusPolicy.ShouldAutoInclude(true) && !scan.IsPackSale)
+        if (PdvScanFocusPolicy.ShouldFocusQtyBox(fromBarcodeScan))
+            FocusQtyBoxForManualEdit();
+    }
+
+    private void FocusQtyBoxForManualEdit()
+    {
+        QtyBox.Focus();
+        Dispatcher.BeginInvoke(() =>
+        {
             QtyBox.Focus();
+            QtyBox.SelectAll();
+        }, DispatcherPriority.Input);
+    }
+
+    private void ApplyArmedMultiplierToQtyBox()
+    {
+        if (!_scanMultiplier.IsArmed)
+        {
+            RefreshMultiplierHint();
+            return;
+        }
+
+        var qty = _scanMultiplier.Consume();
+        QtyBox.Text = qty.ToString("0.000", _qtyCulture);
+        UpdateItemTotalPreview();
+        RefreshMultiplierHint();
+    }
+
+    private void ClearScanMultiplier()
+    {
+        _f6Quantity.Cancel();
+        _scanMultiplier.Clear();
+        RefreshMultiplierHint();
+    }
+
+    private void RefreshMultiplierHint()
+    {
+        var baseText = $"Terminal: {Environment.MachineName}";
+        if (_scanMultiplier.IsArmed)
+        {
+            var qtyText = _scanMultiplier.Quantity.ToString("0.###", _qtyCulture);
+            StatusTerminalText.Text = $"{baseText}  ·  Próxima quantidade: {qtyText}";
+        }
+        else
+        {
+            StatusTerminalText.Text = baseText;
+        }
+
+        RefreshF6Ui();
+    }
+
+    private void RefreshF6Ui()
+    {
+        F6QtyBox.Visibility = _f6Quantity.IsEditing ? Visibility.Visible : Visibility.Collapsed;
+        if (_f6Quantity.IsEditing)
+        {
+            F6ArmedHint.Visibility = Visibility.Collapsed;
+            return;
+        }
+
+        if (_scanMultiplier.IsArmed)
+        {
+            var qtyText = _scanMultiplier.Quantity.ToString("0.###", _qtyCulture);
+            F6ArmedHint.Text = $"Próxima quantidade: {qtyText}";
+            F6ArmedHint.Visibility = Visibility.Visible;
+            return;
+        }
+
+        F6ArmedHint.Visibility = Visibility.Collapsed;
+    }
+
+    private void BeginF6QuantityMode()
+    {
+        _f6Quantity.Enter();
+        F6QtyBox.Text = "";
+        RefreshF6Ui();
+        F6QtyBox.Focus();
+    }
+
+    private void ConfirmF6Quantity()
+    {
+        var check = _f6Quantity.Confirm(F6QtyBox.Text, _scanMultiplier);
+        RefreshMultiplierHint();
+        if (!check.Allowed)
+        {
+            MessageBox.Show(check.Message, "PDV", MessageBoxButton.OK, MessageBoxImage.Warning);
+            SearchBox.Focus();
+            return;
+        }
+
+        SearchBox.Focus();
+    }
+
+    private void F6QtyBox_KeyDown(object sender, KeyEventArgs e)
+    {
+        if (e.Key != Key.Enter)
+            return;
+        ConfirmF6Quantity();
+        e.Handled = true;
+    }
+
+    private void F6QtyBox_PreviewKeyDown(object sender, KeyEventArgs e)
+    {
+        if (e.Key == Key.Space)
+            e.Handled = true;
     }
 
     private void QtyBox_KeyDown(object sender, KeyEventArgs e)
@@ -501,6 +653,7 @@ public partial class PdvWindow : Window
                 $"[PDV-QTY] user={AppSession.UserLogin} field=QtyBox value={QtyBox.Text} reason={guard.Reason}");
             MessageBox.Show(guard.Message, "PDV", MessageBoxButton.OK, MessageBoxImage.Warning);
             QtyBox.Text = guard.QtyTextAfter;
+            ClearScanMultiplier();
             SearchBox.Focus();
             return;
         }
@@ -508,6 +661,7 @@ public partial class PdvWindow : Window
         var qty = ParseQty(QtyBox.Text);
         if (qty <= 0)
         {
+            ClearScanMultiplier();
             MessageBox.Show("Quantidade inválida.", "PDV", MessageBoxButton.OK, MessageBoxImage.Warning);
             QtyBox.Focus();
             return;
@@ -530,10 +684,12 @@ public partial class PdvWindow : Window
                 $"[PDV-QTY] user={AppSession.UserLogin} field=cart value={QtyBox.Text} reason={ex.Message}");
             MessageBox.Show(ex.Message, "PDV", MessageBoxButton.OK, MessageBoxImage.Warning);
             QtyBox.Text = PdvQtyBoxGuard.ResetQtyText;
+            ClearScanMultiplier();
             SearchBox.Focus();
             return;
         }
 
+        ClearScanMultiplier();
         _pendingProduct = null;
         _pendingUnitPrice = 0;
         _pendingStockUnitsPerSale = 1;
@@ -784,6 +940,7 @@ public partial class PdvWindow : Window
         _lineCounter = 0;
         _pendingProduct = null;
         _pendingBuscaLabel = null;
+        ClearScanMultiplier();
         HideLookup();
         UpdateGrandTotal();
         CurrentPriceText.Text = "0,00";
@@ -802,7 +959,7 @@ public partial class PdvWindow : Window
     {
         if (!IsLookupOpen())
             return false;
-        if (QtyBox.IsKeyboardFocusWithin)
+        if (QtyBox.IsKeyboardFocusWithin || F6QtyBox.IsKeyboardFocusWithin)
             return false;
         return true;
     }
@@ -811,7 +968,7 @@ public partial class PdvWindow : Window
     {
         if (_cart.Count == 0 || IsLookupOpen())
             return false;
-        if (QtyBox.IsKeyboardFocusWithin)
+        if (QtyBox.IsKeyboardFocusWithin || F6QtyBox.IsKeyboardFocusWithin)
             return false;
         return true;
     }
@@ -855,6 +1012,14 @@ public partial class PdvWindow : Window
 
         if (e.Key == Key.Escape)
         {
+            if (_f6Quantity.IsEditing || _scanMultiplier.IsArmed)
+            {
+                ClearScanMultiplier();
+                HideLookup();
+                SearchBox.Focus();
+                e.Handled = true;
+                return;
+            }
             if (LookupPanel.Visibility == Visibility.Visible)
             {
                 HideLookup();
@@ -872,7 +1037,16 @@ public partial class PdvWindow : Window
 
         if (e.Key == Key.F12)
         {
+            if (_f6Quantity.IsEditing)
+                ClearScanMultiplier();
             SearchBox.Focus();
+            e.Handled = true;
+            return;
+        }
+
+        if (e.Key == Key.F6)
+        {
+            BeginF6QuantityMode();
             e.Handled = true;
             return;
         }

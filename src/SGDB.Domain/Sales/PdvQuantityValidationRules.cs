@@ -178,6 +178,7 @@ public static class PdvQuantityValidationRules
 
 /// <summary>
 /// Política de foco após localizar produto. Scanner no QtyBox+SelectAll foi a causa do incidente.
+/// SelectAll no QtyBox só no fluxo manual (pesquisa por nome/código).
 /// </summary>
 public static class PdvScanFocusPolicy
 {
@@ -186,6 +187,10 @@ public static class PdvScanFocusPolicy
 
     public static bool ShouldAutoInclude(bool fromBarcodeScan) =>
         fromBarcodeScan && AutoIncludeQtyOneAfterBarcodeScan;
+
+    public static bool ShouldFocusQtyBox(bool fromBarcodeScan) => !fromBarcodeScan;
+
+    public static bool ShouldSelectAllQty(bool fromBarcodeScan) => !fromBarcodeScan;
 }
 
 public readonly record struct PdvQtyBoxGuardResult(

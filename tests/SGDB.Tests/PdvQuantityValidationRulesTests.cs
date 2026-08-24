@@ -111,6 +111,8 @@ public class PdvQuantityValidationRulesTests
         Assert.True(PdvScanFocusPolicy.ShouldAutoInclude(true));
         Assert.False(PdvScanFocusPolicy.SelectAllQuantityAfterScan);
         Assert.False(PdvScanFocusPolicy.ShouldAutoInclude(false));
+        Assert.False(PdvScanFocusPolicy.ShouldFocusQtyBox(true));
+        Assert.False(PdvScanFocusPolicy.ShouldSelectAllQty(true));
     }
 
     [Fact]
