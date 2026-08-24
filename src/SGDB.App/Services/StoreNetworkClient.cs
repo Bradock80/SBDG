@@ -452,8 +452,31 @@ public static class StoreNetworkClient
         TestPurchaseSendCount = 0;
         TestCancelSendCount = 0;
         TestMergeSendCount = 0;
+        TestListProductLotsSendCount = 0;
+        TestListProductLots = null;
         _cachedFeatures = null;
     }
+
+    internal static Func<int, IReadOnlyList<ProductLot>>? TestListProductLots { get; set; }
+    internal static int TestListProductLotsSendCount { get; set; }
+
+    internal static void EnsureProductLotsReadCapability()
+    {
+        if (_cachedFeatures is not null)
+        {
+            if (SupportsProductLotsRead(_cachedFeatures))
+                return;
+            throw new InvalidOperationException(ProductExpiryService.HostNeedsUpgradeForLotsMessage);
+        }
+
+        var status = Ping();
+        if (!SupportsProductLotsRead(status.Features))
+            throw new InvalidOperationException(ProductExpiryService.HostNeedsUpgradeForLotsMessage);
+    }
+
+    internal static bool SupportsProductLotsRead(IEnumerable<string>? features) =>
+        features is not null
+        && features.Any(f => string.Equals(f, ProductExpiryService.LotsReadFeature, StringComparison.OrdinalIgnoreCase));
 
     internal static void SeedCachedFeatures(IReadOnlyList<string> features) =>
         CacheFeatures(features);
@@ -597,6 +620,17 @@ public static class StoreNetworkClient
 
     public static Product? GetProduct(int id) =>
         Run(() => SendAsync<StoreNetworkItemDto<Product>>(HttpMethod.Get, $"api/products/{id}")).Item;
+
+    public static IReadOnlyList<ProductLot> ListProductLots(int productId)
+    {
+        EnsureProductLotsReadCapability();
+        TestListProductLotsSendCount++;
+        if (TestListProductLots is { } hook)
+            return hook(productId);
+        var dto = Run(() => SendAsync<StoreNetworkListDto<ProductLot>>(
+            HttpMethod.Get, $"api/products/{productId}/lots"));
+        return dto.Items ?? [];
+    }
 
     public static Product? FindProductByBarcode(string? barcode)
     {

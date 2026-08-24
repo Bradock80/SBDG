@@ -49,9 +49,11 @@ public partial class ProductFormWindow : Window
             LastEntryBox.Text = "Sem entrada de compra";
             ControleValidadeBox.IsChecked = true;
             ProximaValidadeBox.Text = ProductExpiryService.UninformedDisplay;
+            LotsBtn.IsEnabled = false;
         }
         else
             LoadProduct(productId.Value);
+        LotsBtn.IsEnabled = ProductExpiryService.CanOpenLotsWindow(_productId);
     }
 
     private void Window_Loaded(object sender, RoutedEventArgs e)
@@ -235,6 +237,14 @@ public partial class ProductFormWindow : Window
     {
         var source = !string.IsNullOrWhiteSpace(CodeBox.Text) ? CodeBox.Text : IdBox.Text;
         BarcodeBox.Text = TextNorm.NormalizeBarcode(source) ?? "";
+    }
+
+    private void Lots_Click(object sender, RoutedEventArgs e)
+    {
+        if (_productId is not int id || !ProductExpiryService.CanOpenLotsWindow(id))
+            return;
+        var win = new ProductLotsWindow(id, NameBox.Text) { Owner = this };
+        win.ShowDialog();
     }
 
     private void OpenBrand_Click(object sender, RoutedEventArgs e) =>

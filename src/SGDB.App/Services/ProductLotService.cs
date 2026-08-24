@@ -356,6 +356,17 @@ public static class ProductLotService
 
     public static IReadOnlyList<ProductLot> ListByProduct(int productId, int limit = 100)
     {
+        if (productId <= 0)
+            return [];
+        if (StoreNetworkMode.IsClient)
+            return StoreNetworkClient.ListProductLots(productId);
+        return ListByProductLocal(productId, limit);
+    }
+
+    public static IReadOnlyList<ProductLot> ListByProductLocal(int productId, int limit = 100)
+    {
+        if (productId <= 0)
+            return [];
         using var conn = DatabaseService.OpenConnection();
         using var cmd = conn.CreateCommand();
         cmd.CommandText = """

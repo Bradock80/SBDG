@@ -60,6 +60,7 @@ public sealed class StoreNetworkHost : IDisposable
         PurchaseAverageCostRules.AtomicFeature,
         PurchaseCancelCostRules.AtomicFeature,
         ProductMergeRules.AtomicFeature,
+        ProductExpiryService.LotsReadFeature,
     ];
 
     public static StoreNetworkHost StartNew(int? port = null)
@@ -452,6 +453,15 @@ public sealed class StoreNetworkHost : IDisposable
             if (path.StartsWith("/api/products/", StringComparison.OrdinalIgnoreCase))
             {
                 var idPart = path["/api/products/".Length..];
+                var slash = idPart.IndexOf('/');
+                if (slash > 0
+                    && int.TryParse(idPart[..slash], out var lotsPid)
+                    && idPart[(slash + 1)..].Equals("lots", StringComparison.OrdinalIgnoreCase)
+                    && ex.Method == "GET")
+                {
+                    WriteJson(ex, 200, new { ok = true, items = ProductLotService.ListByProductLocal(lotsPid) });
+                    return;
+                }
                 if (int.TryParse(idPart, out var pid))
                 {
                     if (ex.Method == "GET")
