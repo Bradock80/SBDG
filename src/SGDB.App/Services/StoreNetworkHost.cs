@@ -61,6 +61,7 @@ public sealed class StoreNetworkHost : IDisposable
         PurchaseCancelCostRules.AtomicFeature,
         ProductMergeRules.AtomicFeature,
         ProductExpiryService.LotsReadFeature,
+        ValidityControlService.Feature,
     ];
 
     public static StoreNetworkHost StartNew(int? port = null)
@@ -984,6 +985,12 @@ public sealed class StoreNetworkHost : IDisposable
                 body.TryGetInt("limit", out var limit);
                 if (limit <= 0) limit = 500;
                 WriteJson(ex, 200, StockService.ListReportLocal(kind, from, to, limit));
+                return;
+            }
+
+            if (path.Equals("/api/validity-control", StringComparison.OrdinalIgnoreCase) && ex.Method == "GET")
+            {
+                WriteJson(ex, 200, new { ok = true, snapshot = ValidityControlService.GetSnapshotLocal() });
                 return;
             }
 

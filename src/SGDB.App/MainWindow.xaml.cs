@@ -34,6 +34,7 @@ public partial class MainWindow : Window
         AppSession.SetUser(user);
         InitializeComponent();
 
+        _homeView.ValidityAlertClicked += (_, _) => ShowValidityControl();
         RefreshCompanyTitle();
         UserNameText.Text = StoreNetworkMode.IsClient
             ? $"Rede Loja • {user.Nome}"
@@ -155,20 +156,26 @@ public partial class MainWindow : Window
     {
         try
         {
-            var n30 = ProductLotService.CountExpiring(30);
-            if (n30 <= 0)
+            var snap = ValidityControlService.GetSnapshot();
+            var text = ValidityControlEngine.FormatHomeSummary(snap.Cards);
+            var show = ValidityControlEngine.ShouldShowHomeAlert(snap.Cards);
+            _homeView.SetValidityAlert(show ? text : null, snap.Cards.Expired > 0);
+
+            if (!show)
             {
                 LotExpiryAlertBtn.Visibility = Visibility.Collapsed;
                 return;
             }
 
-            LotExpiryAlertBtnText.Text = n30 == 1 ? "1 a vencer" : $"{n30} a vencer";
-            LotExpiryAlertBtn.ToolTip =
-                $"{n30} lote(s) com validade em até 30 dias (FEFO).\nClique para ver 30/60/90 dias.";
+            LotExpiryAlertBtnText.Text = snap.Cards.Expired > 0
+                ? (snap.Cards.Expired == 1 ? "1 vencido" : $"{snap.Cards.Expired} vencidos")
+                : text;
+            LotExpiryAlertBtn.ToolTip = text + "\nClique para abrir o Controle de Validades.";
             LotExpiryAlertBtn.Visibility = Visibility.Visible;
         }
         catch
         {
+            _homeView.SetValidityAlert(null, false);
             LotExpiryAlertBtn.Visibility = Visibility.Collapsed;
         }
     }
@@ -255,7 +262,7 @@ public partial class MainWindow : Window
 
     private void StockAlertBtn_Click(object sender, RoutedEventArgs e) => ShowMinStockFix();
 
-    private void LotExpiryAlertBtn_Click(object sender, RoutedEventArgs e) => ShowLotExpiryReport(30);
+    private void LotExpiryAlertBtn_Click(object sender, RoutedEventArgs e) => ShowValidityControl();
 
     private void ShowMinStockFix()
     {
@@ -269,9 +276,14 @@ public partial class MainWindow : Window
         UpdateToolbarHighlight();
     }
 
-    private void ShowLotExpiryReport(int? days = null)
+    private void ShowLotExpiryReport(int? days = null) =>
+        ShowValidityControl(ValidityControlService.FilterFromLegacyDays(days));
+
+    private void ShowValidityControl(ValidityControlFilterKind filter = ValidityControlFilterKind.All)
     {
-        var view = new LotExpiryModuleView(days);
+        _activeModule = "estoque_controle_validades";
+        MainAreaBorder.Background = (System.Windows.Media.Brush)FindResource("SgdbBgBrush");
+        var view = new LotExpiryModuleView(filter);
         view.CloseRequested += (_, _) =>
         {
             ShowHome();
@@ -715,15 +727,13 @@ public partial class MainWindow : Window
             ShowEstoqueReport(StockReportKind.FridgeRestock);
             return;
         }
-        if (moduleId == "estoque_validade")
+        if (moduleId == "estoque_validade" || moduleId == "estoque_validade_lotes"
+            || moduleId == "estoque_controle_validades")
         {
-            ShowEstoqueReport(StockReportKind.Validade7d);
-            return;
-        }
-
-        if (moduleId == "estoque_validade_lotes")
-        {
-            ShowLotExpiryReport();
+            var filter = moduleId == "estoque_validade"
+                ? ValidityControlFilterKind.Days7
+                : ValidityControlFilterKind.All;
+            ShowValidityControl(filter);
             return;
         }
         if (moduleId == "estoque_consistencia_lotes")

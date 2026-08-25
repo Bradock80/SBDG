@@ -220,7 +220,6 @@ public static class StoreNetworkMode
                 or "estoque_grupos"
                 or "estoque_unidades"
                 or "estoque_marcas"
-                or "estoque_validade_lotes"
                 or "estoque_consistencia_lotes"
                 or "auditoria"
                 or "usuarios"

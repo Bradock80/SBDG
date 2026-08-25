@@ -454,11 +454,15 @@ public static class StoreNetworkClient
         TestMergeSendCount = 0;
         TestListProductLotsSendCount = 0;
         TestListProductLots = null;
+        TestGetValidityControlSendCount = 0;
+        TestGetValidityControl = null;
         _cachedFeatures = null;
     }
 
     internal static Func<int, IReadOnlyList<ProductLot>>? TestListProductLots { get; set; }
     internal static int TestListProductLotsSendCount { get; set; }
+    internal static Func<ValidityControlSnapshot>? TestGetValidityControl { get; set; }
+    internal static int TestGetValidityControlSendCount { get; set; }
 
     internal static void EnsureProductLotsReadCapability()
     {
@@ -620,6 +624,35 @@ public static class StoreNetworkClient
 
     public static Product? GetProduct(int id) =>
         Run(() => SendAsync<StoreNetworkItemDto<Product>>(HttpMethod.Get, $"api/products/{id}")).Item;
+
+    internal static void EnsureValidityControlCapability()
+    {
+        if (_cachedFeatures is not null)
+        {
+            if (SupportsValidityControl(_cachedFeatures))
+                return;
+            throw new InvalidOperationException(ValidityControlService.HostNeedsUpgradeMessage);
+        }
+
+        var status = Ping();
+        if (!SupportsValidityControl(status.Features))
+            throw new InvalidOperationException(ValidityControlService.HostNeedsUpgradeMessage);
+    }
+
+    internal static bool SupportsValidityControl(IEnumerable<string>? features) =>
+        features is not null
+        && features.Any(f => string.Equals(f, ValidityControlService.Feature, StringComparison.OrdinalIgnoreCase));
+
+    public static ValidityControlSnapshot GetValidityControl()
+    {
+        EnsureValidityControlCapability();
+        TestGetValidityControlSendCount++;
+        if (TestGetValidityControl is { } hook)
+            return hook();
+        var dto = Run(() => SendAsync<StoreNetworkValidityControlDto>(
+            HttpMethod.Get, "api/validity-control"));
+        return dto.Snapshot ?? new ValidityControlSnapshot();
+    }
 
     public static IReadOnlyList<ProductLot> ListProductLots(int productId)
     {
@@ -994,6 +1027,12 @@ public sealed class StoreNetworkRemoteUserDto
     public string? Name { get; set; }
     public string? Role { get; set; }
     public UserPermissions? Permissions { get; set; }
+}
+
+public sealed class StoreNetworkValidityControlDto
+{
+    public bool Ok { get; set; }
+    public ValidityControlSnapshot? Snapshot { get; set; }
 }
 
 public sealed class StoreNetworkOkDto
