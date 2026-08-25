@@ -36,19 +36,55 @@ public static class PdvService
 
         using var conn = DatabaseService.OpenConnection();
 
-        Product? product = null;
-        foreach (var cand in BarcodeLookupTerms(t))
+        Product? product;
+        if (PdvBarcodeTerm.LooksLike(t))
         {
-            product = MatchBarcode(conn, cand);
-            if (product is not null)
-                break;
+            // Barcode nunca cai em código interno nem SearchFirst (LIKE de nome).
+            product = MatchExactBarcode(conn, t);
+        }
+        else
+        {
+            product = MatchExactBarcode(conn, t);
+            product ??= GetByCode(conn, t);
+            product ??= SearchFirst(conn, t);
         }
 
-        product ??= GetByCode(conn, t);
-        product ??= SearchFirst(conn, t);
         if (product is null)
             return null;
 
+        return ToScanResult(product, t, cigaretteMode);
+    }
+
+    /// <summary>
+    /// 69R — só barcode principal ou de embalagem, com equivalência EAN (zeros à esquerda).
+    /// Sem código interno, sem SearchFirst, sem LIKE de nome.
+    /// </summary>
+    public static PdvScanResult? ResolveExactBarcode(string? term, string? cigaretteMode = null)
+    {
+        var t = (term ?? "").Trim();
+        if (string.IsNullOrEmpty(t))
+            return null;
+
+        using var conn = DatabaseService.OpenConnection();
+        var product = MatchExactBarcode(conn, t);
+        if (product is null)
+            return null;
+        return ToScanResult(product, t, cigaretteMode);
+    }
+
+    private static Product? MatchExactBarcode(SqliteConnection conn, string term)
+    {
+        foreach (var cand in BarcodeLookupTerms(term))
+        {
+            var product = MatchBarcode(conn, cand);
+            if (product is not null)
+                return product;
+        }
+        return null;
+    }
+
+    private static PdvScanResult ToScanResult(Product product, string t, string? cigaretteMode)
+    {
         var extra = ProductExtra.Parse(product.ExtraJson);
         var scanned = new string(t.Where(char.IsDigit).ToArray());
         var unitDigits = new string((product.Barcode ?? "").Where(char.IsDigit).ToArray());

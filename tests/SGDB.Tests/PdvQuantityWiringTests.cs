@@ -316,6 +316,26 @@ public class PdvQuantityWiringTests
     }
 
     [Fact]
+    public void F6_ProdutoConfirmado_EditaQtyBoxDoMesmoSku_NaoArmaProximoScan()
+    {
+        Assert.Equal(
+            PdvF6Route.FocusConfirmedQtyBox,
+            PdvProductIdentityPolicy.RouteF6(pendingConfirmed: true));
+        var session = new PdvIncludeQuantitySession();
+        Assert.Equal(1, session.OnProductPending(1));
+        Assert.False(session.IsArmed);
+        session.MarkQtyBoxEdited();
+        var (cart, counter) = NewCart();
+        IncludeFromQtyBox(session, cart, UnitProduct(), qtyBoxParsed: 10, ref counter);
+        Assert.Single(cart);
+        Assert.Equal(10, cart[0].Quantity);
+        Assert.Equal(UnitProduct().Id, cart[0].ProductId);
+        Assert.False(session.IsArmed);
+        AutoIncludeScan(session, cart, UnitProduct(), scanQty: 1, ref counter);
+        Assert.Equal(11, cart[0].Quantity);
+    }
+
+    [Fact]
     public void OnProductPending_NaoDoubleConsumeNoInclude()
     {
         var session = ArmF6("10");

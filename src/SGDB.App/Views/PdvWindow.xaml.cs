@@ -28,6 +28,7 @@ public partial class PdvWindow : Window
     private readonly PdvIncludeQuantitySession _qtySession = new();
     private readonly PdvF6EnterLeakGuard _f6EnterGuard = new();
     private readonly CultureInfo _qtyCulture = CultureInfo.GetCultureInfo("pt-BR");
+    private bool _pendingConfirmed;
 
     public PdvWindow()
     {
@@ -138,9 +139,9 @@ public partial class PdvWindow : Window
             return;
         }
 
-        if (LooksLikeBarcode(term))
+        if (PdvBarcodeTerm.LooksLike(term))
         {
-            var digits = DigitsOnly(term);
+            var digits = PdvBarcodeTerm.DigitsOnly(term);
             var fastScan = Environment.TickCount64 - _lastBuscaKeyAt < 45;
             if (digits.Length >= 8 || fastScan)
             {
@@ -168,7 +169,7 @@ public partial class PdvWindow : Window
             return;
         }
 
-        if (LooksLikeBarcode(term))
+        if (PdvBarcodeTerm.LooksLike(term))
             return;
 
         var list = PdvService.SearchProducts(term, 80);
@@ -185,27 +186,14 @@ public partial class PdvWindow : Window
         SetPendingProductPreview(list[0]);
     }
 
-    private static bool LooksLikeBarcode(string term)
-    {
-        if (string.IsNullOrWhiteSpace(term))
-            return false;
-        var digits = DigitsOnly(term);
-        if (digits.Length >= 8)
-            return true;
-        return digits.Length >= 4 && digits.Length == term.Trim().Length;
-    }
-
-    private static string DigitsOnly(string term) =>
-        new(term.Where(char.IsDigit).ToArray());
-
     private bool BuscaMatchesPending()
     {
-        if (_pendingProduct is null)
+        if (!_pendingConfirmed || _pendingProduct is null)
             return false;
         var term = SearchBox.Text.Trim();
         if (!string.IsNullOrEmpty(_pendingBuscaLabel))
             return term.Equals(_pendingBuscaLabel, StringComparison.OrdinalIgnoreCase);
-        return true;
+        return false;
     }
 
     private void SearchBox_PreviewKeyDown(object sender, KeyEventArgs e)
@@ -242,13 +230,7 @@ public partial class PdvWindow : Window
 
         if (multiplier.Kind == PdvScanMultiplierKind.Armed)
         {
-            _qtySession.ArmExplicit(multiplier.Quantity);
-            _suppressSearchChange = true;
-            SearchBox.Text = "";
-            _suppressSearchChange = false;
-            HideLookup();
-            RefreshMultiplierHint();
-            SearchBox.Focus();
+            ArmQuantityFirst(multiplier.Quantity);
             return;
         }
 
@@ -262,7 +244,7 @@ public partial class PdvWindow : Window
         {
             if (_qtySession.IsArmed)
                 return;
-            if (_pendingProduct is not null)
+            if (_pendingConfirmed && _pendingProduct is not null)
             {
                 FocusQtyBoxForManualEdit();
                 return;
@@ -272,44 +254,22 @@ public partial class PdvWindow : Window
             return;
         }
 
-        if (LookupPanel.Visibility == Visibility.Visible && LookupGrid.Items.Count > 0
-            && multiplier.Kind != PdvScanMultiplierKind.Combined)
+        if (_qtySession.IsArmed || PdvProductIdentityPolicy.BarcodeBeatsLookup(term))
+        {
+            TryIncludeExactBarcode(term);
+            return;
+        }
+
+        if (LookupPanel.Visibility == Visibility.Visible && LookupGrid.Items.Count > 0)
         {
             SelectLookupProduct();
             return;
         }
 
-        if (_pendingProduct is not null && BuscaMatchesPending())
+        if (_pendingConfirmed && BuscaMatchesPending())
         {
             FocusQtyBoxForManualEdit();
             return;
-        }
-
-        if (LooksLikeBarcode(term))
-        {
-            var scan = PdvService.ResolveScan(term);
-            if (scan is not null)
-            {
-                if (!TryResolveCigaretteModeForUi(scan.Product, out var chosen))
-                {
-                    ClearScanMultiplier();
-                    SearchBox.SelectAll();
-                    return;
-                }
-                scan = chosen ?? scan;
-                SetPendingFromScan(scan, fromBarcodeScan: true);
-                if (PdvScanFocusPolicy.ShouldAutoInclude(true) || scan.IsPackSale)
-                    TryIncludePending();
-                return;
-            }
-            if (DigitsOnly(term).Length >= 8)
-            {
-                ClearScanMultiplier();
-                MessageBox.Show("Produto não encontrado para este código.", "PDV",
-                    MessageBoxButton.OK, MessageBoxImage.Information);
-                SearchBox.SelectAll();
-                return;
-            }
         }
 
         var product = PdvService.FindProduct(term);
@@ -332,6 +292,60 @@ public partial class PdvWindow : Window
         ClearScanMultiplier();
         MessageBox.Show("Nenhum produto encontrado.", "PDV", MessageBoxButton.OK, MessageBoxImage.Information);
         SearchBox.SelectAll();
+    }
+
+    private void ArmQuantityFirst(double qty)
+    {
+        ClearPendingProduct();
+        _qtySession.ArmExplicit(qty);
+        _suppressSearchChange = true;
+        SearchBox.Text = "";
+        _suppressSearchChange = false;
+        HideLookup();
+        RefreshMultiplierHint();
+        SearchBox.Focus();
+    }
+
+    private void TryIncludeExactBarcode(string term)
+    {
+        HideLookup();
+        var multiplierWasArmed = _qtySession.IsArmed;
+        if (!PdvBarcodeTerm.LooksLike(term))
+        {
+            if (multiplierWasArmed)
+            {
+                MessageBox.Show(PdvBarcodeTerm.MessageNotFound, "PDV",
+                    MessageBoxButton.OK, MessageBoxImage.Information);
+                SearchBox.SelectAll();
+            }
+            return;
+        }
+
+        var scan = PdvService.ResolveExactBarcode(term);
+        if (scan is null)
+        {
+            ClearScanMultiplier();
+            MessageBox.Show(PdvBarcodeTerm.MessageNotFound, "PDV",
+                MessageBoxButton.OK, MessageBoxImage.Information);
+            SearchBox.SelectAll();
+            return;
+        }
+
+        if (!TryResolveCigaretteModeForUi(scan.Product, out var chosen))
+        {
+            ClearScanMultiplier();
+            SearchBox.SelectAll();
+            return;
+        }
+        scan = chosen ?? scan;
+        SetPendingFromScan(scan, fromBarcodeScan: true);
+        if (!PdvProductIdentityPolicy.AllowAutoInclude(exactBarcodeResolved: true, multiplierWasArmed))
+        {
+            FocusQtyBoxForManualEdit();
+            return;
+        }
+        if (PdvScanFocusPolicy.ShouldAutoInclude(true) || scan.IsPackSale)
+            TryIncludePending();
     }
 
     private void MoveLookupSelection(int delta)
@@ -387,20 +401,24 @@ public partial class PdvWindow : Window
     private void ClearPendingProduct()
     {
         _pendingProduct = null;
+        _pendingConfirmed = false;
         _pendingUnitPrice = 0;
         _pendingStockUnitsPerSale = 1;
         _pendingBuscaLabel = null;
         _pendingLineDisplayName = null;
-        CurrentPriceText.Text = "0,00";
-        CurrentItemTotalText.Text = "0,00";
+        QtyBox.Text = PdvProductIdentityPolicy.ResidualQtyText;
+        CurrentPriceText.Text = PdvProductIdentityPolicy.ResidualMoneyText;
+        CurrentItemTotalText.Text = PdvProductIdentityPolicy.ResidualMoneyText;
     }
 
     private void SetPendingProductPreview(Product product)
     {
+        _pendingConfirmed = false;
         _pendingProduct = product;
         _pendingUnitPrice = product.SalePrice;
         _pendingStockUnitsPerSale = 1;
         _pendingLineDisplayName = null;
+        _pendingBuscaLabel = null;
         CurrentPriceText.Text = product.SalePriceDisplay;
         UpdateItemTotalPreview();
     }
@@ -457,10 +475,10 @@ public partial class PdvWindow : Window
         QtyBox.Text = qty.ToString("0.000", _qtyCulture);
         UpdateItemTotalPreview();
         RefreshMultiplierHint();
-        var label = !string.IsNullOrWhiteSpace(scan.ModeLabel)
-            ? $"{scan.Product.Name} [{scan.ModeLabel}]"
-            : scan.Product.Name;
+        var label = PdvProductIdentityPolicy.SearchLabel(
+            scan.Product.Name, scan.ModeLabel, qty);
         _pendingBuscaLabel = label;
+        _pendingConfirmed = true;
         _suppressSearchChange = true;
         SearchBox.Text = label;
         _suppressSearchChange = false;
@@ -490,7 +508,7 @@ public partial class PdvWindow : Window
         if (_qtySession.IsArmed)
         {
             var qtyText = _qtySession.ArmedQuantity.ToString("0.###", _qtyCulture);
-            StatusTerminalText.Text = $"{baseText}  ·  Próxima quantidade: {qtyText}";
+            StatusTerminalText.Text = $"{baseText}  ·  {PdvProductIdentityPolicy.ArmedHint(qtyText)}";
         }
         else
         {
@@ -512,7 +530,7 @@ public partial class PdvWindow : Window
         if (_qtySession.IsArmed)
         {
             var qtyText = _qtySession.ArmedQuantity.ToString("0.###", _qtyCulture);
-            F6ArmedHint.Text = $"Próxima quantidade: {qtyText}";
+            F6ArmedHint.Text = PdvProductIdentityPolicy.ArmedHint(qtyText);
             F6ArmedHint.Visibility = Visibility.Visible;
             return;
         }
@@ -522,6 +540,20 @@ public partial class PdvWindow : Window
 
     private void BeginF6QuantityMode()
     {
+        if (PdvProductIdentityPolicy.RouteF6(_pendingConfirmed) == PdvF6Route.FocusConfirmedQtyBox
+            && _pendingProduct is not null)
+        {
+            FocusQtyBoxForManualEdit();
+            return;
+        }
+
+        if (!_pendingConfirmed)
+        {
+            ClearPendingProduct();
+            _suppressSearchChange = true;
+            SearchBox.Text = "";
+            _suppressSearchChange = false;
+        }
         HideLookup();
         _qtySession.F6.Enter();
         F6QtyBox.Text = "";
@@ -532,6 +564,14 @@ public partial class PdvWindow : Window
     private void ConfirmF6Quantity()
     {
         var check = _qtySession.ConfirmF6(F6QtyBox.Text);
+        if (check.Allowed && _qtySession.IsArmed)
+        {
+            ClearPendingProduct();
+            _suppressSearchChange = true;
+            SearchBox.Text = "";
+            _suppressSearchChange = false;
+            HideLookup();
+        }
         RefreshMultiplierHint();
         if (!check.Allowed)
         {
@@ -541,7 +581,6 @@ public partial class PdvWindow : Window
         }
 
         SearchBox.Focus();
-        SearchBox.SelectAll();
     }
 
     private void F6QtyBox_KeyDown(object sender, KeyEventArgs e)
@@ -655,7 +694,7 @@ public partial class PdvWindow : Window
 
     private void TryIncludePending()
     {
-        if (_pendingProduct is null)
+        if (_pendingProduct is null || !_pendingConfirmed)
             return;
 
         var guard = PdvQtyBoxGuard.Evaluate(QtyBox.Text, _pendingProduct.Barcode, _pendingProduct.Code);
@@ -717,18 +756,11 @@ public partial class PdvWindow : Window
         }
 
         ClearScanMultiplier();
-        _pendingProduct = null;
-        _pendingUnitPrice = 0;
-        _pendingStockUnitsPerSale = 1;
-        _pendingBuscaLabel = null;
-        _pendingLineDisplayName = null;
+        ClearPendingProduct();
         _suppressSearchChange = true;
         SearchBox.Text = "";
         _suppressSearchChange = false;
         HideLookup();
-        QtyBox.Text = "1,000";
-        CurrentPriceText.Text = "0,00";
-        CurrentItemTotalText.Text = "0,00";
         UpdateGrandTotal();
         RefreshCartGrid();
         SearchBox.Focus();
@@ -753,12 +785,10 @@ public partial class PdvWindow : Window
 
     private void CartGrid_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
-        if (CartGrid.SelectedItem is PdvCartLine line)
-        {
-            CurrentPriceText.Text = line.UnitPriceDisplay;
-            CurrentItemTotalText.Text = line.SubtotalDisplay;
-            QtyBox.Text = line.QuantityDisplay;
-        }
+        // Sem pendente ativo o rodapé não pode copiar a linha do carrinho
+        // (qty/preço do item anterior simulando produto atual).
+        if (_pendingProduct is not null)
+            return;
     }
 
     private void Finalize_Click(object sender, RoutedEventArgs e) => OpenPayment();
@@ -967,14 +997,11 @@ public partial class PdvWindow : Window
     {
         _cart.Clear();
         _lineCounter = 0;
-        _pendingProduct = null;
-        _pendingBuscaLabel = null;
+        ClearPendingProduct();
         _qtySession.ResetForNewSale();
         RefreshMultiplierHint();
         HideLookup();
         UpdateGrandTotal();
-        CurrentPriceText.Text = "0,00";
-        CurrentItemTotalText.Text = "0,00";
         GrandTotalText.Text = "0,00";
         _suppressSearchChange = true;
         SearchBox.Text = "";
