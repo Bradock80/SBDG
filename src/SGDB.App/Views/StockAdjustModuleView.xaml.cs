@@ -322,11 +322,21 @@ public partial class StockAdjustModuleView : UserControl
                 var delta = after - before;
                 if (!IsFridgeLocation && delta > 1e-9 && TryParseUnitCost(out var saldoCost))
                 {
-                    var avg = ProductPriceHelper.WeightedAverageCost(
-                        PurchaseAverageCostRules.PhysicalStock(_selected.Stock, _selected.StockFridge),
-                        _selected.CostPrice, delta, saldoCost);
-                    label =
-                        $"Estoque: {after:N3} {_selected.Unit} (Δ {delta:+0.###;-0.###;0}) · Custo médio → R$ {avg:N2}";
+                    var totalBeforePreview = PurchaseAverageCostRules.PhysicalStock(
+                        _selected.Stock, _selected.StockFridge);
+                    if (totalBeforePreview < -1e-4)
+                    {
+                        label =
+                            $"Estoque: {after:N3} {_selected.Unit} (Δ {delta:+0.###;-0.###;0}) · Custo cadastro → R$ {saldoCost:N2} (substitui)";
+                    }
+                    else
+                    {
+                        var avg = ProductPriceHelper.WeightedAverageCost(
+                            totalBeforePreview,
+                            _selected.CostPrice, delta, saldoCost);
+                        label =
+                            $"Estoque: {after:N3} {_selected.Unit} (Δ {delta:+0.###;-0.###;0}) · Custo médio → R$ {avg:N2}";
+                    }
                 }
                 else if (IsFridgeLocation)
                 {
@@ -572,14 +582,22 @@ public partial class StockAdjustModuleView : UserControl
 
             var notes = BuildNotes();
             double? unitCost = null;
+            var totalBefore = PurchaseAverageCostRules.PhysicalStock(_selected.Stock, _selected.StockFridge);
+            // Regularização de negativo: custo opcional (preserva se omitido; substitui se informado).
             var needsCost = EffectiveMode == StockAdjustMode.Entrada
-                || (EffectiveMode == StockAdjustMode.Saldo && value > _selected.Stock + 1e-9);
+                || (EffectiveMode == StockAdjustMode.Saldo
+                    && value > _selected.Stock + 1e-9
+                    && totalBefore >= -1e-4);
             if (needsCost)
             {
                 if (!TryParseUnitCost(out var costVal))
                     throw new InvalidOperationException(
                         "Informe o custo unitário desta entrada para calcular a média.");
                 unitCost = costVal;
+            }
+            else if (TryParseUnitCost(out var optionalCost))
+            {
+                unitCost = optionalCost;
             }
 
             var result = EffectiveMode == StockAdjustMode.Saldo

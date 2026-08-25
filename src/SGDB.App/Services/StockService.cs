@@ -128,18 +128,59 @@ public static class StockService
             ? stockBefore + qty
             : stockBefore - qty;
 
+        // ETAPA 69L-B1 — regularização administrativa: total negativo → total >= 0 no saldo.
+        // Não reutiliza RequireUsableStockBefore / média ponderada da compra.
+        var totalAfter = PurchaseAverageCostRules.PhysicalStock(stockAfter, product.StockFridge);
+        var isNegativeRegularization = mode == StockAdjustMode.Saldo
+            && stockBeforeForAverage < -1e-4
+            && totalAfter >= -1e-4;
+
         var movementUnitPrice = product.CostPrice;
-        var applyCost = movType == "entrada" && unitCost is >= 0;
-        if (applyCost)
+        var hasUnitCost = unitCost is >= 0;
+
+        if (isNegativeRegularization)
         {
-            var incoming = Math.Max(0, unitCost!.Value);
+            if (hasUnitCost)
+            {
+                var incoming = ProductPriceHelper.RoundPrice(Math.Max(0, unitCost!.Value));
+                movementUnitPrice = incoming;
+                var extra = ProductExtra.Parse(product.ExtraJson);
+                // Mesma coerência do ajuste com custo: último custo informado em preco_compra.
+                extra.PrecoCompra = incoming;
+
+                using var updCost = conn.CreateCommand();
+                updCost.Transaction = tx;
+                updCost.CommandText = """
+                    UPDATE products
+                    SET stock = $stock, cost_price = $cost, extra_json = $extra
+                    WHERE id = $id;
+                    """;
+                updCost.Parameters.AddWithValue("$stock", stockAfter);
+                updCost.Parameters.AddWithValue("$cost", incoming);
+                updCost.Parameters.AddWithValue("$extra", extra.ToJson());
+                updCost.Parameters.AddWithValue("$id", productId);
+                updCost.ExecuteNonQuery();
+            }
+            else
+            {
+                using var upd = conn.CreateCommand();
+                upd.Transaction = tx;
+                upd.CommandText = "UPDATE products SET stock = $stock WHERE id = $id;";
+                upd.Parameters.AddWithValue("$stock", stockAfter);
+                upd.Parameters.AddWithValue("$id", productId);
+                upd.ExecuteNonQuery();
+            }
+        }
+        else if (movType == "entrada" && hasUnitCost)
+        {
+            var incoming = ProductPriceHelper.RoundPrice(Math.Max(0, unitCost!.Value));
             PurchaseAverageCostRules.RequireUsableStockBefore(stockBeforeForAverage, product.Name);
             var newCost = ProductPriceHelper.WeightedAverageCost(
                 stockBeforeForAverage, product.CostPrice, qty, incoming);
             movementUnitPrice = incoming;
 
             var extra = ProductExtra.Parse(product.ExtraJson);
-            extra.PrecoCompra = Math.Round(incoming, 4);
+            extra.PrecoCompra = incoming;
 
             using var updCost = conn.CreateCommand();
             updCost.Transaction = tx;
@@ -164,6 +205,8 @@ public static class StockService
             upd.ExecuteNonQuery();
         }
 
+        TestBeforeAdjustMovement?.Invoke(productId);
+
         var movId = InsertMovement(conn, tx, productId, movType, qty, movementUnitPrice, finalNotes,
             stockBefore: stockBefore, stockAfter: stockAfter,
             operation: mode == StockAdjustMode.Saldo ? "ajuste_manual"
@@ -180,6 +223,12 @@ public static class StockService
             MovementId = movId,
         };
     }
+
+    /// <summary>
+    /// Somente testes: invocado após o UPDATE de stock e antes do movement em
+    /// <see cref="AdjustCore"/>. Deve permanecer null em produção.
+    /// </summary>
+    public static Action<int>? TestBeforeAdjustMovement { get; set; }
 
     /// <summary>
     /// Somente testes: invocado após o UPDATE de stock_fridge e antes do movement em
