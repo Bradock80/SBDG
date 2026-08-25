@@ -67,8 +67,8 @@
                                 Style="{StaticResource SgdbOutlineButtonStyle}" Click="RecalcMargin_Click"
                                 ToolTip="Preenche a coluna Venda com custo + margem. Depois você pode editar na grade."/>
                         <CheckBox x:Name="CreateMissingBox" Content="Cadastrar produtos novos" IsChecked="False"
+                                  VerticalAlignment="Center" Margin="0,0,14,0"
                                   ToolTip="Só marque se o item realmente não existir no cadastro. Preferível corrigir o EAN do produto."/>
-                                  VerticalAlignment="Center" Margin="0,0,14,0"/>
                         <CheckBox x:Name="UpdateStockBox" Content="Gerar estoque" IsChecked="True"
                                   VerticalAlignment="Center" Margin="0,0,14,0"
                                   ToolTip="Soma as quantidades no estoque. A compra e o Contas a Pagar (pendente) são lançados mesmo assim."/>
