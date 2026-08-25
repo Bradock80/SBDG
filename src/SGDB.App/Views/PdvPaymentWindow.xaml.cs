@@ -464,7 +464,7 @@ public partial class PdvPaymentWindow : Window
         _editingRowId = null;
         _editingText = null;
 
-        var remaining = ProductPriceHelper.RoundPrice(TotalAPagar() - SumAmounts(row.Id));
+        var remaining = RemainingAmount(excludeMethodId: row.Id);
         var committed = _amounts.GetValueOrDefault(row.Id);
 
         // Após cancelar fiado: sugere o restante nesta forma (pode somar em dinheiro/débito de novo)
@@ -472,6 +472,18 @@ public partial class PdvPaymentWindow : Window
         {
             _preferRemainingOnNextFill = false;
             row.ValorText = CurrencyBr(remaining);
+            return;
+        }
+
+        // Já existe outra forma com valor → nunca sugerir o total cheio nesta linha.
+        if (SumAmounts(row.Id) > 0.009)
+        {
+            if (committed > 0.009)
+                row.ValorText = CurrencyBr(committed);
+            else if (remaining > 0.009)
+                row.ValorText = CurrencyBr(remaining);
+            else
+                row.ValorText = "";
             return;
         }
 
@@ -491,6 +503,15 @@ public partial class PdvPaymentWindow : Window
         else
             row.ValorText = "";
     }
+
+    /// <summary>Restante a alocar na forma, excluindo o que já está nas outras.</summary>
+    private double RemainingAmount(string? excludeMethodId = null) =>
+        PdvPaymentSplitRules.RemainingAmount(TotalAPagar(), SumAmounts(excludeMethodId));
+
+    private double SumPixAllocated() =>
+        ProductPriceHelper.RoundPrice(
+            _methods.Where(m => IsPixMethodId(m.Id))
+                .Sum(m => _amounts.GetValueOrDefault(m.Id)));
 
     private bool ShouldCommit(bool force) => force || _inputTouched;
 
@@ -664,7 +685,8 @@ public partial class PdvPaymentWindow : Window
         if (ShouldReleaseFiadoOnSwitch(row.Id))
             ClearFiadoAllocation();
 
-        // PIX ainda não pago no MP: libera ao trocar de forma (evita valor "preso" no PIX)
+        // PIX ainda não pago no MP: só libera em SUBSTITUIÇÃO (valor integral).
+        // Split intencional (PIX parcial) permanece ao ir para Dinheiro/Cartão (tecla A).
         if (ShouldReleasePixOnSwitch(row.Id))
             ClearPixAllocationIfUnpaid();
 
@@ -717,6 +739,7 @@ public partial class PdvPaymentWindow : Window
 
     /// <summary>
     /// Cancela a parte PIX (ainda não confirmada no Mercado Pago) e libera o restante.
+    /// Usado em substituição / cancelamento explícito — não em split parcial.
     /// </summary>
     private void ClearPixAllocationIfUnpaid()
     {
@@ -739,16 +762,15 @@ public partial class PdvPaymentWindow : Window
             _preferRemainingOnNextFill = true;
     }
 
-    private bool ShouldReleasePixOnSwitch(string newMethodId)
-    {
-        if (IsPixMethodId(newMethodId))
-            return false;
-        if (PixPaidAmount > 0.009)
-            return false;
-        if (IsPixMethodId(_selectedId))
-            return true;
-        return _methods.Any(m => IsPixMethodId(m.Id) && _amounts.GetValueOrDefault(m.Id) > 0.009);
-    }
+    /// <summary>
+    /// Split (PIX parcial &lt; total): NÃO limpa. Substituição (PIX cobre o total): limpa se não pago no MP.
+    /// </summary>
+    private bool ShouldReleasePixOnSwitch(string newMethodId) =>
+        PdvPaymentSplitRules.ShouldClearUnpaidPixOnMethodSwitch(
+            SumPixAllocated(),
+            PixPaidAmount,
+            TotalAPagar(),
+            switchingToPixMethod: IsPixMethodId(newMethodId));
 
     private static bool IsPixMethodId(string? id) =>
         PaymentMethodsService.IsPixFamily(id);
