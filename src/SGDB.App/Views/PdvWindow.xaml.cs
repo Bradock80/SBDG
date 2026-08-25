@@ -25,8 +25,8 @@ public partial class PdvWindow : Window
     private int _lineCounter;
     private long _lastBuscaKeyAt;
     private bool _suppressSearchChange;
-    private readonly PdvScanMultiplierState _scanMultiplier = new();
-    private readonly PdvF6QuantitySession _f6Quantity = new();
+    private readonly PdvIncludeQuantitySession _qtySession = new();
+    private readonly PdvF6EnterLeakGuard _f6EnterGuard = new();
     private readonly CultureInfo _qtyCulture = CultureInfo.GetCultureInfo("pt-BR");
 
     public PdvWindow()
@@ -242,7 +242,7 @@ public partial class PdvWindow : Window
 
         if (multiplier.Kind == PdvScanMultiplierKind.Armed)
         {
-            _scanMultiplier.TryArm(multiplier.Quantity);
+            _qtySession.ArmExplicit(multiplier.Quantity);
             _suppressSearchChange = true;
             SearchBox.Text = "";
             _suppressSearchChange = false;
@@ -255,13 +255,12 @@ public partial class PdvWindow : Window
         if (multiplier.Kind == PdvScanMultiplierKind.Combined)
         {
             term = multiplier.Remainder;
-            _scanMultiplier.Clear();
-            _scanMultiplier.TryArm(multiplier.Quantity);
+            _qtySession.ArmExplicit(multiplier.Quantity);
         }
 
         if (string.IsNullOrEmpty(term))
         {
-            if (_scanMultiplier.IsArmed)
+            if (_qtySession.IsArmed)
                 return;
             if (_pendingProduct is not null)
             {
@@ -299,7 +298,6 @@ public partial class PdvWindow : Window
                 }
                 scan = chosen ?? scan;
                 SetPendingFromScan(scan, fromBarcodeScan: true);
-                ApplyArmedMultiplierToQtyBox();
                 if (PdvScanFocusPolicy.ShouldAutoInclude(true) || scan.IsPackSale)
                     TryIncludePending();
                 return;
@@ -417,7 +415,6 @@ public partial class PdvWindow : Window
             SearchBox.SelectAll();
             return;
         }
-        ClearScanMultiplier();
         SetPendingFromScan(scan ?? PdvService.ResolveManualSale(product), fromBarcodeScan: false);
     }
 
@@ -456,8 +453,10 @@ public partial class PdvWindow : Window
         _pendingLineDisplayName = PdvCartHelper.LineDisplayName(scan.Product, scan.ModeLabel);
         HideLookup();
         CurrentPriceText.Text = ProductPriceHelper.FormatBr(scan.UnitPrice);
-        QtyBox.Text = scan.Quantity.ToString("0.000", _qtyCulture);
+        var qty = _qtySession.OnProductPending(scan.Quantity);
+        QtyBox.Text = qty.ToString("0.000", _qtyCulture);
         UpdateItemTotalPreview();
+        RefreshMultiplierHint();
         var label = !string.IsNullOrWhiteSpace(scan.ModeLabel)
             ? $"{scan.Product.Name} [{scan.ModeLabel}]"
             : scan.Product.Name;
@@ -479,33 +478,18 @@ public partial class PdvWindow : Window
         }, DispatcherPriority.Input);
     }
 
-    private void ApplyArmedMultiplierToQtyBox()
-    {
-        if (!_scanMultiplier.IsArmed)
-        {
-            RefreshMultiplierHint();
-            return;
-        }
-
-        var qty = _scanMultiplier.Consume();
-        QtyBox.Text = qty.ToString("0.000", _qtyCulture);
-        UpdateItemTotalPreview();
-        RefreshMultiplierHint();
-    }
-
     private void ClearScanMultiplier()
     {
-        _f6Quantity.Cancel();
-        _scanMultiplier.Clear();
+        _qtySession.Cancel();
         RefreshMultiplierHint();
     }
 
     private void RefreshMultiplierHint()
     {
         var baseText = $"Terminal: {Environment.MachineName}";
-        if (_scanMultiplier.IsArmed)
+        if (_qtySession.IsArmed)
         {
-            var qtyText = _scanMultiplier.Quantity.ToString("0.###", _qtyCulture);
+            var qtyText = _qtySession.ArmedQuantity.ToString("0.###", _qtyCulture);
             StatusTerminalText.Text = $"{baseText}  ·  Próxima quantidade: {qtyText}";
         }
         else
@@ -518,16 +502,16 @@ public partial class PdvWindow : Window
 
     private void RefreshF6Ui()
     {
-        F6QtyBox.Visibility = _f6Quantity.IsEditing ? Visibility.Visible : Visibility.Collapsed;
-        if (_f6Quantity.IsEditing)
+        F6QtyBox.Visibility = _qtySession.IsF6Editing ? Visibility.Visible : Visibility.Collapsed;
+        if (_qtySession.IsF6Editing)
         {
             F6ArmedHint.Visibility = Visibility.Collapsed;
             return;
         }
 
-        if (_scanMultiplier.IsArmed)
+        if (_qtySession.IsArmed)
         {
-            var qtyText = _scanMultiplier.Quantity.ToString("0.###", _qtyCulture);
+            var qtyText = _qtySession.ArmedQuantity.ToString("0.###", _qtyCulture);
             F6ArmedHint.Text = $"Próxima quantidade: {qtyText}";
             F6ArmedHint.Visibility = Visibility.Visible;
             return;
@@ -538,7 +522,8 @@ public partial class PdvWindow : Window
 
     private void BeginF6QuantityMode()
     {
-        _f6Quantity.Enter();
+        HideLookup();
+        _qtySession.F6.Enter();
         F6QtyBox.Text = "";
         RefreshF6Ui();
         F6QtyBox.Focus();
@@ -546,7 +531,7 @@ public partial class PdvWindow : Window
 
     private void ConfirmF6Quantity()
     {
-        var check = _f6Quantity.Confirm(F6QtyBox.Text, _scanMultiplier);
+        var check = _qtySession.ConfirmF6(F6QtyBox.Text);
         RefreshMultiplierHint();
         if (!check.Allowed)
         {
@@ -556,29 +541,46 @@ public partial class PdvWindow : Window
         }
 
         SearchBox.Focus();
+        SearchBox.SelectAll();
     }
 
     private void F6QtyBox_KeyDown(object sender, KeyEventArgs e)
     {
         if (e.Key != Key.Enter)
             return;
-        ConfirmF6Quantity();
         e.Handled = true;
     }
 
     private void F6QtyBox_PreviewKeyDown(object sender, KeyEventArgs e)
     {
         if (e.Key == Key.Space)
+        {
             e.Handled = true;
+            return;
+        }
+
+        if (e.Key != Key.Enter)
+            return;
+
+        e.Handled = true;
+        _f6EnterGuard.CaptureF6Enter();
+        ConfirmF6Quantity();
+        Dispatcher.BeginInvoke(() =>
+        {
+            SearchBox.Focus();
+            SearchBox.SelectAll();
+            _f6EnterGuard.Release();
+        }, DispatcherPriority.Input);
     }
 
     private void QtyBox_KeyDown(object sender, KeyEventArgs e)
     {
-        if (e.Key == Key.Enter)
-        {
-            TryIncludePending();
-            e.Handled = true;
-        }
+        if (e.Key != Key.Enter)
+            return;
+        e.Handled = true;
+        if (!_f6EnterGuard.AllowQtyBoxInclude)
+            return;
+        TryIncludePending();
     }
 
     private void QtyBox_PreviewKeyDown(object sender, KeyEventArgs e)
@@ -587,8 +589,12 @@ public partial class PdvWindow : Window
             e.Handled = true;
     }
 
-    private void QtyBox_PreviewTextInput(object sender, TextCompositionEventArgs e) =>
+    private void QtyBox_PreviewTextInput(object sender, TextCompositionEventArgs e)
+    {
         e.Handled = !IsQtyChar(e.Text);
+        if (!e.Handled && ReferenceEquals(sender, QtyBox))
+            _qtySession.MarkQtyBoxEdited();
+    }
 
     private void QtyBox_Pasting(object sender, DataObjectPastingEventArgs e)
     {
@@ -599,7 +605,13 @@ public partial class PdvWindow : Window
         }
         var text = e.DataObject.GetData(typeof(string)) as string ?? "";
         if (string.IsNullOrEmpty(text) || text.Any(c => !IsQtyChar(c.ToString())))
+        {
             e.CancelCommand();
+            return;
+        }
+
+        if (ReferenceEquals(sender, QtyBox))
+            _qtySession.MarkQtyBoxEdited();
     }
 
     /// <summary>Quantidade: só dígitos e vírgula/ponto decimal.</summary>
@@ -658,7 +670,22 @@ public partial class PdvWindow : Window
             return;
         }
 
-        var qty = ParseQty(QtyBox.Text);
+        var parsed = ParseQty(QtyBox.Text);
+        var qty = _qtySession.PreviewInclude(parsed);
+        var qtyCheck = PdvQuantityValidationRules.EvaluateQuantity(
+            qty, _pendingProduct.Barcode, _pendingProduct.Code);
+        if (!qtyCheck.Allowed)
+        {
+            System.Diagnostics.Debug.WriteLine(
+                $"[PDV-QTY] user={AppSession.UserLogin} field=effective value={qty} reason={qtyCheck.Reason}");
+            MessageBox.Show(qtyCheck.Message, "PDV", MessageBoxButton.OK, MessageBoxImage.Warning);
+            QtyBox.Text = PdvQtyBoxGuard.ResetQtyText;
+            ClearScanMultiplier();
+            SearchBox.Focus();
+            return;
+        }
+
+        qty = _qtySession.CommitInclude(parsed);
         if (qty <= 0)
         {
             ClearScanMultiplier();
@@ -774,6 +801,8 @@ public partial class PdvWindow : Window
             MessageBox.Show("Adicione produtos à venda.", "PDV", MessageBoxButton.OK, MessageBoxImage.Information);
             return;
         }
+
+        ClearScanMultiplier();
 
         // Confere estoque antes de cobrar — senão o cliente paga (PIX/cartão) e a venda falha depois.
         try
@@ -940,7 +969,8 @@ public partial class PdvWindow : Window
         _lineCounter = 0;
         _pendingProduct = null;
         _pendingBuscaLabel = null;
-        ClearScanMultiplier();
+        _qtySession.ResetForNewSale();
+        RefreshMultiplierHint();
         HideLookup();
         UpdateGrandTotal();
         CurrentPriceText.Text = "0,00";
@@ -1012,7 +1042,7 @@ public partial class PdvWindow : Window
 
         if (e.Key == Key.Escape)
         {
-            if (_f6Quantity.IsEditing || _scanMultiplier.IsArmed)
+            if (_qtySession.IsF6Editing || _qtySession.IsArmed)
             {
                 ClearScanMultiplier();
                 HideLookup();
@@ -1037,7 +1067,7 @@ public partial class PdvWindow : Window
 
         if (e.Key == Key.F12)
         {
-            if (_f6Quantity.IsEditing)
+            if (_qtySession.IsF6Editing)
                 ClearScanMultiplier();
             SearchBox.Focus();
             e.Handled = true;
