@@ -8,6 +8,7 @@ using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Threading;
 using SGDB.Domain.Products;
+using SGDB.Domain.Purchases;
 using SGDB.Models;
 using SGDB.Services;
 using SGDB.Utils;
@@ -1505,7 +1506,8 @@ public partial class PurchaseFormWindow : Window
             _lastXmlPath = path;
             var preview = NfeXmlImportService.ParseFile(
                 path,
-                includeIcmsStInCost: IncluirStCustoBox.IsChecked == true);
+                includeIcmsStInCost: NfeEffectiveCostImportPolicy.IncludeIcmsStFromAdvancedOverride(
+                    IncluirStCustoBox.IsChecked));
             ApplyNfePreview(preview);
         }
         catch (Exception ex)
@@ -1523,7 +1525,8 @@ public partial class PurchaseFormWindow : Window
             _lastXmlPath = null;
             var preview = NfeXmlImportService.ParseXml(
                 xml,
-                includeIcmsStInCost: IncluirStCustoBox.IsChecked == true);
+                includeIcmsStInCost: NfeEffectiveCostImportPolicy.IncludeIcmsStFromAdvancedOverride(
+                    IncluirStCustoBox.IsChecked));
             ApplyNfePreview(preview);
         }
         catch (Exception ex)
@@ -1761,7 +1764,7 @@ public partial class PurchaseFormWindow : Window
                 (hasCig ? " · Pr. Venda cigarro = maço" : "") +
                 (created > 0 ? $" · {created} produto(s) novo(s)" : "") +
                 (negMargin > 0 ? $" · {negMargin} com margem negativa" : "") +
-                (stDiffItems.Count > 0 ? " · custo sem ICMS-ST" : "") +
+                (stDiffItems.Count > 0 ? " · conferir ST na coluna de custo" : "") +
                 " · edite na grade se quiser";
             StatusText.Foreground = System.Windows.Media.Brushes.DarkGreen;
 
@@ -1774,17 +1777,17 @@ public partial class PurchaseFormWindow : Window
                 "  (desmarque “Também ajustar preço de venda” para não gravar)\n";
             if (stDiffItems.Count > 0)
             {
-                msg += "\nCusto sem ICMS-ST (padrão) × com ST:\n";
+                msg += "\nCusto efetivo (com ST) × preço DANFE (sem ST):\n";
                 foreach (var it in stDiffItems.Take(6))
                 {
                     msg +=
                         $"• {it.ProductName}\n" +
-                        $"  sem ST R$ {it.UnitPriceWithoutSt:N4} (total R$ {it.Quantity * it.UnitPriceWithoutSt:N2})\n" +
-                        $"  com ST R$ {it.UnitPriceWithSt:N4} (total R$ {it.Quantity * it.UnitPriceWithSt:N2})\n";
+                        $"  efetivo R$ {it.UnitPriceWithSt:N4}\n" +
+                        $"  sem ST R$ {it.UnitPriceWithoutSt:N4}\n";
                 }
                 if (stDiffItems.Count > 6)
                     msg += $"• … e mais {stDiffItems.Count - 6}\n";
-                msg += "Marque “Incluir ICMS-ST no custo” se quiser o valor cheio.\n";
+                msg += "Marque “Avançado: custo DANFE sem ICMS-ST” só se quiser o preço da nota sem ST.\n";
             }
             if (preview.HeaderSt > 0.05 || preview.FatLiq > 0.05 || preview.HeaderVNf > 0.05)
             {
@@ -1796,6 +1799,8 @@ public partial class PurchaseFormWindow : Window
                 if (preview.FatLiq > 0.05) msg += $" · fatura líquida R$ {preview.FatLiq:N2}";
                 msg += "\n";
             }
+            if (preview.Reconciliation is { } recon)
+                msg += $"\n{recon.FooterStatus}: {recon.Explanation}\n";
             if (hasCig)
             {
                 msg +=
@@ -1890,7 +1895,7 @@ public partial class PurchaseFormWindow : Window
         if (!_uiReady || _items.Count == 0)
             return;
 
-        var withSt = IncluirStCustoBox.IsChecked == true;
+        var withSt = NfeEffectiveCostImportPolicy.IncludeIcmsStFromAdvancedOverride(IncluirStCustoBox.IsChecked);
         var changed = 0;
         foreach (var item in _items)
         {

@@ -75,15 +75,16 @@
                         <CheckBox x:Name="UpdatePriceBox" Content="Atualizar custo/venda" IsChecked="True"
                                   VerticalAlignment="Center" Margin="0,0,14,0"
                                   ToolTip="Atualiza custo e preço de venda dos produtos com os valores da grade."/>
-                        <CheckBox x:Name="IncluirStCustoBox" Content="Incluir ICMS-ST no custo" IsChecked="False"
+                        <CheckBox x:Name="IncluirStCustoBox" Content="Avançado: custo DANFE sem ICMS-ST"
+                                  IsChecked="False"
                                   VerticalAlignment="Center"
                                   Checked="IncluirStCustoBox_Changed"
                                   Unchecked="IncluirStCustoBox_Changed"
-                                  ToolTip="Desmarcado = preço igual à nota. Marcado = soma ST/FCP ao custo."/>
+                                  ToolTip="Desmarcado (padrão): custo efetivo do resolver (IPI/ST/FCP-ST da linha). Marcado = preço DANFE sem ST."/>
                     </StackPanel>
                     <TextBlock x:Name="HeaderInfo" Margin="0,10,0,0" FontSize="12" Foreground="#334155"/>
-                    <TextBlock Margin="0,6,0,0" FontSize="11" Foreground="#64748B"
-                               Text="Por padrão o custo é o preço da nota (sem ST). Marque “Incluir ICMS-ST no custo” se quiser o valor cheio pago."/>
+                    <TextBlock x:Name="ReconText" Margin="0,6,0,0" FontSize="12" FontWeight="SemiBold" Foreground="#334155"
+                               Text="O custo efetivo inclui IPI e ST da linha. Frete/ST só no total não são rateados — revise se aparecer."/>
                 </StackPanel>
             </Border>
 
@@ -94,9 +95,10 @@
                       RowHeaderWidth="0" RowHeight="36" FontSize="12" BorderBrush="#C8C4BC"
                       AlternatingRowBackground="#FAFBFC"
                       SelectionUnit="Cell"
+                      SelectionChanged="ItemsGrid_SelectionChanged"
                       CellEditEnding="ItemsGrid_CellEditEnding">
                 <DataGrid.Columns>
-                    <DataGridTemplateColumn Header="Status" Width="72" IsReadOnly="True" HeaderStyle="{StaticResource TextHeader}">
+                    <DataGridTemplateColumn Header="Status" Width="78" IsReadOnly="True" HeaderStyle="{StaticResource TextHeader}">
                         <DataGridTemplateColumn.CellTemplate>
                             <DataTemplate>
                                 <Border CornerRadius="10" Padding="8,3" HorizontalAlignment="Left"
@@ -105,6 +107,9 @@
                                         <Style TargetType="Border">
                                             <Setter Property="Background" Value="#D1FAE5"/>
                                             <Style.Triggers>
+                                                <DataTrigger Binding="{Binding NeedsCostReview}" Value="True">
+                                                    <Setter Property="Background" Value="#FFEDD5"/>
+                                                </DataTrigger>
                                                 <DataTrigger Binding="{Binding IsNew}" Value="True">
                                                     <Setter Property="Background" Value="#FEF3C7"/>
                                                 </DataTrigger>
@@ -116,6 +121,9 @@
                                             <Style TargetType="TextBlock">
                                                 <Setter Property="Foreground" Value="#065F46"/>
                                                 <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding NeedsCostReview}" Value="True">
+                                                        <Setter Property="Foreground" Value="#9A3412"/>
+                                                    </DataTrigger>
                                                     <DataTrigger Binding="{Binding IsNew}" Value="True">
                                                         <Setter Property="Foreground" Value="#92400E"/>
                                                     </DataTrigger>
@@ -134,7 +142,7 @@
                                 <Setter Property="Padding" Value="8,0"/>
                                 <Setter Property="VerticalAlignment" Value="Center"/>
                                 <Setter Property="TextTrimming" Value="CharacterEllipsis"/>
-                                <Setter Property="ToolTip" Value="{Binding Name}"/>
+                                <Setter Property="ToolTip" Value="{Binding StatusDisplay}"/>
                             </Style>
                         </DataGridTextColumn.ElementStyle>
                     </DataGridTextColumn>
@@ -143,12 +151,25 @@
                     <DataGridTextColumn Header="Validade" Binding="{Binding ExpiryDisplay}" Width="90"
                                         IsReadOnly="True" HeaderStyle="{StaticResource TextHeader}"/>
                     <DataGridTextColumn Header="Conv." Binding="{Binding PackNoteDisplay}" Width="140"
-                                        IsReadOnly="True" HeaderStyle="{StaticResource TextHeader}"/>
+                                        IsReadOnly="True" HeaderStyle="{StaticResource TextHeader}">
+                        <DataGridTextColumn.ElementStyle>
+                            <Style TargetType="TextBlock">
+                                <Setter Property="Padding" Value="6,0"/>
+                                <Setter Property="TextTrimming" Value="CharacterEllipsis"/>
+                                <Setter Property="ToolTip" Value="{Binding CostExplanation}"/>
+                            </Style>
+                        </DataGridTextColumn.ElementStyle>
+                    </DataGridTextColumn>
                     <DataGridTextColumn Header="Preço NF" Binding="{Binding NfPriceDisplay}" Width="80"
-                                        IsReadOnly="True" HeaderStyle="{StaticResource NumHeader}"
-                                        ElementStyle="{StaticResource NumColText}"/>
+                                        IsReadOnly="True" HeaderStyle="{StaticResource NumHeader}">
+                        <DataGridTextColumn.ElementStyle>
+                            <Style TargetType="TextBlock" BasedOn="{StaticResource NumColText}">
+                                <Setter Property="ToolTip" Value="{Binding StatusDisplay}"/>
+                            </Style>
+                        </DataGridTextColumn.ElementStyle>
+                    </DataGridTextColumn>
                     <DataGridTextColumn Header="Qtd" Binding="{Binding Quantity, Mode=TwoWay, UpdateSourceTrigger=LostFocus, StringFormat=N3}"
-                                        Width="80" HeaderStyle="{StaticResource NumHeader}">
+                                        Width="70" HeaderStyle="{StaticResource NumHeader}">
                         <DataGridTextColumn.ElementStyle>
                             <Style TargetType="TextBlock" BasedOn="{StaticResource EditCell}">
                                 <Setter Property="Background" Value="#FFFBEB"/>
@@ -156,12 +177,11 @@
                         </DataGridTextColumn.ElementStyle>
                     </DataGridTextColumn>
                     <DataGridTextColumn Header="Custo" Binding="{Binding UnitPrice, Mode=TwoWay, UpdateSourceTrigger=LostFocus, StringFormat=N4}"
-                                        Width="90" HeaderStyle="{StaticResource NumHeader}">
+                                        Width="88" HeaderStyle="{StaticResource NumHeader}">
                         <DataGridTextColumn.ElementStyle>
                             <Style TargetType="TextBlock" BasedOn="{StaticResource EditCell}">
                                 <Setter Property="Background" Value="#FFFBEB"/>
-                                <Setter Property="ToolTip"
-                                        Value="Custo unitário da NF (cigarro = por cigarro no estoque)."/>
+                                <Setter Property="ToolTip" Value="{Binding CostDetailLine}"/>
                             </Style>
                         </DataGridTextColumn.ElementStyle>
                     </DataGridTextColumn>
@@ -192,12 +212,15 @@
 
             <Border Grid.Row="3" Padding="12,10" Background="#FAFAF9">
                 <DockPanel>
-                    <TextBlock x:Name="SummaryText" DockPanel.Dock="Left" VerticalAlignment="Center"
-                               FontSize="12" Foreground="#475569"
-                               Text="Selecione um XML da NF-e para começar."/>
                     <Button x:Name="ApplyBtn" DockPanel.Dock="Right" Content="Importar e aplicar (F9)"
-                            Padding="16,8" HorizontalAlignment="Right" IsEnabled="False"
+                            Padding="16,8" HorizontalAlignment="Right" IsEnabled="False" Margin="12,0,0,0"
                             Style="{StaticResource SgdbPrimaryButtonStyle}" Click="Apply_Click"/>
+                    <StackPanel DockPanel.Dock="Left" VerticalAlignment="Center">
+                        <TextBlock x:Name="SummaryText" FontSize="12" Foreground="#475569"
+                                   Text="Selecione um XML da NF-e para começar." TextWrapping="Wrap"/>
+                        <TextBlock x:Name="LineDetailText" Margin="0,4,0,0" FontSize="11" Foreground="#64748B"
+                                   TextWrapping="Wrap"/>
+                    </StackPanel>
                 </DockPanel>
             </Border>
         </Grid>

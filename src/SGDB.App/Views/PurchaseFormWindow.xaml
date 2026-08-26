@@ -396,11 +396,11 @@
                                           ToolTip="Marcado: o novo preço será gravado no cadastro do produto. Desmarque para não atualizar o cadastro."/>
                                 <TextBlock Text="Qtd/Preço = unitário (estoque). Preço 0,00 = brinde. Ao finalizar: custo médio; cigarro grava maço. Alterar Pr. Venda marca esta opção automaticamente."
                                            FontSize="9" Foreground="#555" TextWrapping="Wrap" Margin="0,0,0,4"/>
-                                <CheckBox x:Name="IncluirStCustoBox" Content="Incluir ICMS-ST no custo" FontSize="11" Margin="0,2"
+                                <CheckBox x:Name="IncluirStCustoBox" Content="Avançado: custo DANFE sem ICMS-ST" FontSize="11" Margin="0,2"
                                           IsChecked="False"
                                           Checked="IncluirStCustoBox_Changed"
                                           Unchecked="IncluirStCustoBox_Changed"
-                                          ToolTip="Desmarcado = preço igual à nota (ex.: Doritos 10,66). Marcado = soma ST/FCP ao custo (preço maior)."/>
+                                          ToolTip="Desmarcado (padrão): custo efetivo do resolver (IPI/ST/FCP-ST da linha). Marcado = preço DANFE sem ST."/>
                                 <StackPanel Orientation="Horizontal" Margin="0,4,0,2">
                                     <TextBlock Text="Margem %" VerticalAlignment="Center" FontSize="11" Margin="0,0,6,0"/>
                                     <TextBox x:Name="MargemGeralBox" Width="48" Height="22" Text="30" FontSize="11"

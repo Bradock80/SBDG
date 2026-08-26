@@ -3,6 +3,7 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
 using Microsoft.Win32;
+using SGDB.Domain.Purchases;
 using SGDB.Models;
 using SGDB.Services;
 using SGDB.Utils;
@@ -37,6 +38,8 @@ public partial class NfeImportModuleView : UserControl
         FileText.Text = "Nenhum arquivo selecionado";
         HeaderInfo.Text = "";
         SummaryText.Text = "Selecione um XML da NF-e para começar.";
+        if (LineDetailText is not null)
+            LineDetailText.Text = "";
         SetImportEnabled(false);
     }
 
@@ -44,12 +47,25 @@ public partial class NfeImportModuleView : UserControl
     {
         if (_preview is null)
             return;
+        var recon = _preview.Reconciliation;
+        var charges = _preview.HeaderIpi + _preview.HeaderSt + _preview.HeaderFrete + _preview.HeaderOutro;
+        var reconLine = recon is null
+            ? ""
+            : $" · efetivo R$ {recon.CalculatedEffectiveCost:N2} · {recon.ExpectedSource} R$ {recon.ExpectedPayable:N2} · dif. R$ {recon.Difference:N2} · {recon.FooterStatus}";
         SummaryText.Text =
             $"{_items.Count} itens · {_preview.MatchedProductsCount} Ok · {_preview.NewProductsCount} Novo(s) · " +
-            $"Total R$ {_preview.TotalValue:N2}  |  Edite Qtd/Custo/Venda e clique em Importar e aplicar";
+            $"bruto R$ {_preview.HeaderVProd:N2} · desc. R$ {_preview.HeaderDesc:N2} · " +
+            $"encargos R$ {charges:N2} · total grade R$ {_preview.TotalValue:N2}{reconLine}";
         HeaderInfo.Text =
             $"NF {_preview.Numero}/{_preview.Serie} · {_preview.EmissionDisplay} · " +
-            $"{_preview.EmitenteNome} · CNPJ {_preview.EmitenteCnpj} · Total NF R$ {_preview.TotalValue:N2}";
+            $"{_preview.EmitenteNome} · CNPJ {_preview.EmitenteCnpj} · vNF R$ {_preview.HeaderVNf:N2}";
+        if (ReconText is not null && recon is not null)
+        {
+            ReconText.Text = recon.FooterStatus + " — " + recon.Explanation;
+            ReconText.Foreground = recon.IsReconciled
+                ? System.Windows.Media.Brushes.DarkGreen
+                : System.Windows.Media.Brushes.DarkOrange;
+        }
     }
 
     private void PickXml_Click(object sender, RoutedEventArgs e)
@@ -66,7 +82,8 @@ public partial class NfeImportModuleView : UserControl
             _lastXmlPath = dlg.FileName;
             _preview = NfeXmlImportService.ParseFile(
                 dlg.FileName,
-                includeIcmsStInCost: IncluirStCustoBox.IsChecked == true);
+                includeIcmsStInCost: NfeEffectiveCostImportPolicy.IncludeIcmsStFromAdvancedOverride(
+                    IncluirStCustoBox.IsChecked));
             FileText.Text = System.IO.Path.GetFileName(dlg.FileName);
             _items = new ObservableCollection<NfeImportItem>(_preview.Items);
             _preview.Items = _items.ToList();
@@ -87,27 +104,27 @@ public partial class NfeImportModuleView : UserControl
         if (_items.Count == 0)
             return;
 
-        var withSt = IncluirStCustoBox.IsChecked == true;
+        var withSt = NfeEffectiveCostImportPolicy.IncludeIcmsStFromAdvancedOverride(IncluirStCustoBox.IsChecked);
         var margin = ProductPriceHelper.ParseBr(MarginBox.Text);
         if (margin <= 0) margin = 30;
 
         foreach (var item in _items)
         {
-            var noSt = item.UnitPriceWithoutSt;
-            var st = item.UnitPriceWithSt;
-            if (noSt <= 0 && st <= 0)
+            if (item.IsManualCost)
                 continue;
-            var newCost = withSt
-                ? (st > 0 ? st : item.UnitPrice)
-                : (noSt > 0 ? noSt : item.UnitPrice);
-            item.UnitPrice = newCost;
+            item.ApplyStCostOverride(withSt);
             var group = ProductClassificationHelper.Infer(item.Name).Group;
             item.SalePrice = ProductPriceHelper.ResolveCatalogSale(
-                0, newCost, item.PackFactor, item.Name, group, margin);
+                0, item.UnitPrice, item.PackFactor, item.Name, group, margin);
         }
 
         if (_preview is not null)
+        {
             _preview.Items = _items.ToList();
+            var payable = _items.Where(i => i.IncludeInPayable).Select(i => i.EffectiveLineCost).ToList();
+            _preview.Reconciliation = NfeCostReconciliation.Reconcile(
+                payable, _preview.FatLiq, _preview.DupSum, _preview.PagSum, _preview.HeaderVNf);
+        }
         RefreshSummary();
     }
 
@@ -176,13 +193,23 @@ public partial class NfeImportModuleView : UserControl
             var raw = box.Text;
             if (header is "Qtd")
                 item.Quantity = ProductPriceHelper.ParseBr(raw);
-            else if (header is "Custo" or "Custo un.")
+            else if (header is "Custo" or "Custo un." or "Custo fís.")
                 item.UnitPrice = ProductPriceHelper.ParseBr(raw);
             else if (header is "Venda cad.")
                 item.SalePrice = ProductPriceHelper.ParseBr(raw);
         }
 
         Dispatcher.BeginInvoke(RefreshSummary);
+    }
+
+    private void ItemsGrid_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (LineDetailText is null)
+            return;
+        if (ItemsGrid.CurrentItem is NfeImportItem item)
+            LineDetailText.Text = item.CostDetailLine;
+        else if (ItemsGrid.SelectedItem is NfeImportItem selected)
+            LineDetailText.Text = selected.CostDetailLine;
     }
 
     private void SyncPreviewItems()
@@ -223,8 +250,11 @@ public partial class NfeImportModuleView : UserControl
             }
         }
 
+        var reconWarn = _preview.Reconciliation is { IsReconciled: false } recon
+            ? $"\n\n{recon.FooterStatus}: {recon.Explanation}"
+            : "";
         if (MessageBox.Show(
-                "Confirmar importação da NF-e?\nQtd, custo, venda, lote e validade serão aplicados.",
+                "Confirmar importação da NF-e?\nQtd, custo, venda, lote e validade serão aplicados." + reconWarn,
                 "Importar XML", MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes)
             return;
 

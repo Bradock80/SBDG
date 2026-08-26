@@ -173,16 +173,20 @@ public static class ProductPriceHelper
             return Math.Round(unitCost, 4);
 
         var cigsPerPack = ResolveCigarettesPerPack(name, packFactor);
+        // Qtd já em cigarros (ex.: 0,4000 MIL → 400 cig) mesmo quando o unitário físico ≥ 4.
+        var looksPhysicalCigarettes = cigsPerPack >= 2
+            && quantity is > 0
+            && quantity.Value + 0.0001 >= cigsPerPack * 2;
 
         // Já veio custo de maço (NF em maços / edição na grade).
-        if (unitCost >= 4.0)
+        if (unitCost >= 4.0 && !looksPhysicalCigarettes)
             return RoundPrice(unitCost);
 
         if (lineTotal is > 0 && quantity is > 0)
         {
             var perQty = lineTotal.Value / quantity.Value;
             // Quantidade em maços → custo do maço = total ÷ qtd
-            if (perQty >= 4.0)
+            if (perQty >= 4.0 && !looksPhysicalCigarettes)
                 return RoundPrice(perQty);
             // Quantidade em cigarros → total ÷ (cig ÷ fator)
             return CigarettePackCostFromTotal(lineTotal.Value, quantity.Value, cigsPerPack);

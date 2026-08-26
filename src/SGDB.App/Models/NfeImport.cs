@@ -1,6 +1,7 @@
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
 using SGDB.Domain.Products;
+using SGDB.Domain.Purchases;
 using SGDB.Utils;
 
 namespace SGDB.Models;
@@ -11,6 +12,9 @@ public sealed class NfeImportItem : INotifyPropertyChanged
     private double _unitPrice;
     private double _salePrice;
     private double _totalValue;
+    private bool _applyingResolved;
+    private bool _isManualCost;
+    private string _resolverSource = NfeEffectiveCostSources.Landed;
 
     public string Cprod { get; set; } = "";
     public string? Barcode { get; set; }
@@ -50,6 +54,8 @@ public sealed class NfeImportItem : INotifyPropertyChanged
             if (Math.Abs(_unitPrice - value) < 0.0000001) return;
             _unitPrice = Math.Max(0, value);
             RecalcTotal();
+            if (!_applyingResolved)
+                MarkManualCost();
             OnPropertyChanged();
             OnPropertyChanged(nameof(UnitPriceDisplay));
             OnPropertyChanged(nameof(TotalDisplay));
@@ -90,6 +96,33 @@ public sealed class NfeImportItem : INotifyPropertyChanged
     public string? MatchedProductName { get; set; }
     public bool IsNew => MatchedProductId is null;
     public bool ConvertedFromPack => PackFactor > 1.0001;
+
+    public double EffectiveLineCost { get; set; }
+    public double EffectiveCommercialUnitCost { get; set; }
+    public string CostSource { get; set; } = NfeEffectiveCostSources.Landed;
+    public NfeEffectiveCostStatus CostStatus { get; set; } = NfeEffectiveCostStatus.Calculado;
+    public string CostExplanation { get; set; } = "";
+    public double CostConfidence { get; set; }
+    public bool IncludeInPayable { get; set; } = true;
+    public bool IsManualCost => _isManualCost;
+    public string CostSourceDisplay => CostSource;
+    public string CostStatusDisplay => NfeEffectiveCostStatusText.Badge(CostStatus);
+    public string CostStatusBadge => CostStatusDisplay;
+    public bool NeedsCostReview =>
+        !IsNew && CostStatus is NfeEffectiveCostStatus.Revisar
+            or NfeEffectiveCostStatus.Divergente
+            or NfeEffectiveCostStatus.Bonificacao
+            or NfeEffectiveCostStatus.Remessa;
+    public string XmlDifferenceDisplay =>
+        ProductPriceHelper.MoneyBr(EffectiveCommercialUnitCost - NfUnitPrice);
+    public string CommercialQtyDisplay => NfQuantity.ToString("N3");
+    public string PhysicalQtyDisplay => Quantity.ToString("N3");
+    public string EffectiveCostDisplay => ProductPriceHelper.MoneyBr(EffectiveCommercialUnitCost);
+    public string PhysicalCostDisplay => ProductPriceHelper.MoneyBr(UnitPrice);
+    public string CostDetailLine =>
+        $"{NfQuantity:G} {NfUnit} · XML {NfPriceDisplay} → efetivo {EffectiveCostDisplay} " +
+        $"({CostSource} · {CostStatusDisplay}) · fís. {PhysicalCostDisplay}" +
+        (string.IsNullOrWhiteSpace(CostExplanation) ? "" : $" · {CostExplanation}");
 
     /// <summary>Lote vindo do XML (&lt;nLote&gt;) ou informado manualmente.</summary>
     public string LotNumber { get; set; } = "";
@@ -136,12 +169,113 @@ public sealed class NfeImportItem : INotifyPropertyChanged
     public string NfPriceDisplay => ProductPriceHelper.MoneyBr(NfUnitPrice);
     public string BarcodeDisplay => string.IsNullOrWhiteSpace(Barcode) ? "SEM GTIN" : Barcode;
     public string PackNoteDisplay => string.IsNullOrWhiteSpace(PackNote) ? "—" : PackNote;
-    public string StatusBadge => IsNew ? "Novo" : "Ok";
-    public string StatusDisplay => IsNew
-        ? "Produto novo — será cadastrado se a opção estiver marcada"
-        : $"Vinculado: {MatchedProductName}";
+    public string StatusBadge => IsNew
+        ? "NOVO"
+        : NfeEffectiveCostStatusText.Compact(CostStatus);
+    public string StatusDisplay
+    {
+        get
+        {
+            var product = IsNew
+                ? "Produto novo — será cadastrado se a opção estiver marcada."
+                : $"Vinculado: {MatchedProductName}.";
+            return $"{product} {CostStatusDisplay} · fonte {CostSource} · " +
+                   $"XML {NfPriceDisplay} vs efetivo {EffectiveCostDisplay} " +
+                   $"(dif. {XmlDifferenceDisplay}). {CostExplanation}";
+        }
+    }
 
     public event PropertyChangedEventHandler? PropertyChanged;
+
+    public void ApplyResolvedCost(NfeEffectiveCostDecision decision, double physicalUnitPrice, double lineTotal)
+    {
+        _applyingResolved = true;
+        try
+        {
+            _isManualCost = false;
+            EffectiveLineCost = decision.EffectiveLineCost;
+            EffectiveCommercialUnitCost = decision.EffectiveCommercialUnitCost;
+            _resolverSource = decision.Source;
+            CostSource = decision.Source;
+            CostStatus = decision.Status;
+            CostExplanation = decision.Explanation;
+            CostConfidence = decision.Confidence;
+            IncludeInPayable = decision.IncludeInPayable;
+            UnitPrice = physicalUnitPrice;
+            TotalValue = ProductPriceCalculator.RoundPrice(lineTotal);
+        }
+        finally
+        {
+            _applyingResolved = false;
+        }
+        OnPropertyChanged(nameof(CostSourceDisplay));
+        OnPropertyChanged(nameof(CostStatusDisplay));
+        OnPropertyChanged(nameof(CostStatusBadge));
+        OnPropertyChanged(nameof(XmlDifferenceDisplay));
+        OnPropertyChanged(nameof(EffectiveCostDisplay));
+        OnPropertyChanged(nameof(PhysicalCostDisplay));
+        OnPropertyChanged(nameof(CostExplanation));
+        OnPropertyChanged(nameof(StatusBadge));
+        OnPropertyChanged(nameof(StatusDisplay));
+        OnPropertyChanged(nameof(NeedsCostReview));
+        OnPropertyChanged(nameof(CostDetailLine));
+    }
+
+    public void MarkManualCost()
+    {
+        _isManualCost = true;
+        CostSource = NfeEffectiveCostSources.Manual;
+        CostStatus = NfeEffectiveCostStatus.ConferidoManual;
+        CostExplanation = "Custo informado manualmente pelo operador.";
+        CostConfidence = 1;
+        EffectiveLineCost = ProductPriceCalculator.RoundPrice(Quantity * UnitPrice);
+        EffectiveCommercialUnitCost = NfQuantity > 0.0000001
+            ? Math.Round(EffectiveLineCost / NfQuantity, 6)
+            : UnitPrice;
+        OnPropertyChanged(nameof(CostSourceDisplay));
+        OnPropertyChanged(nameof(CostStatusDisplay));
+        OnPropertyChanged(nameof(CostStatusBadge));
+        OnPropertyChanged(nameof(XmlDifferenceDisplay));
+        OnPropertyChanged(nameof(EffectiveCostDisplay));
+        OnPropertyChanged(nameof(CostExplanation));
+        OnPropertyChanged(nameof(StatusBadge));
+        OnPropertyChanged(nameof(StatusDisplay));
+        OnPropertyChanged(nameof(NeedsCostReview));
+        OnPropertyChanged(nameof(CostDetailLine));
+    }
+
+    /// <summary>
+    /// Override avançado DANFE sem ST. Não marca a linha como edição manual.
+    /// </summary>
+    public void ApplyStCostOverride(bool includeSt)
+    {
+        if (_isManualCost)
+            return;
+        var price = includeSt
+            ? (UnitPriceWithSt > 0 ? UnitPriceWithSt : _unitPrice)
+            : (UnitPriceWithoutSt > 0 ? UnitPriceWithoutSt : _unitPrice);
+        _applyingResolved = true;
+        try
+        {
+            UnitPrice = price;
+            EffectiveLineCost = ProductPriceCalculator.RoundPrice(Quantity * UnitPrice);
+            EffectiveCommercialUnitCost = NfQuantity > 0.0000001
+                ? Math.Round(EffectiveLineCost / NfQuantity, 6)
+                : UnitPrice;
+            CostSource = includeSt ? _resolverSource : NfeEffectiveCostSources.DanfeSemSt;
+        }
+        finally
+        {
+            _applyingResolved = false;
+        }
+        OnPropertyChanged(nameof(CostSourceDisplay));
+        OnPropertyChanged(nameof(EffectiveCostDisplay));
+        OnPropertyChanged(nameof(PhysicalCostDisplay));
+        OnPropertyChanged(nameof(XmlDifferenceDisplay));
+        OnPropertyChanged(nameof(StatusBadge));
+        OnPropertyChanged(nameof(StatusDisplay));
+        OnPropertyChanged(nameof(CostDetailLine));
+    }
 
     private void RecalcTotal()
     {
@@ -177,6 +311,12 @@ public sealed class NfeImportPreview
     public double FatOrig { get; set; }
     public double FatDesc { get; set; }
     public double FatLiq { get; set; }
+    public double DupSum { get; set; }
+    public double PagSum { get; set; }
+    public double HeaderFrete { get; set; }
+    public double HeaderOutro { get; set; }
+    public double HeaderIpi { get; set; }
+    public NfeCostReconciliationResult? Reconciliation { get; set; }
     public List<NfeImportItem> Items { get; set; } = [];
 
     public int NewProductsCount => Items.Count(i => i.IsNew);

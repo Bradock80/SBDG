@@ -5,6 +5,7 @@ using System.Text.RegularExpressions;
 using System.Xml.Linq;
 using Microsoft.Data.Sqlite;
 using SGDB.Domain.Products;
+using SGDB.Domain.Purchases;
 using SGDB.Models;
 using SGDB.Utils;
 
@@ -17,7 +18,8 @@ namespace SGDB.Services;
 /// </summary>
 public static class NfeXmlImportService
 {
-    public static NfeImportPreview ParseFile(string path, bool includeIcmsStInCost = false)
+    public static NfeImportPreview ParseFile(
+        string path, bool includeIcmsStInCost = NfeEffectiveCostImportPolicy.DefaultIncludeIcmsStInCost)
     {
         if (!File.Exists(path))
             throw new InvalidOperationException("Arquivo XML não encontrado.");
@@ -26,10 +28,11 @@ public static class NfeXmlImportService
     }
 
     /// <param name="includeIcmsStInCost">
-    /// Se true, embute ICMS-ST/FCP-ST no custo unitário (custo real pago).
-    /// Se false (padrão), usa o preço impresso na nota (vProd), igual ao DANFE.
+    /// Default true: custo efetivo (landed com ST destacado).
+    /// False = override avançado DANFE sem ST. O resolver ainda calcula os dois.
     /// </param>
-    public static NfeImportPreview ParseXml(string xml, bool includeIcmsStInCost = false)
+    public static NfeImportPreview ParseXml(
+        string xml, bool includeIcmsStInCost = NfeEffectiveCostImportPolicy.DefaultIncludeIcmsStInCost)
     {
         if (string.IsNullOrWhiteSpace(xml))
             throw new InvalidOperationException("XML vazio.");
@@ -66,12 +69,26 @@ public static class NfeXmlImportService
         var headerDesc = ParseDecimal(Value(icmsTot, "vDesc"));
         var headerVNf = ParseDecimal(Value(icmsTot, "vNF"));
         var headerVProd = ParseDecimal(Value(icmsTot, "vProd"));
+        var headerFrete = ParseDecimal(Value(icmsTot, "vFrete"));
+        var headerOutro = ParseDecimal(Value(icmsTot, "vOutro"));
+        var headerIpi = ParseDecimal(Value(icmsTot, "vIPI"));
 
         var cobr = Child(infNFe, "cobr");
         var fat = cobr is null ? null : Child(cobr, "fat");
         var fatOrig = ParseDecimal(Value(fat, "vOrig"));
         var fatDesc = ParseDecimal(Value(fat, "vDesc"));
         var fatLiq = ParseDecimal(Value(fat, "vLiq"));
+        var dupSum = cobr is null
+            ? 0
+            : cobr.Elements().Where(e => e.Name.LocalName == "dup")
+                .Sum(d => ParseDecimal(Value(d, "vDup")));
+        var pagNode = Child(infNFe, "pag");
+        var pagSum = pagNode is null
+            ? 0
+            : pagNode.Descendants().Where(e => e.Name.LocalName == "vPag")
+                .Sum(e => ParseDecimal(e.Value));
+        var infAdic = Child(infNFe, "infAdic");
+        var infCpl = Value(infAdic, "infCpl");
 
         var rawLines = new List<RawNfeLine>();
         foreach (var det in infNFe.Elements().Where(e => e.Name.LocalName == "det"))
@@ -95,16 +112,20 @@ public static class NfeXmlImportService
             var vFrete = ParseDecimal(Value(prod, "vFrete"));
             var vSeg = ParseDecimal(Value(prod, "vSeg"));
             var vOutro = ParseDecimal(Value(prod, "vOutro"));
+            var vItemRaw = Value(prod, "vItem");
+            double? vItem = string.IsNullOrWhiteSpace(vItemRaw) ? null : ParseDecimal(vItemRaw);
+            var cfop = (Value(prod, "CFOP") ?? "").Trim();
+            var indTotRaw = Value(prod, "indTot");
+            int? indTot = int.TryParse(indTotRaw, out var indParsed) ? indParsed : null;
+            var infAdProd = (Value(det, "infAdProd") ?? "").Trim();
+            if (string.IsNullOrEmpty(infAdProd))
+                infAdProd = (Value(prod, "infAdProd") ?? "").Trim();
 
-            // Preço da nota (DANFE): vProd + IPI + frete/seguro/outros − desconto.
-            // ICMS-ST/FCP-ST só entram se includeIcmsStInCost (custo “cheio” pago).
             var vIpi = SumTax(det, "vIPI");
-            var vIcmsSt = SumTax(det, "vICMSST") + SumTax(det, "vICMSSTRet");
-            var vFcpSt = SumTax(det, "vFCPST") + SumTax(det, "vFCPSTRet");
-            var commercialTotal = Math.Round(
-                vProd + vIpi + vFrete + vSeg + vOutro - vDesc, 4);
-            if (commercialTotal <= 0)
-                commercialTotal = vProd;
+            var vIcmsSt = SumTax(det, "vICMSST");
+            var vIcmsStRet = SumTax(det, "vICMSSTRet");
+            var vFcpSt = SumTax(det, "vFCPST");
+            var vFcpStRet = SumTax(det, "vFCPSTRet");
 
             if (string.IsNullOrWhiteSpace(name))
                 continue;
@@ -135,14 +156,20 @@ public static class NfeXmlImportService
                 UTrib = uTrib,
                 QTrib = qTrib,
                 VUnTrib = vUnTrib,
-                CommercialTotal = commercialTotal,
-                ItemSt = Math.Round(vIcmsSt + vFcpSt, 4),
+                VProd = vProd,
                 VIpi = vIpi,
                 VIcmsSt = vIcmsSt,
+                VIcmsStRet = vIcmsStRet,
                 VFcpSt = vFcpSt,
+                VFcpStRet = vFcpStRet,
                 VFrete = vFrete,
+                VSeg = vSeg,
                 VOutro = vOutro,
                 VDesc = vDesc,
+                VItem = vItem,
+                Cfop = cfop,
+                IndTot = indTot,
+                InfAdProd = infAdProd,
                 PackFactorFromProduct = packFactorFromProduct,
                 MatchedId = matchedId,
                 MatchedName = matchedName,
@@ -155,92 +182,89 @@ public static class NfeXmlImportService
         if (rawLines.Count == 0)
             throw new InvalidOperationException("Nenhum item (det/prod) encontrado no XML.");
 
-        // Muitas NFs de bebida trazem o ST só no total (ICMSTot/vST), não no item.
-        var itemStSum = rawLines.Sum(r => r.ItemSt);
-        if (headerSt > 0.05 && itemStSum < 0.05)
-        {
-            var baseSum = rawLines.Sum(r => r.CommercialTotal);
-            var allocated = 0.0;
-            for (var i = 0; i < rawLines.Count; i++)
-            {
-                var line = rawLines[i];
-                double share;
-                if (i == rawLines.Count - 1)
-                    share = ProductPriceCalculator.RoundPrice(headerSt - allocated);
-                else
-                {
-                    share = baseSum > 0
-                        ? ProductPriceCalculator.RoundPrice(headerSt * (line.CommercialTotal / baseSum))
-                        : ProductPriceCalculator.RoundPrice(headerSt / rawLines.Count);
-                    allocated += share;
-                }
-                line.ItemSt = Math.Max(0, share);
-                line.StFromHeader = true;
-            }
-        }
-
-        // Desconto só no total/fatura (não rateado nos itens) — rateia no comercial.
+        var itemStSum = rawLines.Sum(r => r.VIcmsSt + r.VFcpSt);
+        var headerStUnallocated = headerSt > 0.05 && itemStSum < 0.05;
+        var headerFreightUnallocated = headerFrete > 0.05 && rawLines.Sum(r => r.VFrete) < 0.05;
+        var headerOtherUnallocated = headerOutro > 0.05 && rawLines.Sum(r => r.VOutro) < 0.05;
         var itemDescSum = rawLines.Sum(r => r.VDesc);
-        var extraDesc = Math.Max(headerDesc, fatDesc) - itemDescSum;
-        if (extraDesc > 0.05)
-        {
-            var baseSum = rawLines.Sum(r => r.CommercialTotal);
-            var allocated = 0.0;
-            for (var i = 0; i < rawLines.Count; i++)
-            {
-                var line = rawLines[i];
-                double share;
-                if (i == rawLines.Count - 1)
-                    share = ProductPriceCalculator.RoundPrice(extraDesc - allocated);
-                else
-                {
-                    share = baseSum > 0
-                        ? ProductPriceCalculator.RoundPrice(extraDesc * (line.CommercialTotal / baseSum))
-                        : ProductPriceCalculator.RoundPrice(extraDesc / rawLines.Count);
-                    allocated += share;
-                }
-                line.CommercialTotal = Math.Round(Math.Max(0, line.CommercialTotal - share), 4);
-                line.VDesc += share;
-                line.HeaderDescApplied = true;
-            }
-        }
+        var headerDiscountUnallocated = Math.Max(headerDesc, fatDesc) - itemDescSum > 0.05;
 
         var items = new List<NfeImportItem>();
         foreach (var line in rawLines)
         {
-            var landedTotal = Math.Round(line.CommercialTotal + line.ItemSt, 4);
-            var lineTotal = includeIcmsStInCost ? landedTotal : line.CommercialTotal;
-            var unitForPack = line.QCom > 0 ? lineTotal / line.QCom : line.VUnCom;
+            var costInput = new NfeEffectiveCostInput
+            {
+                VProd = line.VProd,
+                QCom = line.QCom,
+                UCom = line.UCom,
+                VUnCom = line.VUnCom,
+                QTrib = line.QTrib,
+                UTrib = line.UTrib,
+                VUnTrib = line.VUnTrib,
+                VDesc = line.VDesc,
+                VFrete = line.VFrete,
+                VSeg = line.VSeg,
+                VOutro = line.VOutro,
+                VIpi = line.VIpi,
+                VIcmsSt = line.VIcmsSt,
+                VIcmsStRet = line.VIcmsStRet,
+                VFcpSt = line.VFcpSt,
+                VFcpStRet = line.VFcpStRet,
+                VItem = line.VItem,
+                InfAdProd = line.InfAdProd,
+                InfCpl = infCpl,
+                Cfop = line.Cfop,
+                IndTot = line.IndTot,
+                EmitCnpj = cnpjDigits,
+                EmitName = nomeEmit,
+                HeaderVProd = headerVProd,
+                HeaderVNf = headerVNf,
+                HeaderSt = headerSt,
+                HeaderDesc = headerDesc,
+                HeaderFrete = headerFrete,
+                HeaderOutro = headerOutro,
+                FatLiq = fatLiq,
+                DupSum = dupSum,
+                PagSum = pagSum,
+                HeaderStUnallocated = headerStUnallocated,
+                HeaderFreightUnallocated = headerFreightUnallocated,
+                HeaderOtherUnallocated = headerOtherUnallocated,
+                HeaderDiscountUnallocated = headerDiscountUnallocated,
+            };
+            var decision = NfeEffectiveCostResolver.Resolve(costInput);
+
+            var effectiveTotal = decision.EffectiveLineCost;
+            var withoutStTotal = decision.DanfeLineCostWithoutSt;
+            var appliedTotal = includeIcmsStInCost || decision.IsNonPayable
+                ? effectiveTotal
+                : withoutStTotal;
 
             var converted = ConvertPackToSaleUnits(
-                line.UCom, line.QCom, unitForPack, line.UTrib, line.QTrib, line.VUnTrib,
-                lineTotal, line.PackFactorFromProduct, line.Name);
+                line.UCom, line.QCom,
+                line.QCom > 0 ? appliedTotal / line.QCom : line.VUnCom,
+                line.UTrib, line.QTrib, line.VUnTrib,
+                appliedTotal, line.PackFactorFromProduct, line.Name);
             var convertedNoSt = ConvertPackToSaleUnits(
-                line.UCom, line.QCom, line.QCom > 0 ? line.CommercialTotal / line.QCom : line.VUnCom,
-                line.UTrib, line.QTrib, line.VUnTrib, line.CommercialTotal, line.PackFactorFromProduct, line.Name);
+                line.UCom, line.QCom,
+                line.QCom > 0 ? withoutStTotal / line.QCom : line.VUnCom,
+                line.UTrib, line.QTrib, line.VUnTrib,
+                withoutStTotal, line.PackFactorFromProduct, line.Name);
             var convertedWithSt = ConvertPackToSaleUnits(
-                line.UCom, line.QCom, line.QCom > 0 ? landedTotal / line.QCom : line.VUnCom,
-                line.UTrib, line.QTrib, line.VUnTrib, landedTotal, line.PackFactorFromProduct, line.Name);
+                line.UCom, line.QCom,
+                line.QCom > 0 ? effectiveTotal / line.QCom : line.VUnCom,
+                line.UTrib, line.QTrib, line.VUnTrib,
+                effectiveTotal, line.PackFactorFromProduct, line.Name);
+
+            if (!includeIcmsStInCost && decision.IncludeInPayable)
+                decision = decision.WithDanfeWithoutStOverride(line.QCom, converted.Quantity);
+            else
+                decision = decision.WithPhysicalQuantity(converted.Quantity);
 
             var packFactor = converted.PackFactor;
             if (ProductClassificationHelper.IsCigarette(line.Name))
                 packFactor = ProductPriceHelper.ResolveCigarettesPerPack(line.Name, packFactor);
 
-            var taxNote = BuildTaxNote(
-                line.VIpi, line.VIcmsSt, line.VFcpSt, line.VFrete, line.VOutro, line.VDesc, line.VUnCom,
-                line.QCom > 0 ? lineTotal / line.QCom : line.VUnCom,
-                includeIcmsStInCost);
-            if (line.StFromHeader && line.ItemSt > 0.009)
-            {
-                var stNote = includeIcmsStInCost
-                    ? $"ST rateado do total da NF +{line.ItemSt:N2}"
-                    : $"ST na NF (total) {line.ItemSt:N2} — não somado ao custo";
-                taxNote = MergeNotes(taxNote, stNote);
-            }
-            if (line.HeaderDescApplied && line.VDesc > 0.009)
-                taxNote = MergeNotes(taxNote, $"Desc. rateado -{line.VDesc:N2}");
-
-            items.Add(new NfeImportItem
+            var item = new NfeImportItem
             {
                 Cprod = line.Cprod,
                 Barcode = line.UnitBarcode ?? line.PackBarcode,
@@ -253,19 +277,29 @@ public static class NfeXmlImportService
                 NfQuantity = line.QCom,
                 NfUnitPrice = line.VUnCom,
                 Quantity = Math.Round(converted.Quantity, 4),
-                UnitPrice = Math.Round(converted.UnitPrice, 4),
                 UnitPriceWithoutSt = Math.Round(convertedNoSt.UnitPrice, 4),
                 UnitPriceWithSt = Math.Round(convertedWithSt.UnitPrice, 4),
-                TotalValue = ProductPriceCalculator.RoundPrice(lineTotal),
                 PackFactor = packFactor,
-                PackNote = MergeNotes(converted.Note, taxNote),
+                PackNote = MergeNotes(converted.Note, decision.Explanation),
                 MatchedProductId = line.MatchedId,
                 MatchedProductName = line.MatchedName,
                 LotNumber = line.LotNumber,
                 ExpiryDateIso = line.ExpiryDateIso,
                 HasXmlRastro = line.HasXmlRastro,
-            });
+            };
+            item.ApplyResolvedCost(
+                decision,
+                Math.Round(converted.UnitPrice, 6),
+                appliedTotal);
+            items.Add(item);
         }
+
+        var payable = items.Where(i => i.IncludeInPayable).Select(i => i.EffectiveLineCost).ToList();
+        var excludedGross = rawLines
+            .Where((_, i) => i < items.Count && !items[i].IncludeInPayable)
+            .Sum(r => r.VProd);
+        var reconciliation = NfeCostReconciliation.Reconcile(
+            payable, fatLiq, dupSum, pagSum, headerVNf, excludedGross);
 
         return new NfeImportPreview
         {
@@ -289,9 +323,15 @@ public static class NfeXmlImportService
             HeaderSt = headerSt,
             HeaderDesc = headerDesc,
             HeaderVNf = headerVNf,
+            HeaderFrete = headerFrete,
+            HeaderOutro = headerOutro,
+            HeaderIpi = headerIpi,
             FatOrig = fatOrig,
             FatDesc = fatDesc,
             FatLiq = fatLiq,
+            DupSum = dupSum,
+            PagSum = pagSum,
+            Reconciliation = reconciliation,
             Items = items,
         };
     }
@@ -308,19 +348,23 @@ public static class NfeXmlImportService
         public string UTrib { get; set; } = "";
         public double QTrib { get; set; }
         public double VUnTrib { get; set; }
-        public double CommercialTotal { get; set; }
-        public double ItemSt { get; set; }
+        public double VProd { get; set; }
         public double VIpi { get; set; }
         public double VIcmsSt { get; set; }
+        public double VIcmsStRet { get; set; }
         public double VFcpSt { get; set; }
+        public double VFcpStRet { get; set; }
         public double VFrete { get; set; }
+        public double VSeg { get; set; }
         public double VOutro { get; set; }
         public double VDesc { get; set; }
+        public double? VItem { get; set; }
+        public string Cfop { get; set; } = "";
+        public int? IndTot { get; set; }
+        public string InfAdProd { get; set; } = "";
         public double PackFactorFromProduct { get; set; } = 1;
         public int? MatchedId { get; set; }
         public string? MatchedName { get; set; }
-        public bool StFromHeader { get; set; }
-        public bool HeaderDescApplied { get; set; }
         public string LotNumber { get; set; } = "";
         public string? ExpiryDateIso { get; set; }
         public bool HasXmlRastro { get; set; }
@@ -701,33 +745,6 @@ public static class NfeXmlImportService
         return sum;
     }
 
-    private static string? BuildTaxNote(
-        double vIpi, double vIcmsSt, double vFcpSt, double vFrete, double vOutro, double vDesc,
-        double vUnCom, double usedUnit, bool includeIcmsStInCost)
-    {
-        var stParts = new List<string>();
-        if (vIcmsSt > 0.009) stParts.Add($"ST {vIcmsSt:N2}");
-        if (vFcpSt > 0.009) stParts.Add($"FCP-ST {vFcpSt:N2}");
-
-        if (!includeIcmsStInCost && stParts.Count > 0)
-            return $"Preço da nota {usedUnit:N2} (ST na NF: {string.Join(" + ", stParts)} — não somado ao custo)";
-
-        if (Math.Abs(usedUnit - vUnCom) < 0.009)
-            return null;
-
-        var parts = new List<string>();
-        if (includeIcmsStInCost)
-        {
-            parts.AddRange(stParts);
-        }
-        if (vIpi > 0.009) parts.Add($"IPI {vIpi:N2}");
-        if (vFrete > 0.009) parts.Add($"Frete {vFrete:N2}");
-        if (vOutro > 0.009) parts.Add($"Outros {vOutro:N2}");
-        if (vDesc > 0.009) parts.Add($"Desc -{vDesc:N2}");
-        var tax = parts.Count > 0 ? string.Join(" + ", parts) : "ajustes";
-        return $"NF {vUnCom:N2} → custo {usedUnit:N2} ({tax})";
-    }
-
     private static string? MergeNotes(string? a, string? b)
     {
         if (string.IsNullOrWhiteSpace(a)) return b;
@@ -1040,7 +1057,7 @@ public static class NfeXmlImportService
         {
             var factor = inferredFactor;
             var qty = qTrib;
-            var price = vUnTrib > 0 ? vUnTrib : (qty > 0 ? total / qty : 0);
+            var price = qty > 0 ? (total > 0 ? total / qty : vUnTrib) : 0;
             var note = $"{FormatQty(qCom)} {uCom} × {FormatQty(factor)} = {FormatQty(qty)} UN";
             return ("UN", qty, price, factor, note);
         }
@@ -1060,7 +1077,7 @@ public static class NfeXmlImportService
                 var note = metaFactor >= 2
                     ? $"NF em {unitSkip}; cartela/CX {FormatQty(metaFactor)} un (não multiplica qtd)"
                     : null;
-                return (unitSkip, qCom, vUnCom, metaFactor >= 2 ? metaFactor : 1, note);
+                return (unitSkip, qCom, total > 0 && qCom > 0 ? total / qCom : vUnCom, metaFactor >= 2 ? metaFactor : 1, note);
             }
 
             // CX/FD sem qTrib: só multiplica se qCom parece contagem de caixas (ex.: 2 CX × 12).
@@ -1069,7 +1086,7 @@ public static class NfeXmlImportService
             {
                 var noteSkip =
                     $"{FormatQty(qCom)} {uCom} já como UN (fator {FormatQty(metaFactor)} — não multiplica)";
-                return ("UN", qCom, vUnCom, metaFactor >= 2 ? metaFactor : factorHint, noteSkip);
+                return ("UN", qCom, total > 0 && qCom > 0 ? total / qCom : vUnCom, metaFactor >= 2 ? metaFactor : factorHint, noteSkip);
             }
 
             var qty = Math.Round(qCom * factorHint, 4);
@@ -1082,7 +1099,7 @@ public static class NfeXmlImportService
         }
 
         var unit = string.IsNullOrWhiteSpace(uCom) ? "UN" : uCom[..Math.Min(10, uCom.Length)];
-        return (unit, qCom, vUnCom, 1, null);
+        return (unit, qCom, total > 0 && qCom > 0 ? total / qCom : vUnCom, 1, null);
     }
 
     /// <summary>Extrai qtd do fardo pelo nome: C/12, CX12, DP16X29G, 12UN, PET 12, etc.</summary>
