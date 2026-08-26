@@ -243,17 +243,20 @@ public static class NfeXmlImportService
                 line.UCom, line.QCom,
                 line.QCom > 0 ? appliedTotal / line.QCom : line.VUnCom,
                 line.UTrib, line.QTrib, line.VUnTrib,
-                appliedTotal, line.PackFactorFromProduct, line.Name);
+                appliedTotal, line.PackFactorFromProduct, line.Name,
+                line.PackBarcode, line.UnitBarcode);
             var convertedNoSt = ConvertPackToSaleUnits(
                 line.UCom, line.QCom,
                 line.QCom > 0 ? withoutStTotal / line.QCom : line.VUnCom,
                 line.UTrib, line.QTrib, line.VUnTrib,
-                withoutStTotal, line.PackFactorFromProduct, line.Name);
+                withoutStTotal, line.PackFactorFromProduct, line.Name,
+                line.PackBarcode, line.UnitBarcode);
             var convertedWithSt = ConvertPackToSaleUnits(
                 line.UCom, line.QCom,
                 line.QCom > 0 ? effectiveTotal / line.QCom : line.VUnCom,
                 line.UTrib, line.QTrib, line.VUnTrib,
-                effectiveTotal, line.PackFactorFromProduct, line.Name);
+                effectiveTotal, line.PackFactorFromProduct, line.Name,
+                line.PackBarcode, line.UnitBarcode);
 
             if (!includeIcmsStInCost && decision.IncludeInPayable)
                 decision = decision.WithDanfeWithoutStOverride(line.QCom, converted.Quantity);
@@ -276,6 +279,9 @@ public static class NfeXmlImportService
                 NfUnit = string.IsNullOrWhiteSpace(line.UCom) ? "UN" : line.UCom,
                 NfQuantity = line.QCom,
                 NfUnitPrice = line.VUnCom,
+                QTrib = line.QTrib,
+                UTrib = string.IsNullOrWhiteSpace(line.UTrib) ? "" : line.UTrib,
+                VUnTrib = line.VUnTrib,
                 Quantity = Math.Round(converted.Quantity, 4),
                 UnitPriceWithoutSt = Math.Round(convertedNoSt.UnitPrice, 4),
                 UnitPriceWithSt = Math.Round(convertedWithSt.UnitPrice, 4),
@@ -1013,14 +1019,75 @@ public static class NfeXmlImportService
     }
 
     /// <summary>
+    /// Reaplica conversão comercial→física quando o fator do cadastro só ficou
+    /// disponível após rematch (Compras/Movimento). Não altera média ponderada.
+    /// </summary>
+    public static bool TryReapplyPhysicalConversion(NfeImportItem item, double productFactor)
+    {
+        if (item is null || productFactor < 2 || item.IsManualCost)
+            return false;
+        if (item.NfQuantity <= 0.0000001)
+            return false;
+        // Já expandido (qty física claramente maior que comercial).
+        if (item.Quantity > item.NfQuantity * 1.5 + 0.0001)
+            return false;
+
+        var line = item.EffectiveLineCost > 0.009
+            ? item.EffectiveLineCost
+            : (item.TotalValue > 0.009
+                ? item.TotalValue
+                : ProductPriceCalculator.RoundPrice(item.NfQuantity * item.NfUnitPrice));
+        var lineNoSt = item.UnitPriceWithoutSt > 0.0000001 && item.Quantity > 0.0000001
+            ? ProductPriceCalculator.RoundPrice(item.UnitPriceWithoutSt * item.Quantity)
+            : line;
+        var lineWithSt = item.UnitPriceWithSt > 0.0000001 && item.Quantity > 0.0000001
+            ? ProductPriceCalculator.RoundPrice(item.UnitPriceWithSt * item.Quantity)
+            : line;
+
+        var converted = ConvertPackToSaleUnits(
+            item.NfUnit, item.NfQuantity,
+            item.NfQuantity > 0 ? line / item.NfQuantity : item.NfUnitPrice,
+            item.UTrib, item.QTrib, item.VUnTrib,
+            line, productFactor, item.Name,
+            item.PackBarcode, item.Barcode);
+        if (converted.Quantity <= item.NfQuantity + 0.0001
+            && Math.Abs(converted.Quantity - item.Quantity) < 0.0001)
+            return false;
+
+        var noSt = ConvertPackToSaleUnits(
+            item.NfUnit, item.NfQuantity,
+            item.NfQuantity > 0 ? lineNoSt / item.NfQuantity : item.NfUnitPrice,
+            item.UTrib, item.QTrib, item.VUnTrib,
+            lineNoSt, productFactor, item.Name,
+            item.PackBarcode, item.Barcode);
+        var withSt = ConvertPackToSaleUnits(
+            item.NfUnit, item.NfQuantity,
+            item.NfQuantity > 0 ? lineWithSt / item.NfQuantity : item.NfUnitPrice,
+            item.UTrib, item.QTrib, item.VUnTrib,
+            lineWithSt, productFactor, item.Name,
+            item.PackBarcode, item.Barcode);
+
+        item.Unit = converted.Unit;
+        item.ApplyPhysicalConversion(
+            Math.Round(converted.Quantity, 4),
+            Math.Round(converted.UnitPrice, 6),
+            converted.PackFactor,
+            converted.Note,
+            Math.Round(noSt.UnitPrice, 4),
+            Math.Round(withSt.UnitPrice, 4));
+        return true;
+    }
+
+    /// <summary>
     /// Converte quantidade da NF (fardo/CX/MIL) para unidades de venda usadas no estoque/PDV.
     /// Cigarro: grade em cigarros (estoque); custo maço só no cadastro/média.
     /// </summary>
-    private static (string Unit, double Quantity, double UnitPrice, double PackFactor, string? Note)
+    public static (string Unit, double Quantity, double UnitPrice, double PackFactor, string? Note)
         ConvertPackToSaleUnits(
             string uCom, double qCom, double vUnCom,
             string uTrib, double qTrib, double vUnTrib,
-            double total, double productFactor, string productName)
+            double total, double productFactor, string productName,
+            string? packBarcode = null, string? unitBarcode = null)
     {
         // Souza Cruz / cigarro: estoque em cigarros (Qtd/Preço unitário na compra).
         if (ProductClassificationHelper.IsCigarette(productName))
@@ -1047,6 +1114,7 @@ public static class NfeXmlImportService
             ? Math.Round(qTrib / qCom, 4)
             : 0;
         var nameFactor = InferPackFactorFromName(productName);
+        var distinctPackGtin = HasDistinctPackUnitBarcodes(packBarcode, unitBarcode);
         var factorHint = inferredFactor >= 2 ? inferredFactor
             : productFactor >= 2 ? productFactor
             : nameFactor >= 2 ? nameFactor
@@ -1062,6 +1130,18 @@ public static class NfeXmlImportService
             return ("UN", qty, price, factor, note);
         }
 
+        // UN comercial da caixa com GTIN de embalagem ≠ GTIN unitário + fator do cadastro.
+        // Ex.: Ambev qCom=1 uCom=UN vUnCom=caixa, estoque por pacote (fator 30).
+        if (!packLike && inferredFactor < 2 && productFactor >= 2 && distinctPackGtin && qCom > 0
+            && qCom + 0.0001 < productFactor)
+        {
+            var qty = Math.Round(qCom * productFactor, 4);
+            var price = qty > 0 ? (total > 0 ? total / qty : vUnCom / productFactor) : 0;
+            var note =
+                $"{FormatQty(qCom)} {uCom} (GTIN embalagem) × {FormatQty(productFactor)} = {FormatQty(qty)} UN";
+            return ("UN", qty, price, productFactor, note);
+        }
+
         // Fardo/CX sem qTrib útil, ou descrição "PET 12" / "C/6".
         // Se a NF já veio em UN (ex.: 18 isqueiros), NÃO multiplica pelo fator do cadastro/nome.
         if (factorHint >= 2 && qCom > 0)
@@ -1071,13 +1151,23 @@ public static class NfeXmlImportService
                 : factorHint;
 
             // NF em unidade de venda: qtd já é o estoque; fator fica só como meta (cartela/CX).
-            if (!packLike && inferredFactor < 2)
+            // Exceto: qTrib já deu fator (>=2) — trata como caixa comercial mesmo com uCom=UN.
+            if (!packLike && inferredFactor < 2 && !distinctPackGtin)
             {
                 var unitSkip = string.IsNullOrWhiteSpace(uCom) ? "UN" : uCom[..Math.Min(10, uCom.Length)];
                 var note = metaFactor >= 2
                     ? $"NF em {unitSkip}; cartela/CX {FormatQty(metaFactor)} un (não multiplica qtd)"
                     : null;
                 return (unitSkip, qCom, total > 0 && qCom > 0 ? total / qCom : vUnCom, metaFactor >= 2 ? metaFactor : 1, note);
+            }
+
+            if (!packLike && inferredFactor >= 2)
+            {
+                var qtyTrib = Math.Round(qCom * inferredFactor, 4);
+                var priceTrib = qtyTrib > 0 ? (total > 0 ? total / qtyTrib : vUnCom / inferredFactor) : 0;
+                var noteTrib =
+                    $"{FormatQty(qCom)} {uCom} × {FormatQty(inferredFactor)} (qTrib) = {FormatQty(qtyTrib)} UN";
+                return ("UN", qtyTrib, priceTrib, inferredFactor, noteTrib);
             }
 
             // CX/FD sem qTrib: só multiplica se qCom parece contagem de caixas (ex.: 2 CX × 12).
@@ -1100,6 +1190,20 @@ public static class NfeXmlImportService
 
         var unit = string.IsNullOrWhiteSpace(uCom) ? "UN" : uCom[..Math.Min(10, uCom.Length)];
         return (unit, qCom, total > 0 && qCom > 0 ? total / qCom : vUnCom, 1, null);
+    }
+
+    private static bool HasDistinctPackUnitBarcodes(string? packBarcode, string? unitBarcode)
+    {
+        if (string.IsNullOrWhiteSpace(packBarcode) || string.IsNullOrWhiteSpace(unitBarcode))
+            return false;
+        var p = packBarcode.Trim();
+        var u = unitBarcode.Trim();
+        if (p.Length < 8 || u.Length < 8)
+            return false;
+        if (string.Equals(p, "SEM GTIN", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(u, "SEM GTIN", StringComparison.OrdinalIgnoreCase))
+            return false;
+        return !string.Equals(p, u, StringComparison.Ordinal);
     }
 
     /// <summary>Extrai qtd do fardo pelo nome: C/12, CX12, DP16X29G, 12UN, PET 12, etc.</summary>
@@ -1158,7 +1262,7 @@ public static class NfeXmlImportService
     private static bool IsPackUnit(string unit)
     {
         var u = unit.Trim().ToUpperInvariant();
-        return u is "EB" or "CX" or "CXA" or "FD" or "FARDO" or "PCT" or "DP" or "DZ"
+        return u is "EB" or "CX" or "CXA" or "FD" or "FARDO" or "PCT" or "PC" or "PAC" or "DP" or "DZ"
             or "DISPLAY" or "CJ" or "KIT" or "SC" or "BDJ" or "BANDEJA"
             or "CT" or "CRT" or "CARTELA" or "CART";
     }

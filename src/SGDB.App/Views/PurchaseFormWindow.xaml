@@ -472,8 +472,10 @@
                                         <StackPanel Grid.Column="10"><TextBlock Text="Seguro" Style="{StaticResource CompraTopLabel}"/><TextBox Style="{StaticResource CompraValBlue}" Text="0,00" IsReadOnly="True" TabIndex="-1"/></StackPanel>
                                         <StackPanel Grid.Column="12"><TextBlock Text="Outras" Style="{StaticResource CompraTopLabel}"/><TextBox Style="{StaticResource CompraValBlue}" Text="0,00" IsReadOnly="True" TabIndex="-1"/></StackPanel>
                                         <StackPanel Grid.Column="14">
-                                            <TextBlock Text="Total" Style="{StaticResource CompraTopLabel}"/>
-                                            <TextBox x:Name="TotalText" Style="{StaticResource CompraValBlue}" Text="0,00" FontSize="12" FontWeight="Bold"/>
+                                            <TextBlock Text="Total efetivo" Style="{StaticResource CompraTopLabel}"
+                                                       ToolTip="Soma Qtd Compra × custo físico das linhas (entrada de estoque). Pode diferir do vNF da NF."/>
+                                            <TextBox x:Name="TotalText" Style="{StaticResource CompraValBlue}" Text="0,00" FontSize="12" FontWeight="Bold"
+                                                     ToolTip="Total efetivo da compra (não é automaticamente o vNF)."/>
                                         </StackPanel>
                                     </Grid>
                                 </Grid>

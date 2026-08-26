@@ -26,6 +26,10 @@ public sealed class NfeImportItem : INotifyPropertyChanged
     public double NfUnitPrice { get; set; }
     public double NfQuantity { get; set; }
     public string NfUnit { get; set; } = "UN";
+    /// <summary>Campos tributáveis do XML — usados para reaplicar conversão após rematch.</summary>
+    public double QTrib { get; set; }
+    public string UTrib { get; set; } = "";
+    public double VUnTrib { get; set; }
 
     /// <summary>Custo unitário sem ICMS-ST (preço da nota).</summary>
     public double UnitPriceWithoutSt { get; set; }
@@ -219,6 +223,55 @@ public sealed class NfeImportItem : INotifyPropertyChanged
         OnPropertyChanged(nameof(StatusDisplay));
         OnPropertyChanged(nameof(NeedsCostReview));
         OnPropertyChanged(nameof(CostDetailLine));
+    }
+
+    /// <summary>
+    /// Reaplica qty/custo físico sem marcar custo manual (ex.: fator do cadastro após rematch).
+    /// Mantém EffectiveLineCost; TotalValue reconcilia com a linha efetiva.
+    /// </summary>
+    public void ApplyPhysicalConversion(
+        double physicalQty,
+        double physicalUnitPrice,
+        double packFactor,
+        string? packNote,
+        double unitWithoutSt,
+        double unitWithSt)
+    {
+        _applyingResolved = true;
+        try
+        {
+            _quantity = Math.Max(0, physicalQty);
+            _unitPrice = Math.Max(0, physicalUnitPrice);
+            PackFactor = packFactor >= 2 ? packFactor : PackFactor;
+            if (!string.IsNullOrWhiteSpace(packNote))
+                PackNote = packNote;
+            UnitPriceWithoutSt = Math.Max(0, unitWithoutSt);
+            UnitPriceWithSt = Math.Max(0, unitWithSt);
+            var line = EffectiveLineCost > 0.009
+                ? EffectiveLineCost
+                : ProductPriceCalculator.RoundPrice(_quantity * _unitPrice);
+            _totalValue = ProductPriceCalculator.RoundPrice(line);
+            if (NfQuantity > 0.0000001)
+                EffectiveCommercialUnitCost = Math.Round(_totalValue / NfQuantity, 6);
+        }
+        finally
+        {
+            _applyingResolved = false;
+        }
+        OnPropertyChanged(nameof(Quantity));
+        OnPropertyChanged(nameof(QtyDisplay));
+        OnPropertyChanged(nameof(PhysicalQtyDisplay));
+        OnPropertyChanged(nameof(UnitPrice));
+        OnPropertyChanged(nameof(UnitPriceDisplay));
+        OnPropertyChanged(nameof(PhysicalCostDisplay));
+        OnPropertyChanged(nameof(TotalValue));
+        OnPropertyChanged(nameof(TotalDisplay));
+        OnPropertyChanged(nameof(PackFactor));
+        OnPropertyChanged(nameof(PackNoteDisplay));
+        OnPropertyChanged(nameof(CostPackDisplayValue));
+        OnPropertyChanged(nameof(CatalogCostDisplay));
+        OnPropertyChanged(nameof(CostDetailLine));
+        OnPropertyChanged(nameof(EffectiveCostDisplay));
     }
 
     public void MarkManualCost()

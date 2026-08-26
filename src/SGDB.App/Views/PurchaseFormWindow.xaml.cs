@@ -1638,6 +1638,15 @@ public partial class PurchaseFormWindow : Window
                     product = ProductService.GetById(mid);
                 product ??= NfeXmlImportService.ResolveExistingProduct(item);
 
+                if (product is not null)
+                {
+                    var fx = ProductExtra.Parse(product.ExtraJson).FatorEmbalagem;
+                    if (fx < 2 && item.PackFactor >= 2)
+                        fx = item.PackFactor;
+                    if (fx >= 2)
+                        NfeXmlImportService.TryReapplyPhysicalConversion(item, fx);
+                }
+
                 var saleComMargem = ProductPriceHelper.SaleFromCostAndMargin(item.UnitPrice, defaultMargin);
 
                 if (product is null)
@@ -1771,7 +1780,9 @@ public partial class PurchaseFormWindow : Window
             var msg =
                 $"Nota carregada com {_items.Count} itens.\n\n" +
                 "Na grade:\n" +
-                "• Qtd e Preço = unitário da NF (bate com estoque e XML)\n" +
+                "• Qtd Compra e Preço = unidade de estoque (física)\n" +
+                "• Total Item = custo efetivo da linha (qtd física × custo físico)\n" +
+                "• Preço da caixa/NF original fica na conversão/detalhe, não como custo unitário\n" +
                 "• Pr. Sugerido = custo novo com a margem padrão\n" +
                 "• Pr. Venda = preço atual do cadastro; se você alterar, o cadastro é atualizado\n" +
                 "  (desmarque “Também ajustar preço de venda” para não gravar)\n";
@@ -1791,13 +1802,16 @@ public partial class PurchaseFormWindow : Window
             }
             if (preview.HeaderSt > 0.05 || preview.FatLiq > 0.05 || preview.HeaderVNf > 0.05)
             {
-                msg += "\nTotais da NF:";
+                msg += "\nTotais da NF (XML):";
                 if (preview.HeaderVProd > 0.05) msg += $" produtos R$ {preview.HeaderVProd:N2}";
                 if (preview.HeaderSt > 0.05) msg += $" · ST R$ {preview.HeaderSt:N2}";
                 if (preview.HeaderDesc > 0.05) msg += $" · desc. R$ {preview.HeaderDesc:N2}";
                 if (preview.HeaderVNf > 0.05) msg += $" · vNF R$ {preview.HeaderVNf:N2}";
                 if (preview.FatLiq > 0.05) msg += $" · fatura líquida R$ {preview.FatLiq:N2}";
                 msg += "\n";
+                msg +=
+                    $"Total efetivo da compra (soma das linhas): R$ {_items.Sum(i => i.Subtotal):N2}\n" +
+                    "(O quadro “Total” da tela é este total efetivo, não necessariamente o vNF.)\n";
             }
             if (preview.Reconciliation is { } recon)
                 msg += $"\n{recon.FooterStatus}: {recon.Explanation}\n";
