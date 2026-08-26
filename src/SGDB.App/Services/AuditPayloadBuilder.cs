@@ -215,4 +215,37 @@ public static class AuditPayloadBuilder
 
     public static object PersonChange(int personId, string name, bool isNew, Dictionary<string, object>? changes = null) =>
         new { op = isNew ? "criar_pessoa" : "alterar_pessoa", person_id = personId, name, changes };
+
+    public static object LegacyMergeSanitize(
+        int absorbId,
+        string absorbName,
+        int keepId,
+        string keepName,
+        double stockAbsorbBefore,
+        double fridgeAbsorbBefore,
+        double keepStockBefore,
+        double keepStockAfter,
+        double keepCostBefore,
+        double keepCostAfter,
+        int mergeAuditId,
+        string mergeAuditAt) =>
+        new
+        {
+            op = LegacyMergedProductStockCleanupService.AuditOp,
+            absorb_id = absorbId,
+            absorb_name = absorbName,
+            keep_id = keepId,
+            keep_name = keepName,
+            stock_absorb_before = stockAbsorbBefore,
+            stock_fridge_before = fridgeAbsorbBefore,
+            stock_absorb_after = 0,
+            stock_fridge_after = 0,
+            keep_stock_before = keepStockBefore,
+            keep_stock_after = keepStockAfter,
+            keep_cost_before = keepCostBefore,
+            keep_cost_after = keepCostAfter,
+            merge_audit_original_id = mergeAuditId,
+            merge_audit_original_at = mergeAuditAt,
+            source = "sanear_merge_legado",
+        };
 }
