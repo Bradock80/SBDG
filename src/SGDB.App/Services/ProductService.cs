@@ -259,7 +259,8 @@ public static class ProductService
             if (TextNorm.NormalizeBarcode(pack) == digits)
                 return p;
         }
-        return null;
+
+        return ProductBarcodeService.FindActiveProductByBarcode(conn, null, digits);
     }
 
     /// <summary>
@@ -592,7 +593,10 @@ public static class ProductService
         BindProduct(cmd, data);
         var id = Convert.ToInt32(cmd.ExecuteScalar());
         SyncCatalogFromProduct(data);
-        return GetByIdLocal(id) ?? throw new InvalidOperationException("Falha ao criar produto.");
+        var created = GetByIdLocal(id) ?? throw new InvalidOperationException("Falha ao criar produto.");
+        ProductBarcodeService.SyncFromProduct(
+            conn, null, id, created.Barcode, ProductExtra.Parse(created.ExtraJson), "create");
+        return created;
     }
 
     /// <summary>
@@ -754,6 +758,8 @@ public static class ProductService
         BindProduct(cmd, data);
         cmd.ExecuteNonQuery();
         SyncCatalogFromProduct(data);
+        ProductBarcodeService.SyncFromProduct(
+            conn, null, id, data.Barcode, data.Extra ?? new ProductExtra(), "update");
         LogProductAudit(existing, data, id);
         return GetByIdLocal(id) ?? throw new InvalidOperationException("Falha ao atualizar produto.");
     }
@@ -834,6 +840,9 @@ public static class ProductService
             keep.Name, keep.GroupName, keepExtra,
             absorb.Name, absorb.GroupName, absorbExtra);
 
+        if (absorbExtra.ComposicaoItens.Count > 0 && keepExtra.ComposicaoItens.Count > 0)
+            throw new InvalidOperationException(ProductMergeRules.ConflictingCompositionMessage);
+
         var keepPhys = PurchaseAverageCostRules.PhysicalStock(keep.Stock, keep.StockFridge);
         var absorbPhys = PurchaseAverageCostRules.PhysicalStock(absorb.Stock, absorb.StockFridge);
         if (keepPhys < -1e-4 || absorbPhys < -1e-4)
@@ -860,6 +869,7 @@ public static class ProductService
         var group = string.IsNullOrWhiteSpace(keep.GroupName) ? absorb.GroupName : keep.GroupName;
         var location = string.IsNullOrWhiteSpace(keep.Location) ? absorb.Location : keep.Location;
 
+        // Não colocar EAN unitário do absorb em barcode_embalagem — aliases em product_barcodes.
         var mergedExtra = MergeExtraJson(keep.ExtraJson, absorb.ExtraJson, keep.Barcode, absorb.Barcode);
         var extra = ProductExtra.Parse(mergedExtra);
         extra.PrecoCompra = lastCompra;
@@ -872,13 +882,26 @@ public static class ProductService
             throw new InvalidOperationException(
                 $"O código de barras {barcode} já está em outro produto. Ajuste antes de unificar.");
 
+        // Conflitos de todos os EANs do absorb (principal, pack, aliases).
+        foreach (var entry in ProductBarcodeService.CollectProductCodes(
+                     absorb.Barcode, absorbExtra, conn, tx, absorbId))
+            ProductBarcodeService.ThrowIfBarcodeOwnedByOther(conn, tx, entry.Barcode, keepId, absorbId);
+
         TestBeforeApplyMergeCost?.Invoke();
+
+        var aliasesMoved = ProductBarcodeService.TransferAbsorbCodesToKeep(
+            conn, tx, keepId, absorbId,
+            keep.Barcode, keepExtra,
+            absorb.Barcode, absorbExtra);
 
         // Libera barcode do duplicado antes de gravar no principal (unique / conflito).
         using (var clearAbs = conn.CreateCommand())
         {
             clearAbs.Transaction = tx;
-            clearAbs.CommandText = "UPDATE products SET barcode = NULL WHERE id = $id;";
+            clearAbs.CommandText = """
+                UPDATE products SET barcode = NULL, stock = 0, stock_fridge = 0, active = 0
+                WHERE id = $id;
+                """;
             clearAbs.Parameters.AddWithValue("$id", absorbId);
             clearAbs.ExecuteNonQuery();
         }
@@ -925,13 +948,7 @@ public static class ProductService
 
         TestAfterRemapProductIds?.Invoke();
 
-        using (var del = conn.CreateCommand())
-        {
-            del.Transaction = tx;
-            del.CommandText = "UPDATE products SET active = 0 WHERE id = $id;";
-            del.Parameters.AddWithValue("$id", absorbId);
-            del.ExecuteNonQuery();
-        }
+        // Absorb já inativado e estoque zerado acima.
 
         var notes = ProductMergeRules.MovementNotes(
             keepId, absorbId,
@@ -953,7 +970,8 @@ public static class ProductService
                 keep.Stock, keep.StockFridge, absorb.Stock, absorb.StockFridge,
                 newStock, newFridge,
                 keep.CostPrice, absorb.CostPrice, cost,
-                precoKeepBefore, precoAbsorbBefore, lastCompra),
+                precoKeepBefore, precoAbsorbBefore, lastCompra,
+                aliasesMoved.Select(a => new { barcode = a.Barcode, kind = a.Kind, pack_factor = a.PackFactor }).ToList()),
             $"#{absorbId} {absorb.Name} → #{keepId} {keep.Name} · custo R$ {keep.CostPrice:N2}/{absorb.CostPrice:N2} → R$ {cost:N2}");
 
         return GetByIdLocal(keepId)!;
@@ -1128,17 +1146,8 @@ public static class ProductService
             keep.Marca = absorb.Marca;
         if (string.IsNullOrWhiteSpace(keep.BarcodeEmbalagem) && !string.IsNullOrWhiteSpace(absorb.BarcodeEmbalagem))
             keep.BarcodeEmbalagem = absorb.BarcodeEmbalagem;
-        // EAN diferente no duplicado (ex.: NF Souza Cruz nova) → guarda como barras do maço/fardo
-        // para o próximo XML achar o produto principal.
-        if (string.IsNullOrWhiteSpace(keep.BarcodeEmbalagem)
-            && !string.IsNullOrWhiteSpace(absorbBarcode)
-            && !string.Equals(
-                TextNorm.NormalizeBarcode(keepBarcode),
-                TextNorm.NormalizeBarcode(absorbBarcode),
-                StringComparison.Ordinal))
-        {
-            keep.BarcodeEmbalagem = TextNorm.DistinctPackBarcode(absorbBarcode, keepBarcode);
-        }
+        // 69T-B: EAN unitário do absorb NÃO vai para barcode_embalagem —
+        // fica em product_barcodes (ALIAS). Pack do absorb só preenche se keep vazio.
         if (keep.FatorEmbalagem < 1.001 && absorb.FatorEmbalagem >= 1.001)
             keep.FatorEmbalagem = absorb.FatorEmbalagem;
         if (keep.FatorEmbalagem < 2 && absorb.FatorEmbalagem >= 2)

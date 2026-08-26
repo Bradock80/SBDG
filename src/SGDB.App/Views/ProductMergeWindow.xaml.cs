@@ -4,6 +4,7 @@ using System.Windows.Input;
 using System.Windows.Threading;
 using SGDB.Models;
 using SGDB.Services;
+using SGDB.Utils;
 
 namespace SGDB.Views;
 
@@ -65,15 +66,44 @@ public partial class ProductMergeWindow : Window
             return;
         }
 
-        var newStock = _keep.Stock + absorb.Stock;
-        var barcode = string.IsNullOrWhiteSpace(_keep.Barcode) ? absorb.BarcodeDisplay : _keep.BarcodeDisplay;
+        var keepExtra = ProductExtra.Parse(_keep.ExtraJson);
+        var absorbExtra = ProductExtra.Parse(absorb.ExtraJson);
+        var isCig = ProductClassificationHelper.UsesPackPurchasePrice(_keep.Name, _keep.GroupName);
+        var packFactor = ProductMergeRules.ResolvePackFactor(_keep.Name, _keep.GroupName, keepExtra);
+        double avgCost;
+        try
+        {
+            avgCost = ProductMergeRules.WeightedPhysicalAverage(
+                _keep.Stock, _keep.StockFridge, _keep.CostPrice,
+                absorb.Stock, absorb.StockFridge, absorb.CostPrice,
+                isCig, packFactor);
+        }
+        catch
+        {
+            avgCost = _keep.CostPrice;
+        }
+
+        var eans = new List<string>();
+        void AddEan(string? label, string? bc)
+        {
+            var d = TextNorm.NormalizeBarcode(bc);
+            if (d is null)
+                return;
+            eans.Add($"{label}:{d}");
+        }
+        AddEan("A", _keep.Barcode);
+        AddEan("A-pack", keepExtra.BarcodeEmbalagem);
+        AddEan("B→alias", absorb.Barcode);
+        AddEan("B-pack", absorbExtra.BarcodeEmbalagem);
+
+        var eanLine = eans.Count == 0 ? "-" : string.Join(" | ", eans);
         PreviewText.Text =
-            $"Será mantido: #{_keep.Id} {_keep.Name}\n" +
-            $"Será inativado: #{absorb.Id} {absorb.Name}\n" +
-            $"Estoque: {_keep.Stock:G} + {absorb.Stock:G} = {newStock:G}\n" +
-            $"Código de barras resultante: {barcode}\n" +
-            $"Preço de venda: mantém o do principal ({_keep.SalePriceDisplay})\n" +
-            "(No notebook a unificação roda no PC da loja automaticamente.)";
+            $"Mantem #{_keep.Id} {_keep.Name} / inativa #{absorb.Id} {absorb.Name}\n" +
+            $"Deposito: {_keep.Stock:G} + {absorb.Stock:G} = {_keep.Stock + absorb.Stock:G}  |  " +
+            $"Geladeira: {_keep.StockFridge:G} + {absorb.StockFridge:G} = {_keep.StockFridge + absorb.StockFridge:G}\n" +
+            $"Custo: {_keep.CostPrice:N2} / {absorb.CostPrice:N2} -> medio {avgCost:N2}  |  " +
+            $"Venda: mantem {_keep.SalePriceDisplay}\n" +
+            $"EANs preservados: {eanLine}";
     }
 
     private void Confirm_Click(object sender, RoutedEventArgs e)
@@ -88,8 +118,10 @@ public partial class ProductMergeWindow : Window
 
         var confirm = MessageBox.Show(
             $"Unificar #{absorb.Id} \"{absorb.Name}\" em #{_keep.Id} \"{_keep.Name}\"?\n\n" +
-            $"Estoque final: {_keep.Stock + absorb.Stock:G}\n" +
-            "O duplicado será inativado e o histórico (vendas/compras) passará para o principal.",
+            $"Estoque final: {_keep.Stock + absorb.Stock:G} (depósito) + " +
+            $"{_keep.StockFridge + absorb.StockFridge:G} (geladeira)\n" +
+            "EANs do duplicado passam a reconhecer o principal.\n" +
+            "O duplicado será inativado e o histórico passará para o principal.",
             "Confirmar unificação",
             MessageBoxButton.YesNo,
             MessageBoxImage.Question);

@@ -188,7 +188,8 @@ public static class AuditPayloadBuilder
         double costAfter,
         double precoCompraKeepBefore,
         double precoCompraAbsorbBefore,
-        double precoCompraAfter) =>
+        double precoCompraAfter,
+        object? aliasesMoved = null) =>
         new
         {
             op = "unificar_produto",
@@ -208,6 +209,7 @@ public static class AuditPayloadBuilder
             preco_compra_keep_before = precoCompraKeepBefore,
             preco_compra_absorb_before = precoCompraAbsorbBefore,
             preco_compra_after = precoCompraAfter,
+            aliases_moved = aliasesMoved,
             source = "merge_produtos",
         };
 

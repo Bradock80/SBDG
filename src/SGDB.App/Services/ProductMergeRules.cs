@@ -10,7 +10,8 @@ namespace SGDB.Services;
 /// </summary>
 public static class ProductMergeRules
 {
-    public const string AtomicFeature = "product_merge_safe_v2";
+    /// <summary>69T-B — merge seguro com aliases de barcode (v3).</summary>
+    public const string AtomicFeature = "product_merge_safe_v3";
 
     public const string HostNeedsUpgradeBeforeMergeMessage =
         "O PC da loja precisa ser atualizado antes de unificar produtos.";
@@ -26,6 +27,9 @@ public static class ProductMergeRules
 
     public const string OpenInventoryMessage =
         "Não é possível unificar produtos enquanto houver inventário em aberto para eles.";
+
+    public const string ConflictingCompositionMessage =
+        "Não é possível unificar: os dois produtos têm composição/kit. Remova ou unifique a composição manualmente.";
 
     public const string MergeOperation = "unificacao_produto";
     public const string MergeRefType = "product_merge";

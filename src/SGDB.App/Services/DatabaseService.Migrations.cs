@@ -1,4 +1,5 @@
 ﻿using Microsoft.Data.Sqlite;
+using SGDB.Models;
 
 namespace SGDB.Services;
 
@@ -27,11 +28,54 @@ public static partial class DatabaseService
         EnsureMovementsTable(conn);
         EnsureProductLotsTable(conn);
         EnsurePurchaseItemLotsTable(conn);
+        EnsureProductBarcodesTable(conn);
         EnsureBankTables(conn);
         EnsureVasilhameTables(conn);
         EnsureAuditLogTable(conn);
         EnsureOpenTabsTables(conn);
         EnsureDepositAwaitsTable(conn);
+    }
+
+    private static void EnsureProductBarcodesTable(SqliteConnection conn)
+    {
+        ExecuteSql(conn, """
+            CREATE TABLE IF NOT EXISTS product_barcodes (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                product_id INTEGER NOT NULL,
+                barcode TEXT NOT NULL,
+                kind TEXT NOT NULL DEFAULT 'ALIAS',
+                pack_factor REAL NOT NULL DEFAULT 1,
+                active INTEGER NOT NULL DEFAULT 1,
+                created_at TEXT NOT NULL DEFAULT (datetime('now','localtime')),
+                source TEXT NOT NULL DEFAULT '',
+                FOREIGN KEY (product_id) REFERENCES products(id)
+            );
+            """);
+        ExecuteSql(conn, "CREATE UNIQUE INDEX IF NOT EXISTS idx_product_barcodes_barcode ON product_barcodes(barcode);");
+        ExecuteSql(conn, "CREATE INDEX IF NOT EXISTS idx_product_barcodes_product ON product_barcodes(product_id);");
+        ExecuteSql(conn, "CREATE INDEX IF NOT EXISTS idx_product_barcodes_active ON product_barcodes(active);");
+        if (TableExists(conn, "products"))
+            BackfillProductBarcodes(conn);
+    }
+
+    private static void BackfillProductBarcodes(SqliteConnection conn)
+    {
+        using var list = conn.CreateCommand();
+        list.CommandText = """
+            SELECT id, IFNULL(barcode,''), IFNULL(extra_json,'')
+            FROM products
+            WHERE active = 1;
+            """;
+        using var reader = list.ExecuteReader();
+        var rows = new List<(int Id, string Barcode, string Extra)>();
+        while (reader.Read())
+            rows.Add((reader.GetInt32(0), reader.GetString(1), reader.GetString(2)));
+
+        foreach (var (id, barcode, extraJson) in rows)
+        {
+            var extra = ProductExtra.Parse(extraJson);
+            ProductBarcodeService.SyncFromProduct(conn, null, id, barcode, extra, "backfill");
+        }
     }
 
     private static void EnsureCatalogDescriptionColumns(SqliteConnection conn)

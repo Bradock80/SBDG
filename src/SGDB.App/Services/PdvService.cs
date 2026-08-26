@@ -102,7 +102,29 @@ public static class PdvService
             && (unitDigits.Length < 4 || !BarcodesEqual(packDigits, unitDigits));
         var isPackScan = matchesPack && packDistinct && !matchesUnit;
 
+        // Alias PACK em product_barcodes (ex.: embalagem herdada no merge).
+        var aliasPackFactor = 0d;
+        if (!isPackScan && scanned.Length >= 4)
+        {
+            using var connKind = DatabaseService.OpenConnection();
+            var kind = ProductBarcodeService.FindKind(connKind, null, product.Id, scanned);
+            if (string.Equals(kind, Domain.Products.ProductBarcodeKinds.Pack, StringComparison.OrdinalIgnoreCase))
+            {
+                isPackScan = true;
+                using var pf = connKind.CreateCommand();
+                pf.CommandText = """
+                    SELECT IFNULL(pack_factor,1) FROM product_barcodes
+                    WHERE product_id = $p AND active = 1 AND barcode = $b LIMIT 1;
+                    """;
+                pf.Parameters.AddWithValue("$p", product.Id);
+                pf.Parameters.AddWithValue("$b", scanned);
+                aliasPackFactor = Convert.ToDouble(pf.ExecuteScalar() ?? 1d);
+            }
+        }
+
         var packQty = ResolveCigarettePackQty(extra);
+        if (aliasPackFactor >= 2)
+            packQty = aliasPackFactor;
 
         // Modalidade AVULSO explícita (API nova; UI ainda não usa).
         if (PdvCigaretteSaleMode.IsAvulso(cigaretteMode)
@@ -1400,7 +1422,8 @@ public static class PdvService
             if (packDigits == digits || packDigits.TrimStart('0') == digits.TrimStart('0'))
                 return p;
         }
-        return null;
+
+        return ProductBarcodeService.FindActiveProductByBarcode(conn, null, digits);
     }
 
     private static Product? GetByCode(SqliteConnection conn, string code)

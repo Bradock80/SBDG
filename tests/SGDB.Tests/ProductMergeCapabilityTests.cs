@@ -6,7 +6,7 @@ using SGDB.Tests.Infrastructure;
 namespace SGDB.Tests;
 
 /// <summary>
-/// ETAPA 69D-C2-B2 — capability product_merge_safe_v2 no POST de unificação.
+/// ETAPA 69T-B — capability product_merge_safe_v3 no POST de unificação.
 /// </summary>
 [Collection(TempDatabaseCollection.Name)]
 public class ProductMergeCapabilityTests
@@ -93,7 +93,7 @@ public class ProductMergeCapabilityTests
     public void StatusDto_DeserializaNovaCapability()
     {
         const string json = """
-            {"ok":true,"apiVersion":2,"features":["session","product_merge_safe_v2"]}
+            {"ok":true,"apiVersion":2,"features":["session","product_merge_safe_v3"]}
             """;
         var dto = System.Text.Json.JsonSerializer.Deserialize<StoreNetworkStatusDto>(json,
             new System.Text.Json.JsonSerializerOptions { PropertyNameCaseInsensitive = true });
