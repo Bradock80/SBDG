@@ -27,6 +27,9 @@
 SGDB_Para_Outro_PC/
 Banco/
 
+# Isolated validation sandboxes (69T-C1 etc.)
+.tmp/
+
 # Backups and temps
 **/backup*/
 **/backups/
