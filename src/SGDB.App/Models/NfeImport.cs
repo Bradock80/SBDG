@@ -109,6 +109,12 @@ public sealed class NfeImportItem : INotifyPropertyChanged
     public double CostConfidence { get; set; }
     public bool IncludeInPayable { get; set; } = true;
     public bool IsManualCost => _isManualCost;
+
+    /// <summary>Sugestão de fator via histórico — nunca aplica sozinha.</summary>
+    public double SuggestedPackFactor { get; set; }
+    public string PackFactorSuggestionEvidence { get; set; } = "";
+    public string PackFactorSuggestionConfidence { get; set; } = "";
+    public bool NeedsPackFactorReview => SuggestedPackFactor >= 2;
     public string CostSourceDisplay => CostSource;
     public string CostStatusDisplay => NfeEffectiveCostStatusText.Badge(CostStatus);
     public string CostStatusBadge => CostStatusDisplay;

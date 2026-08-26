@@ -297,6 +297,7 @@ public static class NfeXmlImportService
                 decision,
                 Math.Round(converted.UnitPrice, 6),
                 appliedTotal);
+            TryAttachPackFactorSuggestion(item, line.MatchedId, line.PackFactorFromProduct);
             items.Add(item);
         }
 
@@ -827,6 +828,73 @@ public static class NfeXmlImportService
 
         var rematch = MatchProduct(item.Barcode, item.PackBarcode, item.Name);
         return rematch.Id is int id ? ProductService.GetById(id) : null;
+    }
+
+    /// <summary>
+    /// Histórico só sugere fator (REVISAR). Nunca converte qty automaticamente.
+    /// </summary>
+    private static void TryAttachPackFactorSuggestion(
+        NfeImportItem item, int? matchedProductId, double catalogFactor)
+    {
+        if (matchedProductId is not int pid || pid <= 0)
+            return;
+        // Não misturar sugestão de embalagem com bonificação/remessa/indTot=0.
+        if (!item.IncludeInPayable
+            || item.CostStatus is NfeEffectiveCostStatus.Bonificacao
+                or NfeEffectiveCostStatus.Remessa)
+            return;
+
+        var history = LoadRecentPurchaseQuantities(pid, limit: 12);
+        var suggestion = PurchasePackFactorSuggestion.SuggestFromHistory(catalogFactor, history);
+        if (suggestion.SuggestedFactor < 2)
+            return;
+        if (!PurchasePackFactorSuggestion.ShouldFlagPackReview(
+                item.NfQuantity, item.Quantity, suggestion))
+            return;
+
+        item.SuggestedPackFactor = suggestion.SuggestedFactor;
+        item.PackFactorSuggestionConfidence = suggestion.Confidence.ToString().ToUpperInvariant();
+        item.PackFactorSuggestionEvidence = suggestion.Evidence;
+        var hint =
+            $"Possível embalagem ×{suggestion.SuggestedFactor:0.####} ({suggestion.Evidence}). " +
+            "Confirme antes de finalizar — não aplicado automaticamente.";
+        item.PackNote = string.IsNullOrWhiteSpace(item.PackNote)
+            ? hint
+            : $"{item.PackNote} · {hint}";
+        if (item.CostStatus is NfeEffectiveCostStatus.Calculado or NfeEffectiveCostStatus.Conferido)
+            item.CostStatus = NfeEffectiveCostStatus.Revisar;
+        if (string.IsNullOrWhiteSpace(item.CostExplanation))
+            item.CostExplanation = hint;
+        else if (!item.CostExplanation.Contains("Possível embalagem", StringComparison.Ordinal))
+            item.CostExplanation = $"{item.CostExplanation} · {hint}";
+    }
+
+    private static List<double> LoadRecentPurchaseQuantities(int productId, int limit)
+    {
+        var list = new List<double>();
+        try
+        {
+            using var conn = DatabaseService.OpenConnection();
+            using var cmd = conn.CreateCommand();
+            cmd.CommandText = """
+                SELECT quantity FROM purchase_items
+                WHERE product_id = $id AND quantity > 0.009
+                ORDER BY id DESC
+                LIMIT $lim;
+                """;
+            cmd.Parameters.AddWithValue("$id", productId);
+            cmd.Parameters.AddWithValue("$lim", Math.Clamp(limit, 1, 50));
+            using var reader = cmd.ExecuteReader();
+            while (reader.Read())
+                list.Add(reader.GetDouble(0));
+        }
+        catch
+        {
+            // Banco indisponível / testes sem purchase_items — sugestão vazia.
+        }
+
+        list.Reverse(); // ordem cronológica
+        return list;
     }
 
     /// <summary>
