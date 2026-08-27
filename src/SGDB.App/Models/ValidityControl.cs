@@ -34,6 +34,21 @@ public enum LotCostSource
     CurrentAverageEstimate,
 }
 
+/// <summary>
+/// Recomendação da Central de Validades. Não executa a ação.
+/// RemoveExpired = retirar/conferir vencido, não baixa automática.
+/// ConsiderPromotion = reservado para 70D/70F (giro + sobra). O 70B2 não emite.
+/// </summary>
+public enum ValiditySuggestedAction
+{
+    None = 0,
+    Monitor,
+    PrioritizeSale,
+    ConsiderPromotion,
+    RemoveExpired,
+    ReviewData,
+}
+
 public sealed class ValidityControlRow
 {
     public int ProductId { get; init; }
@@ -58,8 +73,21 @@ public sealed class ValidityControlRow
     public LotCostSource CostSource { get; init; }
     /// <summary>qty segura × custo usado; null se Sem custo (não confundir com R$ 0,00).</summary>
     public double? LotValue { get; init; }
+    /// <summary>Recomendação; não executa. 0 = mais urgente.</summary>
+    public ValiditySuggestedAction SuggestedAction { get; init; }
+    public int AttentionRank { get; init; }
+    public string SuggestedActionReason { get; init; } = "";
 
     public string QtyDisplay => ProductLotListRow.FormatQty(Quantity);
+    public string SuggestedActionDisplay => SuggestedAction switch
+    {
+        ValiditySuggestedAction.RemoveExpired => "Retirar / conferir vencido",
+        ValiditySuggestedAction.ConsiderPromotion => "Considerar promoção",
+        ValiditySuggestedAction.PrioritizeSale => "Priorizar venda",
+        ValiditySuggestedAction.Monitor => "Monitorar",
+        ValiditySuggestedAction.ReviewData => "Revisar dados",
+        _ => "—",
+    };
     public string ExpiryDisplay => ProductExpiryService.FormatDisplay(ExpiryDate);
     public string DaysDisplay => ProductExpiryService.FormatDays(DaysRemaining);
     public string CostDisplay => ProductPriceHelper.MoneyBr(UnitCost);

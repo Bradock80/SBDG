@@ -77,7 +77,7 @@ public class ValidityControlTests
             Product("Zebra", lots: [Lot("Z", 40)]),
             Product("Antarctica", lots: [Lot("S", null), Lot("V", -2), Lot("H", 0), Lot("N", 5)]),
         ], Today);
-        Assert.Equal(["V", "H", "N", "Z", "S"], rows.Select(r => r.LotDisplay).ToArray());
+        Assert.Equal(["V", "H", "N", "S", "Z"], rows.Select(r => r.LotDisplay).ToArray());
     }
 
     [Fact]
@@ -439,6 +439,299 @@ public class ValidityControlTests
         Assert.Equal(105, row.LotValue);
         Assert.DoesNotContain(snap.Rows, r => r.RowKind is ValidityControlRowKind.UntrackedStock
             or ValidityControlRowKind.MissingExpiry);
+        Assert.Equal(ValiditySuggestedAction.Monitor, row.SuggestedAction);
+        Assert.Equal(105, row.LotValue);
+    }
+
+    [Fact]
+    public void VencidoComSaldo_RemoveExpired()
+    {
+        var row = Assert.Single(ValidityControlEngine.BuildRows(
+            [Product("P", [Lot("V", -2, qty: 12, unitCost: 2)])], Today));
+        Assert.Equal(ValiditySuggestedAction.RemoveExpired, row.SuggestedAction);
+        Assert.Equal(0, row.AttentionRank);
+        Assert.Equal(24, row.LotValue);
+        Assert.Contains("vencido", row.SuggestedActionReason, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("promoção", row.SuggestedActionReason, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void VencidoComAltoValor_ContinuaRemoveExpired()
+    {
+        var row = Assert.Single(ValidityControlEngine.BuildRows(
+            [Product("P", [Lot("V", -1, qty: 100, unitCost: 50)])], Today));
+        Assert.Equal(5000, row.LotValue);
+        Assert.Equal(ValiditySuggestedAction.RemoveExpired, row.SuggestedAction);
+        Assert.NotEqual(ValiditySuggestedAction.ConsiderPromotion, row.SuggestedAction);
+        Assert.NotEqual(ValiditySuggestedAction.PrioritizeSale, row.SuggestedAction);
+    }
+
+    [Fact]
+    public void VencidoNuncaSugerePromocao()
+    {
+        var action = ValidityControlEngine.ResolveSuggestedAction(
+            ValidityControlRowKind.Lot, ProductExpiryStatusKind.Expired, 10);
+        Assert.Equal(ValiditySuggestedAction.RemoveExpired, action);
+        Assert.NotEqual(ValiditySuggestedAction.ConsiderPromotion, action);
+        Assert.NotEqual(ValiditySuggestedAction.PrioritizeSale, action);
+    }
+
+    [Fact]
+    public void FaixaCriticaValida_PriorizarSaida()
+    {
+        var today = Assert.Single(ValidityControlEngine.BuildRows(
+            [Product("P", [Lot("H", 0, qty: 4, unitCost: 2)])], Today));
+        Assert.Equal(ProductExpiryStatusKind.Today, today.Status.Kind);
+        Assert.Equal(ValiditySuggestedAction.PrioritizeSale, today.SuggestedAction);
+        Assert.Equal("Vence hoje. Priorizar saída.", today.SuggestedActionReason);
+        Assert.DoesNotContain("promoção", today.SuggestedActionReason, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("desconto", today.SuggestedActionReason, StringComparison.OrdinalIgnoreCase);
+
+        var week = Assert.Single(ValidityControlEngine.BuildRows(
+            [Product("P", [Lot("N", 6, qty: 4, unitCost: 2)])], Today));
+        Assert.Equal(ProductExpiryStatusKind.Within7, week.Status.Kind);
+        Assert.Equal(ValiditySuggestedAction.PrioritizeSale, week.SuggestedAction);
+        Assert.Equal("Validade em 6 dias. Priorizar saída.", week.SuggestedActionReason);
+    }
+
+    [Fact]
+    public void FaixaIntermediaria_Monitorar()
+    {
+        var d15 = Assert.Single(ValidityControlEngine.BuildRows(
+            [Product("P", [Lot("Q", 10, qty: 10, unitCost: 3)])], Today));
+        Assert.Equal(ProductExpiryStatusKind.Within15, d15.Status.Kind);
+        Assert.Equal(ValiditySuggestedAction.Monitor, d15.SuggestedAction);
+
+        var d30 = Assert.Single(ValidityControlEngine.BuildRows(
+            [Product("P", [Lot("M", 20, qty: 10, unitCost: 3)])], Today));
+        Assert.Equal(ProductExpiryStatusKind.Within30, d30.Status.Kind);
+        Assert.Equal(ValiditySuggestedAction.Monitor, d30.SuggestedAction);
+        Assert.Equal(30, d30.LotValue);
+        Assert.Equal("Validade em 20 dias. Acompanhar saída.", d30.SuggestedActionReason);
+        Assert.DoesNotContain("promoção", d30.SuggestedActionReason, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void ForaDeAtencao_NenhumaAcao()
+    {
+        var row = Assert.Single(ValidityControlEngine.BuildRows(
+            [Product("P", [Lot("OK", 120)])], Today));
+        Assert.Equal(ProductExpiryStatusKind.Ok, row.Status.Kind);
+        Assert.Equal(ValiditySuggestedAction.None, row.SuggestedAction);
+        Assert.Equal(5, row.AttentionRank);
+        Assert.Equal("", row.SuggestedActionReason);
+        Assert.Equal("—", row.SuggestedActionDisplay);
+    }
+
+    [Fact]
+    public void MissingExpiry_ReviewData()
+    {
+        var row = Assert.Single(ValidityControlEngine.BuildRows(
+            [Product("IOG", [], stock: 12, costPrice: 2.50, explicitExpiry: true)], Today));
+        Assert.Equal(ValidityControlRowKind.MissingExpiry, row.RowKind);
+        Assert.Equal(ValiditySuggestedAction.ReviewData, row.SuggestedAction);
+        Assert.Equal("Estoque sem validade identificada.", row.SuggestedActionReason);
+        Assert.Equal(30, row.LotValue);
+    }
+
+    [Fact]
+    public void UntrackedStock_ReviewData()
+    {
+        var product = Product("P",
+            [Lot("COM", 20, qty: 4, unitCost: 9)],
+            stock: 10,
+            costPrice: 2.50,
+            explicitExpiry: true);
+        var leftover = Assert.Single(
+            ValidityControlEngine.BuildRows([product], Today),
+            r => r.RowKind == ValidityControlRowKind.UntrackedStock);
+        Assert.Equal(ValiditySuggestedAction.ReviewData, leftover.SuggestedAction);
+        Assert.Equal("Estoque sem lote identificado.", leftover.SuggestedActionReason);
+        Assert.Null(leftover.ExpiryDate);
+    }
+
+    [Fact]
+    public void MesmaFaixa_MaiorLotValuePrimeiro()
+    {
+        var rows = ValidityControlEngine.BuildRows(
+        [
+            Product("A", [Lot("BAIXO", 5, qty: 10, unitCost: 5)], productId: 1),
+            Product("B", [Lot("ALTO", 6, qty: 10, unitCost: 50)], productId: 2),
+        ], Today);
+        Assert.Equal(["ALTO", "BAIXO"], rows.Select(r => r.LotDisplay).ToArray());
+        Assert.All(rows, r => Assert.Equal(ValiditySuggestedAction.PrioritizeSale, r.SuggestedAction));
+    }
+
+    [Fact]
+    public void MesmaFaixa_LotValueNullNaoQuebraOrdenacao()
+    {
+        var rows = ValidityControlEngine.BuildRows(
+        [
+            Product("A", [Lot("SEM", 5, qty: 10, unitCost: 0)], costPrice: 0, productId: 1),
+            Product("B", [Lot("COM", 6, qty: 10, unitCost: 4)], productId: 2),
+        ], Today);
+        Assert.Equal("COM", rows[0].LotDisplay);
+        Assert.Equal(40, rows[0].LotValue);
+        Assert.Equal("SEM", rows[1].LotDisplay);
+        Assert.Null(rows[1].LotValue);
+        Assert.Equal(LotCostSource.Unavailable, rows[1].CostSource);
+    }
+
+    [Fact]
+    public void MesmaFaixaMesmoValor_QuantidadeDesempata()
+    {
+        var rows = ValidityControlEngine.BuildRows(
+        [
+            Product("A", [Lot("POUCO", 5, qty: 2, unitCost: 10)], productId: 1),
+            Product("B", [Lot("MUITO", 6, qty: 20, unitCost: 1)], productId: 2),
+        ], Today);
+        Assert.Equal(20, rows[0].LotValue);
+        Assert.Equal(20, rows[1].LotValue);
+        Assert.Equal("MUITO", rows[0].LotDisplay);
+        Assert.Equal("POUCO", rows[1].LotDisplay);
+    }
+
+    [Fact]
+    public void DesempateFinalDeterministico()
+    {
+        var rows = ValidityControlEngine.BuildRows(
+        [
+            Product("Zeta", [Lot("L2", 5, qty: 10, unitCost: 2)], productId: 20),
+            Product("Alfa", [Lot("L1", 5, qty: 10, unitCost: 2)], productId: 10),
+        ], Today);
+        Assert.Equal(2, rows.Count);
+        Assert.Equal(10, rows[0].ProductId);
+        Assert.Equal(20, rows[1].ProductId);
+        var again = ValidityControlEngine.BuildRows(
+        [
+            Product("Alfa", [Lot("L1", 5, qty: 10, unitCost: 2)], productId: 10),
+            Product("Zeta", [Lot("L2", 5, qty: 10, unitCost: 2)], productId: 20),
+        ], Today);
+        Assert.Equal(rows.Select(r => r.ProductId), again.Select(r => r.ProductId));
+    }
+
+    [Fact]
+    public void VencidoBarato_AcimaDeValidoCaro()
+    {
+        var rows = ValidityControlEngine.BuildRows(
+        [
+            Product("Caro", [Lot("VALIDO", 3, qty: 10, unitCost: 100)], productId: 1),
+            Product("Barato", [Lot("VENCIDO", -1, qty: 10, unitCost: 1)], productId: 2),
+        ], Today);
+        Assert.Equal("VENCIDO", rows[0].LotDisplay);
+        Assert.Equal(10, rows[0].LotValue);
+        Assert.Equal(ValiditySuggestedAction.RemoveExpired, rows[0].SuggestedAction);
+        Assert.Equal("VALIDO", rows[1].LotDisplay);
+        Assert.Equal(1000, rows[1].LotValue);
+        Assert.Equal(ValiditySuggestedAction.PrioritizeSale, rows[1].SuggestedAction);
+    }
+
+    [Fact]
+    public void AcaoSugeridaNaoAlteraLotValue()
+    {
+        var product = Product("P", [Lot("V", -1, qty: 10, unitCost: 2)], costPrice: 9);
+        var row = Assert.Single(ValidityControlEngine.BuildRows([product], Today));
+        Assert.Equal(20, row.LotValue);
+        Assert.Equal(ValiditySuggestedAction.RemoveExpired, row.SuggestedAction);
+        Assert.Equal(LotCostSource.LotRecorded, row.CostSource);
+        Assert.Equal(2, row.UsedCost);
+    }
+
+    [Fact]
+    public void CustoEstimadoContinuaEstimativa_ComAcao()
+    {
+        var row = Assert.Single(ValidityControlEngine.BuildRows(
+            [Product("P", [Lot("A", 4, qty: 10, unitCost: 0)], costPrice: 3)], Today));
+        Assert.Equal(LotCostSource.CurrentAverageEstimate, row.CostSource);
+        Assert.Equal(30, row.LotValue);
+        Assert.Equal(ValiditySuggestedAction.PrioritizeSale, row.SuggestedAction);
+    }
+
+    [Fact]
+    public void MonitorNaFaixa60()
+    {
+        var row = Assert.Single(ValidityControlEngine.BuildRows(
+            [Product("P", [Lot("L", 40)])], Today));
+        Assert.Equal(ProductExpiryStatusKind.Within60, row.Status.Kind);
+        Assert.Equal(ValiditySuggestedAction.Monitor, row.SuggestedAction);
+        Assert.Equal(4, row.AttentionRank);
+    }
+
+    [Fact]
+    public void MonitorNaFaixa90()
+    {
+        var row = Assert.Single(ValidityControlEngine.BuildRows(
+            [Product("P", [Lot("L", 70)])], Today));
+        Assert.Equal(ProductExpiryStatusKind.Within90, row.Status.Kind);
+        Assert.Equal(ValiditySuggestedAction.Monitor, row.SuggestedAction);
+    }
+
+    [Fact]
+    public void NenhumaLinhaDo70B2_EmiteConsiderPromotion()
+    {
+        var products = new[]
+        {
+            Product("E", [Lot("E", -1, qty: 2, unitCost: 1)], productId: 1),
+            Product("H", [Lot("H", 0, qty: 2, unitCost: 1)], productId: 2),
+            Product("S7", [Lot("S7", 5, qty: 2, unitCost: 1)], productId: 3),
+            Product("S15", [Lot("S15", 10, qty: 2, unitCost: 1)], productId: 4),
+            Product("S30", [Lot("S30", 20, qty: 2, unitCost: 1)], productId: 5),
+            Product("S60", [Lot("S60", 40, qty: 2, unitCost: 1)], productId: 6),
+            Product("S90", [Lot("S90", 70, qty: 2, unitCost: 1)], productId: 7),
+            Product("OK", [Lot("OK", 120, qty: 2, unitCost: 1)], productId: 8),
+            Product("MISS", [], stock: 5, costPrice: 2, explicitExpiry: true, productId: 9),
+            Product("UNT", [Lot("L", 20, qty: 1, unitCost: 1)], stock: 5, costPrice: 2,
+                explicitExpiry: true, productId: 10),
+            Product("NODATE", [Lot("X", null, qty: 3)], productId: 11),
+        };
+        var rows = ValidityControlEngine.BuildRows(products, Today);
+        Assert.NotEmpty(rows);
+        Assert.DoesNotContain(rows, r => r.SuggestedAction == ValiditySuggestedAction.ConsiderPromotion);
+
+        Assert.Equal(ValiditySuggestedAction.RemoveExpired,
+            Assert.Single(rows, r => r.LotDisplay == "E").SuggestedAction);
+        Assert.Equal(ValiditySuggestedAction.PrioritizeSale,
+            Assert.Single(rows, r => r.LotDisplay == "H").SuggestedAction);
+        Assert.Equal(ValiditySuggestedAction.PrioritizeSale,
+            Assert.Single(rows, r => r.LotDisplay == "S7").SuggestedAction);
+        Assert.Equal(ValiditySuggestedAction.Monitor,
+            Assert.Single(rows, r => r.LotDisplay == "S15").SuggestedAction);
+        Assert.Equal(ValiditySuggestedAction.Monitor,
+            Assert.Single(rows, r => r.LotDisplay == "S30").SuggestedAction);
+        Assert.Equal(ValiditySuggestedAction.Monitor,
+            Assert.Single(rows, r => r.LotDisplay == "S60").SuggestedAction);
+        Assert.Equal(ValiditySuggestedAction.Monitor,
+            Assert.Single(rows, r => r.LotDisplay == "S90").SuggestedAction);
+        Assert.Equal(ValiditySuggestedAction.None,
+            Assert.Single(rows, r => r.LotDisplay == "OK").SuggestedAction);
+        Assert.Equal(ValiditySuggestedAction.ReviewData,
+            Assert.Single(rows, r => r.RowKind == ValidityControlRowKind.MissingExpiry).SuggestedAction);
+        Assert.Equal(ValiditySuggestedAction.ReviewData,
+            Assert.Single(rows, r => r.RowKind == ValidityControlRowKind.UntrackedStock).SuggestedAction);
+        Assert.Equal(ValiditySuggestedAction.ReviewData,
+            Assert.Single(rows, r => r.RowKind == ValidityControlRowKind.UninformedLot).SuggestedAction);
+    }
+
+    [Fact]
+    public void MultiplosLotes_AcoesIndependentes()
+    {
+        var rows = ValidityControlEngine.BuildRows(
+        [
+            Product("P",
+            [
+                Lot("VENC", -2, qty: 5, unitCost: 2),
+                Lot("SAIDA", 4, qty: 5, unitCost: 2),
+            ], costPrice: 9),
+        ], Today);
+        Assert.Equal(2, rows.Count);
+        var venc = Assert.Single(rows, r => r.LotDisplay == "VENC");
+        var saida = Assert.Single(rows, r => r.LotDisplay == "SAIDA");
+        Assert.Equal(ValiditySuggestedAction.RemoveExpired, venc.SuggestedAction);
+        Assert.Equal(10, venc.LotValue);
+        Assert.Equal(ValiditySuggestedAction.PrioritizeSale, saida.SuggestedAction);
+        Assert.Equal(10, saida.LotValue);
+        Assert.Equal(LotCostSource.LotRecorded, venc.CostSource);
+        Assert.Equal(LotCostSource.LotRecorded, saida.CostSource);
     }
 
     static ValidityControlProductInput Product(

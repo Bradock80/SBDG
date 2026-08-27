@@ -36,6 +36,86 @@ public static class ValidityControlEngine
         return ProductPriceHelper.RoundPrice(safeQty * cost);
     }
 
+    /// <summary>
+    /// Mapeamento 70B2 (somente faixas já existentes; sem VMV/giro/sobra):
+    /// Expired → RemoveExpired;
+    /// Today / Within7 → PrioritizeSale;
+    /// Within15 / Within30 / Within60 / Within90 → Monitor;
+    /// Ok → None;
+    /// MissingExpiry / UntrackedStock / UninformedLot → ReviewData.
+    /// ConsiderPromotion não é emitido aqui (70D+70F).
+    /// Custo ausente não vira ReviewData se a faixa de validade já for útil.
+    /// </summary>
+    public static ValiditySuggestedAction ResolveSuggestedAction(
+        ValidityControlRowKind kind,
+        ProductExpiryStatusKind status,
+        double quantity)
+    {
+        if (kind is ValidityControlRowKind.MissingExpiry
+            or ValidityControlRowKind.UntrackedStock
+            or ValidityControlRowKind.UninformedLot)
+            return ValiditySuggestedAction.ReviewData;
+
+        if (status == ProductExpiryStatusKind.Expired)
+            return ValiditySuggestedAction.RemoveExpired;
+
+        return status switch
+        {
+            ProductExpiryStatusKind.Today or ProductExpiryStatusKind.Within7
+                => ValiditySuggestedAction.PrioritizeSale,
+            ProductExpiryStatusKind.Within15 or ProductExpiryStatusKind.Within30
+                or ProductExpiryStatusKind.Within60 or ProductExpiryStatusKind.Within90
+                => ValiditySuggestedAction.Monitor,
+            ProductExpiryStatusKind.Ok => ValiditySuggestedAction.None,
+            _ => ValiditySuggestedAction.ReviewData,
+        };
+    }
+
+    /// <summary>
+    /// 0 = mais urgente. Segurança operacional antes de dinheiro.
+    /// Rank 1 (ConsiderPromotion) fica reservado para 70D/70F; o 70B2 não o emite.
+    /// </summary>
+    public static int AttentionRankOf(ValiditySuggestedAction action) =>
+        action switch
+        {
+            ValiditySuggestedAction.RemoveExpired => 0,
+            ValiditySuggestedAction.ConsiderPromotion => 1,
+            ValiditySuggestedAction.PrioritizeSale => 2,
+            ValiditySuggestedAction.ReviewData => 3,
+            ValiditySuggestedAction.Monitor => 4,
+            _ => 5,
+        };
+
+    public static string FormatSuggestedActionReason(
+        ValiditySuggestedAction action,
+        ValidityControlRowKind kind,
+        ProductExpiryStatusKind status,
+        double quantity,
+        int? daysRemaining,
+        double? lotValue)
+    {
+        _ = lotValue;
+        var qty = ProductLotListRow.FormatQty(Math.Max(0, quantity));
+        return action switch
+        {
+            ValiditySuggestedAction.RemoveExpired =>
+                $"Produto vencido com {qty} em estoque.",
+            ValiditySuggestedAction.PrioritizeSale when status == ProductExpiryStatusKind.Today =>
+                "Vence hoje. Priorizar saída.",
+            ValiditySuggestedAction.PrioritizeSale =>
+                $"Validade em {daysRemaining ?? 0} dias. Priorizar saída.",
+            ValiditySuggestedAction.Monitor =>
+                $"Validade em {daysRemaining ?? 0} dias. Acompanhar saída.",
+            ValiditySuggestedAction.ReviewData when kind == ValidityControlRowKind.UntrackedStock =>
+                "Estoque sem lote identificado.",
+            ValiditySuggestedAction.ReviewData when kind == ValidityControlRowKind.MissingExpiry =>
+                "Estoque sem validade identificada.",
+            ValiditySuggestedAction.ReviewData =>
+                "Lote sem data de validade.",
+            _ => "",
+        };
+    }
+
     public static ProductExpiryStatusKind? BucketOf(ValidityControlFilterKind filter) =>
         filter switch
         {
@@ -96,10 +176,16 @@ public static class ValidityControlEngine
 
     public static IReadOnlyList<ValidityControlRow> Sort(IEnumerable<ValidityControlRow> rows) =>
         rows
-            .OrderBy(r => Rank(r.Status.Kind))
+            .OrderBy(r => r.AttentionRank)
+            .ThenBy(r => Rank(r.Status.Kind))
+            .ThenByDescending(r => r.LotValue.HasValue)
+            .ThenByDescending(r => r.LotValue ?? 0)
+            .ThenByDescending(r => r.Quantity)
             .ThenBy(r => r.DaysRemaining ?? int.MaxValue)
-            .ThenBy(r => r.ProductName, StringComparer.OrdinalIgnoreCase)
+            .ThenBy(r => r.ProductId)
+            .ThenBy(r => r.LotId ?? int.MaxValue)
             .ThenBy(r => r.LotDisplay, StringComparer.OrdinalIgnoreCase)
+            .ThenBy(r => r.ProductName, StringComparer.OrdinalIgnoreCase)
             .ToList();
 
     public static ValidityControlCards CountCards(IEnumerable<ValidityControlRow> rows)
@@ -170,7 +256,10 @@ public static class ValidityControlEngine
     {
         var status = ProductExpiryService.Classify(lot.ExpiryDate, today);
         var uninformed = status.Kind == ProductExpiryStatusKind.Uninformed;
+        var kind = uninformed ? ValidityControlRowKind.UninformedLot : ValidityControlRowKind.Lot;
         var cost = ResolveLotCost(lot.UnitCost, product.CostPrice);
+        var lotValue = ComputeLotValue(lot.Quantity, cost.UsedCost);
+        var action = ResolveSuggestedAction(kind, status.Kind, lot.Quantity);
         return new ValidityControlRow
         {
             ProductId = product.ProductId,
@@ -187,12 +276,16 @@ public static class ValidityControlEngine
             StatusDisplay = status.Label,
             UnitCost = lot.UnitCost,
             OriginDisplay = lot.PurchaseId is int id && id > 0 ? $"Compra #{id}" : "—",
-            RowKind = uninformed ? ValidityControlRowKind.UninformedLot : ValidityControlRowKind.Lot,
+            RowKind = kind,
             Tone = ToneFor(status.Kind),
             StockFridge = product.StockFridge,
             UsedCost = cost.UsedCost,
             CostSource = cost.Source,
-            LotValue = ComputeLotValue(lot.Quantity, cost.UsedCost),
+            LotValue = lotValue,
+            SuggestedAction = action,
+            AttentionRank = AttentionRankOf(action),
+            SuggestedActionReason = FormatSuggestedActionReason(
+                action, kind, status.Kind, lot.Quantity, status.Days, lotValue),
         };
     }
 
@@ -237,6 +330,8 @@ public static class ValidityControlEngine
         string label)
     {
         var cost = ResolveLotCost(recordedUnitCost: 0, product.CostPrice);
+        var lotValue = ComputeLotValue(qty, cost.UsedCost);
+        var action = ResolveSuggestedAction(kind, ProductExpiryStatusKind.Uninformed, qty);
         return new()
         {
             ProductId = product.ProductId,
@@ -253,7 +348,11 @@ public static class ValidityControlEngine
             StockFridge = product.StockFridge,
             UsedCost = cost.UsedCost,
             CostSource = cost.Source,
-            LotValue = ComputeLotValue(qty, cost.UsedCost),
+            LotValue = lotValue,
+            SuggestedAction = action,
+            AttentionRank = AttentionRankOf(action),
+            SuggestedActionReason = FormatSuggestedActionReason(
+                action, kind, ProductExpiryStatusKind.Uninformed, qty, daysRemaining: null, lotValue),
         };
     }
 }
