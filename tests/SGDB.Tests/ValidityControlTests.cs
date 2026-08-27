@@ -734,6 +734,199 @@ public class ValidityControlTests
         Assert.Equal(LotCostSource.LotRecorded, saida.CostSource);
     }
 
+    [Fact]
+    public void Ui_RemoveExpired_RetirarConferir()
+    {
+        var row = Assert.Single(ValidityControlEngine.BuildRows(
+            [Product("P", [Lot("V", -2, qty: 12, unitCost: 2)])], Today));
+        Assert.Equal("Retirar / conferir", ValidityControlUi.ActionLabel(row.SuggestedAction));
+        Assert.Equal("Retirar / conferir", row.ActionUiDisplay);
+        Assert.DoesNotContain("Priorizar saída", row.ActionUiDisplay, StringComparison.OrdinalIgnoreCase);
+        AssertNoCommercialLanguage(row.ActionUiDisplay);
+        AssertNoCommercialLanguage(row.ActionTooltip);
+    }
+
+    [Fact]
+    public void Ui_PrioritizeSale_PriorizarSaida()
+    {
+        var row = Assert.Single(ValidityControlEngine.BuildRows(
+            [Product("P", [Lot("N", 3, qty: 4, unitCost: 2)])], Today));
+        Assert.Equal(ValiditySuggestedAction.PrioritizeSale, row.SuggestedAction);
+        Assert.Equal("Priorizar saída", ValidityControlUi.ActionLabel(row.SuggestedAction));
+        Assert.Equal("Priorizar saída", row.ActionUiDisplay);
+        Assert.DoesNotContain("Priorizar venda", row.ActionUiDisplay, StringComparison.OrdinalIgnoreCase);
+        AssertNoCommercialLanguage(row.ActionUiDisplay);
+        Assert.Equal(row.SuggestedActionReason, row.ActionTooltip);
+    }
+
+    [Fact]
+    public void Ui_Monitor_Monitorar()
+    {
+        var row = Assert.Single(ValidityControlEngine.BuildRows(
+            [Product("P", [Lot("M", 20, qty: 4, unitCost: 2)])], Today));
+        Assert.Equal("Monitorar", ValidityControlUi.ActionLabel(row.SuggestedAction));
+        Assert.Equal("Monitorar", row.ActionUiDisplay);
+    }
+
+    [Fact]
+    public void Ui_ReviewData_RevisarDados()
+    {
+        var row = Assert.Single(ValidityControlEngine.BuildRows(
+            [Product("IOG", [], stock: 12, costPrice: 2.50, explicitExpiry: true)], Today));
+        Assert.Equal("Revisar dados", ValidityControlUi.ActionLabel(row.SuggestedAction));
+        Assert.Equal("Revisar dados", row.ActionUiDisplay);
+        Assert.Equal("Estoque sem validade identificada.", row.ActionTooltip);
+    }
+
+    [Fact]
+    public void Ui_None_Traco()
+    {
+        var row = Assert.Single(ValidityControlEngine.BuildRows(
+            [Product("P", [Lot("OK", 120)])], Today));
+        Assert.Equal("—", ValidityControlUi.ActionLabel(row.SuggestedAction));
+        Assert.Equal("—", row.ActionUiDisplay);
+        Assert.Equal("—", row.SuggestedActionDisplay);
+    }
+
+    [Fact]
+    public void Ui_ConsiderPromotion_NaoExibeNoFluxo70B3()
+    {
+        Assert.Equal("—", ValidityControlUi.ActionLabel(ValiditySuggestedAction.ConsiderPromotion));
+        AssertNoCommercialLanguage(ValidityControlUi.ActionLabel(ValiditySuggestedAction.ConsiderPromotion));
+        var fake = new ValidityControlRow
+        {
+            ProductName = "X",
+            SuggestedAction = ValiditySuggestedAction.ConsiderPromotion,
+            SuggestedActionReason = "reservado",
+        };
+        Assert.Equal("—", fake.ActionUiDisplay);
+        AssertNoCommercialLanguage(ValidityControlUi.FormatSelectionDetail(fake));
+        var rows = ValidityControlEngine.BuildRows(
+        [
+            Product("P",
+            [
+                Lot("V", -2, qty: 8, unitCost: 10),
+                Lot("H", 0, qty: 8, unitCost: 10),
+                Lot("N", 4, qty: 8, unitCost: 10),
+                Lot("M", 20, qty: 8, unitCost: 10),
+                Lot("OK", 120, qty: 8, unitCost: 10),
+                Lot("S", null, qty: 8, unitCost: 10),
+            ], stock: 50, costPrice: 10),
+        ], Today);
+        Assert.DoesNotContain(rows, r => r.SuggestedAction == ValiditySuggestedAction.ConsiderPromotion);
+        Assert.DoesNotContain(rows, r => r.ActionUiDisplay.Contains("promo", StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Fact]
+    public void Ui_LotRecorded_LancadoNoLote()
+    {
+        var row = Assert.Single(ValidityControlEngine.BuildRows(
+            [Product("P", [Lot("A", 5, qty: 10, unitCost: 2)], costPrice: 9)], Today));
+        Assert.Equal(LotCostSource.LotRecorded, row.CostSource);
+        Assert.Equal("Lançado no lote", ValidityControlUi.CostSourceLabel(row.CostSource));
+        Assert.Equal("Lançado no lote", row.CostSourceDisplay);
+        Assert.Contains("Lançado no lote", row.LotValueTooltip);
+        AssertNoExactCostLanguage(row.CostSourceDisplay);
+        AssertNoExactCostLanguage(row.LotValueTooltip);
+    }
+
+    [Fact]
+    public void Ui_CurrentAverageEstimate_Estimado()
+    {
+        var row = Assert.Single(ValidityControlEngine.BuildRows(
+            [Product("P", [Lot("A", 5, qty: 10, unitCost: 0)], costPrice: 3)], Today));
+        Assert.Equal("Estimado pelo custo médio atual", ValidityControlUi.CostSourceLabel(row.CostSource));
+        Assert.Contains("Estimado pelo custo médio atual", row.LotValueTooltip);
+        AssertNoExactCostLanguage(row.CostSourceDisplay);
+    }
+
+    [Fact]
+    public void Ui_Unavailable_SemCusto()
+    {
+        var row = Assert.Single(ValidityControlEngine.BuildRows(
+            [Product("P", [Lot("A", 5, qty: 10, unitCost: 0)], costPrice: 0)], Today));
+        Assert.Equal("Sem custo disponível", ValidityControlUi.CostSourceLabel(row.CostSource));
+        Assert.Contains("Sem custo disponível", row.LotValueTooltip);
+        AssertNoExactCostLanguage(row.CostSourceDisplay);
+    }
+
+    [Fact]
+    public void Ui_LotValueNull_TracoNaoZeroReais()
+    {
+        var row = Assert.Single(ValidityControlEngine.BuildRows(
+            [Product("P", [Lot("A", 5, qty: 10, unitCost: 0)], costPrice: 0)], Today));
+        Assert.Null(row.LotValue);
+        Assert.Equal("—", row.LotValueDisplay);
+        Assert.DoesNotContain("R$ 0", row.LotValueDisplay, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains(ValidityControlUi.LotValueNotLoss, row.LotValueTooltip);
+    }
+
+    [Fact]
+    public void Ui_LotValueConhecido_MoneyBr()
+    {
+        var row = Assert.Single(ValidityControlEngine.BuildRows(
+            [Product("P", [Lot("A", 5, qty: 10, unitCost: 2.5)])], Today));
+        Assert.Equal(25, row.LotValue);
+        Assert.Equal(ProductPriceHelper.MoneyBr(25), row.LotValueDisplay);
+        Assert.StartsWith("R$", row.LotValueDisplay);
+        Assert.NotEqual("—", row.LotValueDisplay);
+    }
+
+    [Fact]
+    public void Ui_MotivoVemDoEngine_SemRecalcular()
+    {
+        var row = Assert.Single(ValidityControlEngine.BuildRows(
+            [Product("P", [Lot("V", -2, qty: 12, unitCost: 2)])], Today));
+        Assert.Equal(row.SuggestedActionReason, ValidityControlUi.ActionTooltip(row));
+        Assert.Contains(row.SuggestedActionReason, ValidityControlUi.FormatSelectionDetail(row));
+        Assert.Equal("Produto vencido com 12 em estoque.", row.SuggestedActionReason);
+    }
+
+    [Fact]
+    public void Ui_GeladeiraNaoAtribuiLote()
+    {
+        var row = Assert.Single(ValidityControlEngine.BuildRows(
+            [Product("IOG", [Lot("A", 5, qty: 10, unitCost: 2)], stock: 20, stockFridge: 3)], Today));
+        Assert.Equal(20, row.Stock);
+        Assert.Equal(3, row.StockFridge);
+        var detail = ValidityControlUi.FormatSelectionDetail(row);
+        Assert.Contains(ValidityControlUi.FridgeNoLotTracking, detail);
+        Assert.Contains("geladeira ainda não possui rastreamento individual por lote",
+            ValidityControlUi.FridgeDisclaimer, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("validade da geladeira", detail, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("lote da geladeira", detail, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("vence na geladeira", detail, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void Ui_ValorDoLoteNaoEPrevisaoDePerda()
+    {
+        Assert.Equal(
+            "Valor do lote = quantidade registrada × custo utilizado. Não representa previsão de perda.",
+            ValidityControlUi.LotValueNotLoss);
+        Assert.DoesNotContain("VALOR EM RISCO", ValidityControlUi.LotValueNotLoss, StringComparison.OrdinalIgnoreCase);
+        var row = Assert.Single(ValidityControlEngine.BuildRows(
+            [Product("P", [Lot("A", 5, qty: 10, unitCost: 2)])], Today));
+        Assert.Contains("Não representa previsão de perda", row.LotValueTooltip);
+    }
+
+    static void AssertNoCommercialLanguage(string text)
+    {
+        Assert.DoesNotContain("promoção", text, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("desconto", text, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("liquidação", text, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("Priorizar venda", text, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("preço promocional", text, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("%", text);
+    }
+
+    static void AssertNoExactCostLanguage(string text)
+    {
+        Assert.DoesNotContain("exato", text, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("FIFO", text, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("histórico exato", text, StringComparison.OrdinalIgnoreCase);
+    }
+
     static ValidityControlProductInput Product(
         string name,
         ProductLot[] lots,

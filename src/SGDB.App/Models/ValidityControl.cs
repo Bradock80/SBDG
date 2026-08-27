@@ -68,6 +68,7 @@ public sealed class ValidityControlRow
     public ValidityControlRowKind RowKind { get; init; }
     public string Tone { get; init; } = "ok";
     public double StockFridge { get; init; }
+    public double Stock { get; init; }
     /// <summary>Custo efetivamente usado no Valor do lote; null se Sem custo.</summary>
     public double? UsedCost { get; init; }
     public LotCostSource CostSource { get; init; }
@@ -79,15 +80,11 @@ public sealed class ValidityControlRow
     public string SuggestedActionReason { get; init; } = "";
 
     public string QtyDisplay => ProductLotListRow.FormatQty(Quantity);
-    public string SuggestedActionDisplay => SuggestedAction switch
-    {
-        ValiditySuggestedAction.RemoveExpired => "Retirar / conferir vencido",
-        ValiditySuggestedAction.ConsiderPromotion => "Considerar promoção",
-        ValiditySuggestedAction.PrioritizeSale => "Priorizar venda",
-        ValiditySuggestedAction.Monitor => "Monitorar",
-        ValiditySuggestedAction.ReviewData => "Revisar dados",
-        _ => "—",
-    };
+    public string ActionUiDisplay => ValidityControlUi.ActionLabel(SuggestedAction);
+    public string CostSourceDisplay => ValidityControlUi.CostSourceLabel(CostSource);
+    public string LotValueTooltip => ValidityControlUi.LotValueTooltip(this);
+    public string ActionTooltip => ValidityControlUi.ActionTooltip(this);
+    public string SuggestedActionDisplay => ActionUiDisplay;
     public string ExpiryDisplay => ProductExpiryService.FormatDisplay(ExpiryDate);
     public string DaysDisplay => ProductExpiryService.FormatDays(DaysRemaining);
     public string CostDisplay => ProductPriceHelper.MoneyBr(UnitCost);

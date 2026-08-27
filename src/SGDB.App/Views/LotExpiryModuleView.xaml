@@ -1,6 +1,7 @@
 <UserControl x:Class="SGDB.Views.LotExpiryModuleView"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:models="clr-namespace:SGDB.Models"
              Background="{StaticResource SgdbBgBrush}"
              Focusable="True"
              PreviewKeyDown="Root_PreviewKeyDown">
@@ -57,17 +58,25 @@
                 </StackPanel>
             </Border>
 
-            <TextBlock Grid.Row="3" Margin="12,4,12,0" FontSize="11" Foreground="#64748B"
-                       Text="Fonte: lotes ativos (product_lots). Clique no card para filtrar. Duplo clique abre o cadastro."/>
+            <StackPanel Grid.Row="3" Margin="12,4,12,0">
+                <TextBlock FontSize="11" Foreground="#64748B" TextWrapping="Wrap"
+                           Text="Fonte: lotes ativos (product_lots). Clique no card para filtrar. Duplo clique abre o cadastro."/>
+                <TextBlock FontSize="11" Foreground="#64748B" TextWrapping="Wrap" Margin="0,2,0,0"
+                           Text="{x:Static models:ValidityControlUi.FridgeDisclaimer}"/>
+                <TextBlock FontSize="11" Foreground="#64748B" TextWrapping="Wrap" Margin="0,2,0,0"
+                           Text="{x:Static models:ValidityControlUi.LotValueNotLoss}"/>
+            </StackPanel>
 
             <DataGrid x:Name="Grid" Grid.Row="4" Margin="10"
                       AutoGenerateColumns="False" IsReadOnly="True"
-                      CanUserAddRows="False" HeadersVisibility="Column"
+                      CanUserAddRows="False" CanUserSortColumns="True"
+                      HeadersVisibility="Column"
                       GridLinesVisibility="Horizontal" HorizontalGridLinesBrush="#E2E8F0"
                       BorderBrush="#C8C4BC" BorderThickness="1" Background="White"
                       RowHeaderWidth="0" RowHeight="32" FontSize="12.5"
                       AlternatingRowBackground="#F8FAFC"
-                      MouseDoubleClick="Grid_MouseDoubleClick">
+                      MouseDoubleClick="Grid_MouseDoubleClick"
+                      SelectionChanged="Grid_SelectionChanged">
                 <DataGrid.Columns>
                     <DataGridTextColumn Header="Produto" Binding="{Binding ProductName}" Width="*"/>
                     <DataGridTextColumn Header="Código" Binding="{Binding ProductCode}" Width="80"/>
@@ -75,7 +84,7 @@
                     <DataGridTextColumn Header="Quantidade" Binding="{Binding QtyDisplay}" Width="90"/>
                     <DataGridTextColumn Header="Validade" Binding="{Binding ExpiryDisplay}" Width="100"/>
                     <DataGridTextColumn Header="Dias" Binding="{Binding DaysDisplay}" Width="60"/>
-                    <DataGridTemplateColumn Header="Situação" Width="200">
+                    <DataGridTemplateColumn Header="Situação" Width="150">
                         <DataGridTemplateColumn.CellTemplate>
                             <DataTemplate>
                                 <Border CornerRadius="8" Padding="8,2" HorizontalAlignment="Left" Margin="2,0">
@@ -136,16 +145,37 @@
                             </DataTemplate>
                         </DataGridTemplateColumn.CellTemplate>
                     </DataGridTemplateColumn>
-                    <DataGridTextColumn Header="Custo do lote" Binding="{Binding CostDisplay}" Width="100"/>
-                    <DataGridTextColumn Header="Origem" Binding="{Binding OriginDisplay}" Width="110"/>
-                    <DataGridTextColumn Header="Grupo" Binding="{Binding GroupName}" Width="110"/>
-                    <DataGridTextColumn Header="Marca" Binding="{Binding BrandName}" Width="100"/>
+                    <DataGridTextColumn Header="Valor do lote" Binding="{Binding LotValueDisplay}" Width="100">
+                        <DataGridTextColumn.ElementStyle>
+                            <Style TargetType="TextBlock">
+                                <Setter Property="TextAlignment" Value="Right"/>
+                                <Setter Property="VerticalAlignment" Value="Center"/>
+                                <Setter Property="ToolTip" Value="{Binding LotValueTooltip}"/>
+                            </Style>
+                        </DataGridTextColumn.ElementStyle>
+                    </DataGridTextColumn>
+                    <DataGridTextColumn Header="Ação" Binding="{Binding ActionUiDisplay}" Width="120">
+                        <DataGridTextColumn.ElementStyle>
+                            <Style TargetType="TextBlock">
+                                <Setter Property="VerticalAlignment" Value="Center"/>
+                                <Setter Property="ToolTip" Value="{Binding ActionTooltip}"/>
+                            </Style>
+                        </DataGridTextColumn.ElementStyle>
+                    </DataGridTextColumn>
+                    <DataGridTextColumn Header="Origem" Binding="{Binding OriginDisplay}" Width="90"/>
+                    <DataGridTextColumn Header="Grupo" Binding="{Binding GroupName}" Width="90"/>
+                    <DataGridTextColumn Header="Marca" Binding="{Binding BrandName}" Width="80"/>
                 </DataGrid.Columns>
             </DataGrid>
 
             <Border Grid.Row="5" Padding="12,8" Background="#F8FAFC" BorderBrush="#C8C4BC"
                     BorderThickness="0,1,0,0">
-                <TextBlock x:Name="MetaText" FontSize="12" Foreground="#334155" TextWrapping="Wrap"/>
+                <StackPanel>
+                    <TextBlock x:Name="DetailText" FontSize="11" Foreground="#475569" TextWrapping="Wrap"
+                               Text="Selecione uma linha para ver o detalhe."/>
+                    <TextBlock x:Name="MetaText" FontSize="12" Foreground="#334155" TextWrapping="Wrap"
+                               Margin="0,4,0,0"/>
+                </StackPanel>
             </Border>
         </Grid>
     </Border>

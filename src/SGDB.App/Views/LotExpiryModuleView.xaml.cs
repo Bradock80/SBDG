@@ -134,6 +134,7 @@ public partial class LotExpiryModuleView : UserControl
         catch (Exception ex)
         {
             Grid.ItemsSource = null;
+            DetailText.Text = "Selecione uma linha para ver o detalhe.";
             MetaText.Text = ex.Message;
             MessageBox.Show(ex.Message, "Controle de Validades", MessageBoxButton.OK, MessageBoxImage.Warning);
         }
@@ -145,11 +146,23 @@ public partial class LotExpiryModuleView : UserControl
         var group = SelectedCombo(GroupBox);
         var brand = SelectedCombo(BrandBox);
         var rows = ValidityControlEngine.Apply(_snapshot.Rows, _filter, search, group, brand);
+        Grid.ItemsSource = null;
+        Grid.Items.SortDescriptions.Clear();
         Grid.ItemsSource = rows;
         var cards = _snapshot.Cards;
         MetaText.Text = rows.Count == 0
             ? "Nenhum lote nesta faixa."
             : $"{rows.Count} item(ns) · {cards.Expired} vencido(s) · {cards.Today} hoje · {cards.Days7} até 7 dias · {cards.Uninformed} sem validade.";
+        UpdateDetail();
+    }
+
+    private void Grid_SelectionChanged(object sender, SelectionChangedEventArgs e) => UpdateDetail();
+
+    private void UpdateDetail()
+    {
+        DetailText.Text = Grid.SelectedItem is ValidityControlRow row
+            ? ValidityControlUi.FormatSelectionDetail(row)
+            : "Selecione uma linha para ver o detalhe.";
     }
 
     private void RebuildCards()
