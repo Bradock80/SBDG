@@ -47,6 +47,8 @@ public static class ValidityControlService
                 IFNULL(p.name, ''),
                 IFNULL(p.group_name, ''),
                 IFNULL(p.stock, 0),
+                IFNULL(p.stock_fridge, 0),
+                IFNULL(p.cost_price, 0),
                 IFNULL(p.extra_json, ''),
                 l.id,
                 IFNULL(l.lot_number, ''),
@@ -68,7 +70,7 @@ public static class ValidityControlService
             var productId = reader.GetInt32(0);
             if (!map.TryGetValue(productId, out var builder))
             {
-                var extraJson = reader.IsDBNull(5) ? "" : reader.GetString(5);
+                var extraJson = reader.IsDBNull(7) ? "" : reader.GetString(7);
                 var extra = ProductExtra.Parse(extraJson);
                 builder = new Builder
                 {
@@ -78,25 +80,27 @@ public static class ValidityControlService
                     GroupName = reader.IsDBNull(3) ? "" : reader.GetString(3),
                     BrandName = (extra.Marca ?? "").Trim(),
                     Stock = reader.GetDouble(4),
+                    StockFridge = reader.GetDouble(5),
+                    CostPrice = reader.GetDouble(6),
                     ExplicitExpiryControl = extra.ControleValidade == true,
                 };
                 map[productId] = builder;
             }
 
-            if (reader.IsDBNull(6))
+            if (reader.IsDBNull(8))
                 continue;
 
             builder.Lots.Add(new ProductLot
             {
-                Id = reader.GetInt32(6),
+                Id = reader.GetInt32(8),
                 ProductId = productId,
                 ProductCode = builder.Code,
                 ProductName = builder.Name,
-                LotNumber = reader.IsDBNull(7) ? "" : reader.GetString(7),
-                ExpiryDateIso = reader.IsDBNull(8) ? null : reader.GetString(8),
-                Quantity = reader.GetDouble(9),
-                PurchaseId = reader.IsDBNull(10) ? null : reader.GetInt32(10),
-                UnitCost = reader.GetDouble(11),
+                LotNumber = reader.IsDBNull(9) ? "" : reader.GetString(9),
+                ExpiryDateIso = reader.IsDBNull(10) ? null : reader.GetString(10),
+                Quantity = reader.GetDouble(11),
+                PurchaseId = reader.IsDBNull(12) ? null : reader.GetInt32(12),
+                UnitCost = reader.GetDouble(13),
             });
         }
 
@@ -109,6 +113,8 @@ public static class ValidityControlService
                 GroupName = b.GroupName,
                 BrandName = b.BrandName,
                 Stock = b.Stock,
+                StockFridge = b.StockFridge,
+                CostPrice = b.CostPrice,
                 ExplicitExpiryControl = b.ExplicitExpiryControl,
                 Lots = b.Lots,
             })
@@ -123,6 +129,8 @@ public static class ValidityControlService
         public string GroupName = "";
         public string BrandName = "";
         public double Stock;
+        public double StockFridge;
+        public double CostPrice;
         public bool ExplicitExpiryControl;
         public List<ProductLot> Lots { get; } = [];
     }

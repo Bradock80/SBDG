@@ -1,4 +1,5 @@
 using SGDB.Models;
+using SGDB.Utils;
 
 namespace SGDB.Services;
 
@@ -10,6 +11,30 @@ public static class ValidityControlEngine
 {
     public const string MissingExpiryLabel = "Validade não informada";
     public const string UntrackedStockLabel = "Estoque sem validade/lote identificado";
+    public const double CostAvailableThreshold = 0.009;
+
+    public readonly record struct LotCostResolution(double? UsedCost, LotCostSource Source);
+
+    /// <summary>
+    /// Custo usado no Valor do lote: unit_cost gravado, senão médio atual, senão indisponível.
+    /// Não afirma FIFO nem custo histórico exato.
+    /// </summary>
+    public static LotCostResolution ResolveLotCost(double recordedUnitCost, double productCostPrice)
+    {
+        if (recordedUnitCost > CostAvailableThreshold)
+            return new(recordedUnitCost, LotCostSource.LotRecorded);
+        if (productCostPrice > CostAvailableThreshold)
+            return new(productCostPrice, LotCostSource.CurrentAverageEstimate);
+        return new(null, LotCostSource.Unavailable);
+    }
+
+    public static double? ComputeLotValue(double quantity, double? usedCost)
+    {
+        if (usedCost is not double cost)
+            return null;
+        var safeQty = Math.Max(0, quantity);
+        return ProductPriceHelper.RoundPrice(safeQty * cost);
+    }
 
     public static ProductExpiryStatusKind? BucketOf(ValidityControlFilterKind filter) =>
         filter switch
@@ -145,6 +170,7 @@ public static class ValidityControlEngine
     {
         var status = ProductExpiryService.Classify(lot.ExpiryDate, today);
         var uninformed = status.Kind == ProductExpiryStatusKind.Uninformed;
+        var cost = ResolveLotCost(lot.UnitCost, product.CostPrice);
         return new ValidityControlRow
         {
             ProductId = product.ProductId,
@@ -163,6 +189,10 @@ public static class ValidityControlEngine
             OriginDisplay = lot.PurchaseId is int id && id > 0 ? $"Compra #{id}" : "—",
             RowKind = uninformed ? ValidityControlRowKind.UninformedLot : ValidityControlRowKind.Lot,
             Tone = ToneFor(status.Kind),
+            StockFridge = product.StockFridge,
+            UsedCost = cost.UsedCost,
+            CostSource = cost.Source,
+            LotValue = ComputeLotValue(lot.Quantity, cost.UsedCost),
         };
     }
 
@@ -204,8 +234,10 @@ public static class ValidityControlEngine
         ValidityControlProductInput product,
         double qty,
         ValidityControlRowKind kind,
-        string label) =>
-        new()
+        string label)
+    {
+        var cost = ResolveLotCost(recordedUnitCost: 0, product.CostPrice);
+        return new()
         {
             ProductId = product.ProductId,
             ProductName = product.Name,
@@ -218,5 +250,10 @@ public static class ValidityControlEngine
             StatusDisplay = label,
             RowKind = kind,
             Tone = ToneFor(ProductExpiryStatusKind.Uninformed),
+            StockFridge = product.StockFridge,
+            UsedCost = cost.UsedCost,
+            CostSource = cost.Source,
+            LotValue = ComputeLotValue(qty, cost.UsedCost),
         };
+    }
 }

@@ -24,6 +24,16 @@ public enum ValidityControlRowKind
     UntrackedStock,
 }
 
+/// <summary>
+/// Origem do custo usado no Valor do lote. Não afirma FIFO nem custo histórico exato.
+/// </summary>
+public enum LotCostSource
+{
+    Unavailable = 0,
+    LotRecorded,
+    CurrentAverageEstimate,
+}
+
 public sealed class ValidityControlRow
 {
     public int ProductId { get; init; }
@@ -42,11 +52,18 @@ public sealed class ValidityControlRow
     public string OriginDisplay { get; init; } = "—";
     public ValidityControlRowKind RowKind { get; init; }
     public string Tone { get; init; } = "ok";
+    public double StockFridge { get; init; }
+    /// <summary>Custo efetivamente usado no Valor do lote; null se Sem custo.</summary>
+    public double? UsedCost { get; init; }
+    public LotCostSource CostSource { get; init; }
+    /// <summary>qty segura × custo usado; null se Sem custo (não confundir com R$ 0,00).</summary>
+    public double? LotValue { get; init; }
 
     public string QtyDisplay => ProductLotListRow.FormatQty(Quantity);
     public string ExpiryDisplay => ProductExpiryService.FormatDisplay(ExpiryDate);
     public string DaysDisplay => ProductExpiryService.FormatDays(DaysRemaining);
     public string CostDisplay => ProductPriceHelper.MoneyBr(UnitCost);
+    public string LotValueDisplay => ProductPriceHelper.MoneyBrOrDash(LotValue);
     public ProductExpiryStatusKind Bucket => Status.Kind;
 }
 
@@ -80,6 +97,8 @@ public sealed class ValidityControlProductInput
     public string GroupName { get; init; } = "";
     public string BrandName { get; init; } = "";
     public double Stock { get; init; }
+    public double StockFridge { get; init; }
+    public double CostPrice { get; init; }
     public bool ExplicitExpiryControl { get; init; }
     public IReadOnlyList<ProductLot> Lots { get; init; } = [];
 }

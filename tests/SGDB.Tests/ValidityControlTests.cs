@@ -1,6 +1,7 @@
 using SGDB.Models;
 using SGDB.Services;
 using SGDB.Tests.Infrastructure;
+using SGDB.Utils;
 
 namespace SGDB.Tests;
 
@@ -270,21 +271,203 @@ public class ValidityControlTests
         Assert.True(ProductExpiryService.CanOpenLotsWindow(9));
     }
 
-    static ValidityControlProductInput Product(string name, ProductLot[] lots) =>
+    [Fact]
+    public void LoteComUnitCost_UsaLancadoNoLote()
+    {
+        var product = Product("P", [Lot("A", 5, qty: 10, unitCost: 2)], costPrice: 3);
+        var row = Assert.Single(ValidityControlEngine.BuildRows([product], Today));
+        Assert.Equal(2, row.UsedCost);
+        Assert.Equal(LotCostSource.LotRecorded, row.CostSource);
+        Assert.Equal(20, row.LotValue);
+        Assert.Equal(2, row.UnitCost);
+    }
+
+    [Fact]
+    public void LoteSemUnitCost_UsaMedioAtual()
+    {
+        var product = Product("P", [Lot("A", 5, qty: 10, unitCost: 0)], costPrice: 3);
+        var row = Assert.Single(ValidityControlEngine.BuildRows([product], Today));
+        Assert.Equal(3, row.UsedCost);
+        Assert.Equal(LotCostSource.CurrentAverageEstimate, row.CostSource);
+        Assert.Equal(30, row.LotValue);
+        Assert.Equal(0, row.UnitCost);
+    }
+
+    [Fact]
+    public void LoteSemNenhumCusto_ValorNull()
+    {
+        var product = Product("P", [Lot("A", 5, qty: 10, unitCost: 0)], costPrice: 0);
+        var row = Assert.Single(ValidityControlEngine.BuildRows([product], Today));
+        Assert.Null(row.UsedCost);
+        Assert.Equal(LotCostSource.Unavailable, row.CostSource);
+        Assert.Null(row.LotValue);
+        Assert.Equal("—", row.LotValueDisplay);
+        Assert.NotEqual("—", row.CostDisplay);
+    }
+
+    [Fact]
+    public void LeftoverComCostPrice_Estimado()
+    {
+        var product = Product("IOG", [], stock: 12, costPrice: 2.50, explicitExpiry: true);
+        var row = Assert.Single(ValidityControlEngine.BuildRows([product], Today));
+        Assert.Equal(ValidityControlRowKind.MissingExpiry, row.RowKind);
+        Assert.Equal(12, row.Quantity);
+        Assert.Equal(2.50, row.UsedCost);
+        Assert.Equal(LotCostSource.CurrentAverageEstimate, row.CostSource);
+        Assert.Equal(30, row.LotValue);
+        Assert.Equal(0, row.UnitCost);
+    }
+
+    [Fact]
+    public void LeftoverSemCostPrice_SemCusto()
+    {
+        var product = Product("IOG", [], stock: 12, costPrice: 0, explicitExpiry: true);
+        var row = Assert.Single(ValidityControlEngine.BuildRows([product], Today));
+        Assert.Equal(ValidityControlRowKind.MissingExpiry, row.RowKind);
+        Assert.Null(row.UsedCost);
+        Assert.Equal(LotCostSource.Unavailable, row.CostSource);
+        Assert.Null(row.LotValue);
+    }
+
+    [Fact]
+    public void QuantidadeNegativa_NaoGeraValorNegativo()
+    {
+        var comCusto = ValidityControlEngine.ComputeLotValue(-8, 2.50);
+        Assert.Equal(0, comCusto);
+        Assert.True(comCusto >= 0);
+        Assert.Null(ValidityControlEngine.ComputeLotValue(-8, null));
+        var row = ValidityControlEngine.FromLot(
+            Lot("NEG", 3, qty: -5, unitCost: 4),
+            Product("P", [], costPrice: 9),
+            Today);
+        Assert.Equal(0, row.LotValue);
+        Assert.Equal(4, row.UsedCost);
+        Assert.Equal(LotCostSource.LotRecorded, row.CostSource);
+    }
+
+    [Fact]
+    public void ValorDoLote_UsaRoundPrice()
+    {
+        const double qty = 3;
+        const double unit = 1.115;
+        var expected = ProductPriceHelper.RoundPrice(qty * unit);
+        var product = Product("P", [Lot("A", 4, qty: qty, unitCost: unit)]);
+        var row = Assert.Single(ValidityControlEngine.BuildRows([product], Today));
+        Assert.Equal(expected, row.LotValue);
+        Assert.Equal(expected, ValidityControlEngine.ComputeLotValue(qty, unit));
+    }
+
+    [Fact]
+    public void MultiplosLotes_ValoresSeparados()
+    {
+        var product = Product("P",
+        [
+            Lot("L1", 5, qty: 10, unitCost: 2),
+            Lot("L2", 20, qty: 30, unitCost: 4),
+        ], costPrice: 9);
+        var rows = ValidityControlEngine.BuildRows([product], Today);
+        Assert.Equal(2, rows.Count);
+        var l1 = Assert.Single(rows, r => r.LotDisplay == "L1");
+        var l2 = Assert.Single(rows, r => r.LotDisplay == "L2");
+        Assert.Equal(20, l1.LotValue);
+        Assert.Equal(120, l2.LotValue);
+        Assert.Equal(LotCostSource.LotRecorded, l1.CostSource);
+        Assert.Equal(LotCostSource.LotRecorded, l2.CostSource);
+    }
+
+    [Fact]
+    public void GeladeiraNaoEntraEmLeftoverNemValorDoLote()
+    {
+        var product = Product("P",
+            [Lot("DEP", 10, qty: 70, unitCost: 2)],
+            stock: 70,
+            stockFridge: 30,
+            costPrice: 2,
+            explicitExpiry: true);
+        var rows = ValidityControlEngine.BuildRows([product], Today);
+        var lot = Assert.Single(rows);
+        Assert.Equal(ValidityControlRowKind.Lot, lot.RowKind);
+        Assert.Equal(70, lot.Quantity);
+        Assert.Equal(140, lot.LotValue);
+        Assert.Equal(30, lot.StockFridge);
+        Assert.DoesNotContain(rows, r => r.RowKind == ValidityControlRowKind.UntrackedStock);
+        Assert.DoesNotContain(rows, r => r.RowKind == ValidityControlRowKind.MissingExpiry);
+    }
+
+    [Fact]
+    public void CigarroSemControle_NaoCriaAlertaPorAusenciaDeValidade()
+    {
+        var product = Product("MARLBORO BOX", [], stock: 80, costPrice: 10, explicitExpiry: false);
+        Assert.Empty(ValidityControlEngine.BuildRows([product], Today));
+    }
+
+    [Fact]
+    public void UntrackedStock_UsaMedioNaoCustoDeOutroLote()
+    {
+        var product = Product("P",
+            [Lot("COM", 20, qty: 4, unitCost: 9)],
+            stock: 10,
+            costPrice: 2.50,
+            explicitExpiry: true);
+        var rows = ValidityControlEngine.BuildRows([product], Today);
+        Assert.Equal(2, rows.Count);
+        var lot = Assert.Single(rows, r => r.RowKind == ValidityControlRowKind.Lot);
+        Assert.Equal(36, lot.LotValue);
+        Assert.Equal(LotCostSource.LotRecorded, lot.CostSource);
+        var leftover = Assert.Single(rows, r => r.RowKind == ValidityControlRowKind.UntrackedStock);
+        Assert.Equal(6, leftover.Quantity);
+        Assert.Equal(2.50, leftover.UsedCost);
+        Assert.Equal(LotCostSource.CurrentAverageEstimate, leftover.CostSource);
+        Assert.Equal(15, leftover.LotValue);
+        Assert.Equal(0, leftover.UnitCost);
+    }
+
+    [Fact]
+    public void GeladeiraNoBanco_NaoGeraLeftover()
+    {
+        using var db = TempDatabase.Create();
+        var pid = TestDataHelper.SeedSimpleProduct(70, 5, 2, "GF", "GELADEIRA");
+        SetExtra(pid, """{"controle_validade":true}""");
+        SetFridge(pid, 30);
+        Receive(pid, 70, "DEP", Today.AddDays(10));
+        var snap = ValidityControlService.GetSnapshotLocal(Today);
+        var row = Assert.Single(snap.Rows, r => r.ProductId == pid);
+        Assert.Equal("DEP", row.LotDisplay);
+        Assert.Equal(30, row.StockFridge);
+        Assert.Equal(1.5, row.UsedCost);
+        Assert.Equal(LotCostSource.LotRecorded, row.CostSource);
+        Assert.Equal(105, row.LotValue);
+        Assert.DoesNotContain(snap.Rows, r => r.RowKind is ValidityControlRowKind.UntrackedStock
+            or ValidityControlRowKind.MissingExpiry);
+    }
+
+    static ValidityControlProductInput Product(
+        string name,
+        ProductLot[] lots,
+        double stock = 0,
+        double stockFridge = 0,
+        double costPrice = 0,
+        bool explicitExpiry = false,
+        int productId = 1) =>
         new()
         {
-            ProductId = 1,
+            ProductId = productId,
             Code = "C",
             Name = name,
+            Stock = stock,
+            StockFridge = stockFridge,
+            CostPrice = costPrice,
+            ExplicitExpiryControl = explicitExpiry,
             Lots = lots,
         };
 
-    static ProductLot Lot(string number, int? days) =>
+    static ProductLot Lot(string number, int? days, double qty = 1, double unitCost = 0) =>
         new()
         {
             Id = number.GetHashCode(StringComparison.Ordinal),
             LotNumber = number,
-            Quantity = 1,
+            Quantity = qty,
+            UnitCost = unitCost,
             ExpiryDateIso = days is int d ? Today.AddDays(d).ToString("yyyy-MM-dd") : null,
         };
 
@@ -298,6 +481,16 @@ public class ValidityControlTests
             UnitCost = 1.5,
             PurchaseId = 11,
         });
+
+    static void SetFridge(int productId, double fridge)
+    {
+        using var conn = DatabaseService.OpenConnection();
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText = "UPDATE products SET stock_fridge = $f WHERE id = $id;";
+        cmd.Parameters.AddWithValue("$f", fridge);
+        cmd.Parameters.AddWithValue("$id", productId);
+        cmd.ExecuteNonQuery();
+    }
 
     static void SetExtra(int productId, string json)
     {
