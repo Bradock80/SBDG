@@ -11,13 +11,66 @@ public static class BackupService
     {
         get
         {
-            var dir = Path.Combine(
-                Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments),
-                "SGDB", "Backups");
+            var dir = ResolveBackupFolder();
             Directory.CreateDirectory(dir);
             return dir;
         }
     }
+
+    /// <summary>
+    /// Pasta de backup do banco efetivo. Banco isolado (teste) não mistura
+    /// com Documents\SGDB\Backups da loja.
+    /// </summary>
+    public static string ResolveBackupFolder()
+    {
+        var db = DatabaseService.DatabasePath;
+        if (DatabaseService.IsIsolatedDatabasePath(db))
+        {
+            var dir = Path.GetDirectoryName(Path.GetFullPath(db));
+            if (!string.IsNullOrWhiteSpace(dir))
+                return Path.Combine(dir, "Backups");
+        }
+
+        return Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments),
+            "SGDB", "Backups");
+    }
+
+    public static BackupArchiveValidation ValidateArchive(string? path)
+    {
+        if (string.IsNullOrWhiteSpace(path) || !File.Exists(path))
+            return new BackupArchiveValidation();
+
+        var size = new FileInfo(path).Length;
+        if (size <= 0)
+            return new BackupArchiveValidation { FileExists = true, Size = 0 };
+
+        try
+        {
+            using var zip = ZipFile.OpenRead(path);
+            var hasDb = zip.Entries.Any(e =>
+                e.Name.Equals("deposito.db", StringComparison.OrdinalIgnoreCase));
+            return new BackupArchiveValidation
+            {
+                FileExists = true,
+                Size = size,
+                ZipOpens = true,
+                HasDepositoDb = hasDb,
+            };
+        }
+        catch
+        {
+            return new BackupArchiveValidation
+            {
+                FileExists = true,
+                Size = size,
+                ZipOpens = false,
+            };
+        }
+    }
+
+    /// <summary>Somente testes: falha forçada do snapshot consistente (VACUUM INTO).</summary>
+    public static Action? TestBeforeConsistentSnapshot { get; set; }
 
     /// <summary>Cria cópia .db (e zip opcional) do banco atual. Retorna caminho do arquivo.</summary>
     public static string CreateBackup(string? destinationPath = null, bool asZip = true)
@@ -25,6 +78,47 @@ public static class BackupService
         var path = CreateBackupFile(destinationPath, asZip);
         AuditService.Log("backup", "database", null, $"Arquivo: {path}");
         return path;
+    }
+
+    /// <summary>
+    /// Snapshot SQLite consistente via VACUUM INTO. Sem File.Copy do deposito.db.
+    /// Destinado ao backup obrigatório do 69T-F: se o snapshot falhar, a operação falha.
+    /// </summary>
+    public static string CreateConsistentBackup(string destinationPath)
+    {
+        var src = DatabaseService.DatabasePath;
+        if (!File.Exists(src))
+            throw new InvalidOperationException("Banco de dados não encontrado.");
+        if (string.IsNullOrWhiteSpace(destinationPath))
+            throw new InvalidOperationException("Destino do backup obrigatório não informado.");
+
+        var dir = Path.GetDirectoryName(destinationPath);
+        if (!string.IsNullOrEmpty(dir))
+            Directory.CreateDirectory(dir);
+
+        SqliteConnection.ClearAllPools();
+
+        var snapshot = Path.Combine(Path.GetTempPath(), $"sgdb_bak_consistent_{Guid.NewGuid():N}.db");
+        try
+        {
+            SnapshotDatabase(src, snapshot, allowDegradedCopy: false);
+            if (File.Exists(destinationPath))
+                File.Delete(destinationPath);
+            using var zip = ZipFile.Open(destinationPath, ZipArchiveMode.Create);
+            zip.CreateEntryFromFile(snapshot, "deposito.db", CompressionLevel.Optimal);
+        }
+        catch
+        {
+            try { if (File.Exists(destinationPath)) File.Delete(destinationPath); } catch { /* ignore */ }
+            throw;
+        }
+        finally
+        {
+            try { if (File.Exists(snapshot)) File.Delete(snapshot); } catch { /* ignore */ }
+        }
+
+        AuditService.Log("backup", "database", null, $"Consistente (VACUUM INTO): {destinationPath}");
+        return destinationPath;
     }
 
     public static BackupRunResult RunAutomaticBackup(BackupTrigger trigger, BackupSettings? settings = null)
@@ -92,6 +186,7 @@ public static class BackupService
         if (!File.Exists(src))
             throw new InvalidOperationException("Banco de dados não encontrado.");
 
+        SqliteConnection.ClearAllPools();
         try
         {
             using var conn = DatabaseService.OpenConnection();
@@ -113,22 +208,67 @@ public static class BackupService
         if (!string.IsNullOrEmpty(dir))
             Directory.CreateDirectory(dir);
 
-        if (asZip || destinationPath.EndsWith(".zip", StringComparison.OrdinalIgnoreCase))
+        var snapshot = Path.Combine(Path.GetTempPath(), $"sgdb_bak_{stamp}_{Guid.NewGuid():N}.db");
+        try
         {
-            var tempDb = Path.Combine(Path.GetTempPath(), $"sgdb_bak_{stamp}.db");
-            File.Copy(src, tempDb, overwrite: true);
-            if (File.Exists(destinationPath))
-                File.Delete(destinationPath);
-            using (var zip = ZipFile.Open(destinationPath, ZipArchiveMode.Create))
-                zip.CreateEntryFromFile(tempDb, "deposito.db", CompressionLevel.Optimal);
-            try { File.Delete(tempDb); } catch { /* ignore */ }
+            SnapshotDatabase(src, snapshot, allowDegradedCopy: true);
+            if (asZip || destinationPath.EndsWith(".zip", StringComparison.OrdinalIgnoreCase))
+            {
+                if (File.Exists(destinationPath))
+                    File.Delete(destinationPath);
+                using var zip = ZipFile.Open(destinationPath, ZipArchiveMode.Create);
+                zip.CreateEntryFromFile(snapshot, "deposito.db", CompressionLevel.Optimal);
+            }
+            else
+            {
+                File.Copy(snapshot, destinationPath, overwrite: true);
+            }
         }
-        else
+        finally
         {
-            File.Copy(src, destinationPath, overwrite: true);
+            try { if (File.Exists(snapshot)) File.Delete(snapshot); } catch { /* ignore */ }
         }
 
         return destinationPath;
+    }
+
+    private static void SnapshotDatabase(string src, string dest, bool allowDegradedCopy)
+    {
+        if (File.Exists(dest))
+            File.Delete(dest);
+
+        Exception? vacuumError = null;
+        try
+        {
+            if (!allowDegradedCopy)
+                TestBeforeConsistentSnapshot?.Invoke();
+
+            using var conn = DatabaseService.OpenConnection();
+            using var cmd = conn.CreateCommand();
+            cmd.CommandText = "VACUUM INTO $dest;";
+            cmd.Parameters.AddWithValue("$dest", dest);
+            cmd.ExecuteNonQuery();
+            if (File.Exists(dest) && new FileInfo(dest).Length > 0)
+                return;
+
+            vacuumError = new InvalidOperationException("VACUUM INTO não gerou arquivo de snapshot.");
+        }
+        catch (Exception ex)
+        {
+            vacuumError = ex;
+        }
+
+        if (allowDegradedCopy)
+        {
+            File.Copy(src, dest, overwrite: true);
+            return;
+        }
+
+        try { if (File.Exists(dest)) File.Delete(dest); } catch { /* ignore */ }
+        throw new InvalidOperationException(
+            "Falha ao gerar snapshot SQLite consistente (VACUUM INTO)." +
+            (vacuumError is null ? "" : " " + vacuumError.Message),
+            vacuumError);
     }
 
     private static string BuildAutoFileName(BackupTrigger trigger)

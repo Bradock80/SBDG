@@ -93,6 +93,8 @@ public partial class MainWindow : Window
         Title = role is null
             ? $"SGDB — {deposito}  v{ver}"
             : $"SGDB — {deposito}  [{role} · v{ver}]";
+        if (DatabaseService.IsIsolatedDatabasePath(DatabaseService.DatabasePath))
+            Title += "  — TESTE ISOLADO";
     }
 
     private void RefreshStockAlert()
@@ -616,6 +618,15 @@ public partial class MainWindow : Window
             return;
         }
 
+        if (moduleId == "residuos_unificacoes")
+        {
+            var view = new LegacyMergeCleanupModuleView();
+            view.CloseRequested += (_, _) => ShowHome();
+            MainContent.Content = view;
+            UpdateToolbarHighlight();
+            return;
+        }
+
         if (moduleId == "formas_pagamento")
         {
             var view = new PaymentMethodsModuleView();
@@ -930,11 +941,15 @@ public partial class MainWindow : Window
     {
         if (mi.Tag is string moduleId && !string.IsNullOrWhiteSpace(moduleId))
         {
-            if (moduleId == "usuarios" && StoreNetworkMode.IsModuleBlockedOnClient(moduleId))
+            if ((moduleId == "usuarios" || moduleId == LegacyMergeCleanupRules.ModuleId)
+                && StoreNetworkMode.IsModuleBlockedOnClient(moduleId))
             {
                 mi.IsEnabled = false;
-                mi.Visibility = Visibility.Collapsed;
-                mi.ToolTip = ApplicationLoginService.LocalUserAdministrationMessage;
+                if (moduleId == "usuarios")
+                    mi.Visibility = Visibility.Collapsed;
+                mi.ToolTip = moduleId == "usuarios"
+                    ? ApplicationLoginService.LocalUserAdministrationMessage
+                    : LegacyMergeCleanupRules.ClientBlockedMessage;
                 return;
             }
 

@@ -98,3 +98,12 @@ public sealed class BackupRunResult
     public string? CloudPath { get; init; }
     public string? Error { get; init; }
 }
+
+public sealed class BackupArchiveValidation
+{
+    public bool FileExists { get; init; }
+    public long Size { get; init; }
+    public bool ZipOpens { get; init; }
+    public bool HasDepositoDb { get; init; }
+    public bool IsValid => FileExists && Size > 0 && ZipOpens && HasDepositoDb;
+}

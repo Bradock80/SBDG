@@ -78,6 +78,11 @@
                 <Separator/>
                 <MenuItem Header="Log de Operações (Auditoria)" Tag="auditoria" Click="MenuModule_Click"/>
                 <MenuItem Header="Backup &amp; Restauração" Tag="backup" Click="MenuModule_Click"/>
+                <MenuItem Header="Manutenção">
+                    <MenuItem Header="Resíduos de unificações antigas" Tag="residuos_unificacoes"
+                              Click="MenuModule_Click"
+                              ToolTip="Zera saldo residual de cadastros já unificados. Não transfere estoque."/>
+                </MenuItem>
                 <Separator/>
                 <MenuItem Header="Rede Loja (2 PCs)…" Click="MenuRedeLoja_Click"
                           ToolTip="Servidor no PC da loja + Cliente no notebook"/>

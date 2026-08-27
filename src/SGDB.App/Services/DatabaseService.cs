@@ -14,14 +14,63 @@ public static partial class DatabaseService
     public static string ConnectionString =>
         _connectionString ?? throw new InvalidOperationException("Banco não inicializado.");
 
+    public const string DatabasePathEnvVar = "SGDB_DATABASE_PATH";
+
+    public static string DefaultStoreDatabasePath =>
+        Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+            "SGDB",
+            "deposito.db");
+
+    /// <summary>
+    /// Caminho de abertura do app. <c>SGDB_DATABASE_PATH</c> (processo) tem prioridade
+    /// e nunca é ignorado em favor do banco padrão da loja.
+    /// EXE em pasta SGDB_TESTE* sem a variável recusa abrir (não cai no banco real).
+    /// </summary>
+    public static string ResolveStartupDatabasePath() =>
+        ResolveStartupDatabasePath(
+            Environment.GetEnvironmentVariable(DatabasePathEnvVar),
+            AppContext.BaseDirectory);
+
+    public static string ResolveStartupDatabasePath(string? envPath, string? baseDirectory)
+    {
+        if (!string.IsNullOrWhiteSpace(envPath))
+            return Path.GetFullPath(envPath.Trim());
+
+        if (!string.IsNullOrWhiteSpace(baseDirectory)
+            && baseDirectory.Contains("SGDB_TESTE", StringComparison.OrdinalIgnoreCase))
+        {
+            throw new InvalidOperationException(
+                "Este executável de teste exige SGDB_DATABASE_PATH. Use iniciar_sgdb_teste.cmd.");
+        }
+
+        return DefaultStoreDatabasePath;
+    }
+
+    public static bool IsIsolatedDatabasePath(string? databasePath)
+    {
+        if (string.IsNullOrWhiteSpace(databasePath))
+            return false;
+        try
+        {
+            return !string.Equals(
+                Path.GetFullPath(databasePath),
+                Path.GetFullPath(DefaultStoreDatabasePath),
+                StringComparison.OrdinalIgnoreCase);
+        }
+        catch
+        {
+            return true;
+        }
+    }
+
     public static void Initialize()
     {
-        var dataDir = Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-            "SGDB");
-
-        Directory.CreateDirectory(dataDir);
-        Initialize(Path.Combine(dataDir, "deposito.db"));
+        var path = ResolveStartupDatabasePath();
+        var dataDir = Path.GetDirectoryName(path);
+        if (!string.IsNullOrWhiteSpace(dataDir))
+            Directory.CreateDirectory(dataDir);
+        Initialize(path);
     }
 
     /// <summary>Inicializa o banco em um caminho explícito (ex.: cópia para testes).</summary>

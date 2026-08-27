@@ -223,6 +223,7 @@ public static class StoreNetworkMode
                 or "estoque_consistencia_lotes"
                 or "auditoria"
                 or "usuarios"
+                or "residuos_unificacoes"
                 => true,
             _ => false,
         };

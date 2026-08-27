@@ -41,6 +41,14 @@ public static class AccessControl
 
     public static bool Can(string key) => Permissions.Get(key);
 
+    /// <summary>69T-F — manutenção de resíduos: somente Administrador ou Gestor (pelo perfil, não por RelatoriosAcesso).</summary>
+    public static bool CanAccessLegacyMergeCleanup()
+    {
+        var role = AppSession.CurrentUser?.Role ?? "";
+        return role.Equals("admin", StringComparison.OrdinalIgnoreCase)
+            || role.Equals("gestor", StringComparison.OrdinalIgnoreCase);
+    }
+
     public static bool CanAccessModule(string moduleId)
     {
         if (string.IsNullOrWhiteSpace(moduleId) || moduleId == "home")
@@ -83,6 +91,7 @@ public static class AccessControl
 
             "usuarios" or "auditoria" => p.SistemaUsuarios,
             "backup" => p.SistemaBackup,
+            "residuos_unificacoes" => CanAccessLegacyMergeCleanup(),
 
             // Configurações da loja: admin/usuários OU gestor (relatórios)
             "empresa" or "impressoras" or "perifericos"

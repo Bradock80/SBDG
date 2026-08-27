@@ -60,6 +60,7 @@ public sealed class StoreNetworkHost : IDisposable
         PurchaseAverageCostRules.AtomicFeature,
         PurchaseCancelCostRules.AtomicFeature,
         ProductMergeRules.AtomicFeature,
+        LegacyMergeCleanupRules.AtomicFeature,
         ProductExpiryService.LotsReadFeature,
         ValidityControlService.Feature,
     ];

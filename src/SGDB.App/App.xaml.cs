@@ -27,12 +27,19 @@ public partial class App : System.Windows.Application
         {
             RegisterGlobalWindowIcon();
 
-            // Modo atualizador gráfico (sem CMD) — sai antes de login/banco
-            if (AutoUpdateService.TryHandleApplyUpdateArgs(e.Args))
-                return;
+            var isolatedDb = !string.IsNullOrWhiteSpace(
+                Environment.GetEnvironmentVariable(DatabaseService.DatabasePathEnvVar));
+            var testFolder = (AppContext.BaseDirectory ?? "")
+                .Contains("SGDB_TESTE", StringComparison.OrdinalIgnoreCase);
 
-            // Cria/atualiza atalho na área de trabalho com o ícone do programa.
-            DesktopShortcutService.EnsureDesktopShortcut();
+            // Isolado: não atalho, não atualizador (protege a instalação da loja).
+            if (!isolatedDb && !testFolder)
+            {
+                if (AutoUpdateService.TryHandleApplyUpdateArgs(e.Args))
+                    return;
+                DesktopShortcutService.EnsureDesktopShortcut();
+            }
+
             DatabaseService.Initialize();
             try
             {
@@ -120,7 +127,9 @@ public partial class App : System.Windows.Application
         main.Topmost = true;
         main.Topmost = false;
         main.Focus();
-        _ = CheckForUpdatesInBackgroundAsync(main);
+        if (string.IsNullOrWhiteSpace(
+                Environment.GetEnvironmentVariable(DatabaseService.DatabasePathEnvVar)))
+            _ = CheckForUpdatesInBackgroundAsync(main);
     }
 
     private bool _handlingRemoteExpiry;
