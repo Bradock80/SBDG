@@ -779,6 +779,11 @@ public partial class ProductFormWindow : Window
             MessageBox.Show("Transferência concluída.", "Geladeira",
                 MessageBoxButton.OK, MessageBoxImage.Information);
         }
+        catch (ExpirySaleException ex)
+        {
+            var ui = ExpirySaleUi.Format(ex, ExpirySaleUi.Operation.Transfer);
+            MessageBox.Show(ui.Body, ui.Title, MessageBoxButton.OK, MessageBoxImage.Warning);
+        }
         catch (Exception ex)
         {
             MessageBox.Show(ex.Message, "Geladeira", MessageBoxButton.OK, MessageBoxImage.Warning);

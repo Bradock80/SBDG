@@ -373,6 +373,11 @@ public partial class PdvVendasConsultaWindow : Window
             MessageBox.Show(result.Message, "Trocar produto", MessageBoxButton.OK, MessageBoxImage.Information);
             RefreshList(result.SaleId);
         }
+        catch (ExpirySaleException ex)
+        {
+            var ui = ExpirySaleUi.Format(ex, ExpirySaleUi.Operation.Swap);
+            MessageBox.Show(ui.Body, ui.Title, MessageBoxButton.OK, MessageBoxImage.Warning);
+        }
         catch (Exception ex) when (ex is PdvException or CashOperationException)
         {
             MessageBox.Show(ex.Message, "Trocar produto", MessageBoxButton.OK, MessageBoxImage.Warning);

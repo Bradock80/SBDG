@@ -518,79 +518,105 @@ public partial class OpenTabDetailWindow : Window
         var subtotal = ProductPriceHelper.RoundPrice(lines.Sum(c => c.Subtotal));
         OfferSplitInfo(subtotal);
 
-        while (true)
+        var pay = new PdvPaymentWindow(subtotal, lines) { Owner = this };
+        if (pay.ShowDialog() != true || !pay.Confirmed)
+            return;
+
+        var customerId = pay.CustomerPersonId ?? _detail.CustomerId;
+        SaleExecutionResult result;
+        try
         {
-            var pay = new PdvPaymentWindow(subtotal, lines) { Owner = this };
-            if (pay.ShowDialog() != true || !pay.Confirmed)
-                return;
-
-            try
+            result = ApplicationServices.SettleOpenTab.Execute(new SettleOpenTabCommand
             {
-                var customerId = pay.CustomerPersonId ?? _detail.CustomerId;
-                var result = ApplicationServices.SettleOpenTab.Execute(new SettleOpenTabCommand
+                TabId = _tabId,
+                Items = lines.Select(l => new SaleLine
                 {
-                    TabId = _tabId,
-                    Items = lines.Select(l => new SaleLine
-                    {
-                        ProductId = l.ProductId,
-                        Quantity = l.Quantity,
-                        UnitPrice = l.UnitPrice,
-                        StockUnitsPerSale = l.StockUnitsPerSale,
-                    }).ToList(),
-                    PaymentType = pay.SelectedPaymentType,
-                    Payments = pay.Payments?.Select(p => new SalePayment
-                    {
-                        PaymentType = p.PaymentType,
-                        Amount = p.Amount,
-                    }).ToList(),
-                    Discount = pay.Discount,
-                    Surcharge = pay.Surcharge,
-                    CashReceived = pay.CashReceived,
-                    CustomerPersonId = customerId,
-                    SellerId = pay.SellerId,
-                });
-
-                PeripheralService.TryOpenCashDrawerAfterCashSale(pay.Payments);
-
-                AuditService.LogJson("venda", "deck", result.SaleId.ToString(),
-                    new
-                    {
-                        tab_id = _tabId,
-                        tab_name = _detail.Name,
-                        sale_id = result.SaleId,
-                        total = result.Total,
-                        payment_type = pay.SelectedPaymentType,
-                    },
-                    $"Deck {_detail.Name} · {pay.SelectedPaymentType} · R$ {result.Total:N2}");
-
-                var cupom = new PdvCupomConfirmWindow(
-                    result.SaleId,
-                    lines,
-                    pay.Payments,
-                    subtotal,
-                    pay.Discount,
-                    pay.Surcharge,
-                    result.Total,
-                    result.CashReceived,
-                    result.ChangeAmount)
+                    ProductId = l.ProductId,
+                    Quantity = l.Quantity,
+                    UnitPrice = l.UnitPrice,
+                    StockUnitsPerSale = l.StockUnitsPerSale,
+                }).ToList(),
+                PaymentType = pay.SelectedPaymentType,
+                Payments = pay.Payments?.Select(p => new SalePayment
                 {
-                    Owner = this,
-                };
-                cupom.ShowDialog();
+                    PaymentType = p.PaymentType,
+                    Amount = p.Amount,
+                }).ToList(),
+                Discount = pay.Discount,
+                Surcharge = pay.Surcharge,
+                CashReceived = pay.CashReceived,
+                CustomerPersonId = customerId,
+                SellerId = pay.SellerId,
+            });
+        }
+        catch (ExpirySaleException ex)
+        {
+            var ui = ExpirySaleUi.Format(ex, ExpirySaleUi.Operation.Deck);
+            PdvPostPaymentRecovery.Show(ui.Body, pay.PixPaidAmount, pay.PixPaymentId, ui.Title);
+            return;
+        }
+        catch (PdvException ex)
+        {
+            PdvPostPaymentRecovery.Show(ex.Message, pay.PixPaidAmount, pay.PixPaymentId, "Decks");
+            return;
+        }
+        catch (OpenTabException ex)
+        {
+            PdvPostPaymentRecovery.Show(ex.Message, pay.PixPaidAmount, pay.PixPaymentId, "Decks");
+            return;
+        }
+        catch (CashOperationException ex)
+        {
+            PdvPostPaymentRecovery.Show(ex.Message, pay.PixPaidAmount, pay.PixPaymentId, "Decks");
+            return;
+        }
+        catch (Exception ex)
+        {
+            PdvPostPaymentRecovery.Present(
+                PdvPostPaymentRecovery.RecoverUnexpected(ex, pay.PixPaidAmount, pay.PixPaymentId));
+            return;
+        }
 
-                DialogResult = true;
-                Close();
-                return;
-            }
-            catch (PdvException ex)
+        try
+        {
+            PdvPostPaymentRecovery.AttachSaleAfterSuccess(pay.PixPaymentId, result.SaleId);
+
+            PeripheralService.TryOpenCashDrawerAfterCashSale(pay.Payments);
+
+            AuditService.LogJson("venda", "deck", result.SaleId.ToString(),
+                new
+                {
+                    tab_id = _tabId,
+                    tab_name = _detail.Name,
+                    sale_id = result.SaleId,
+                    total = result.Total,
+                    payment_type = pay.SelectedPaymentType,
+                },
+                $"Deck {_detail.Name} · {pay.SelectedPaymentType} · R$ {result.Total:N2}");
+
+            var cupom = new PdvCupomConfirmWindow(
+                result.SaleId,
+                lines,
+                pay.Payments,
+                subtotal,
+                pay.Discount,
+                pay.Surcharge,
+                result.Total,
+                result.CashReceived,
+                result.ChangeAmount)
             {
-                MessageBox.Show(ex.Message, "Decks", MessageBoxButton.OK, MessageBoxImage.Warning);
-            }
-            catch (OpenTabException ex)
-            {
-                MessageBox.Show(ex.Message, "Decks", MessageBoxButton.OK, MessageBoxImage.Warning);
-                return;
-            }
+                Owner = this,
+            };
+            cupom.ShowDialog();
+
+            DialogResult = true;
+            Close();
+        }
+        catch (Exception ex)
+        {
+            PdvPostPaymentRecovery.PresentPostCommitFailure(ex, result.SaleId);
+            DialogResult = true;
+            Close();
         }
     }
 

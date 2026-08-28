@@ -855,10 +855,11 @@ public partial class PdvWindow : Window
             if (pay.ShowDialog() != true || !pay.Confirmed)
                 return;
 
+            var items = _cart.ToList();
+            SaleExecutionResult result;
             try
             {
-                var items = _cart.ToList();
-                var result = ApplicationServices.FinalizeSale.Execute(new FinalizeSaleCommand
+                result = ApplicationServices.FinalizeSale.Execute(new FinalizeSaleCommand
                 {
                     Items = items.Select(l => new SaleLine
                     {
@@ -879,9 +880,34 @@ public partial class PdvWindow : Window
                     CustomerPersonId = pay.CustomerPersonId,
                     SellerId = pay.SellerId,
                 });
+            }
+            catch (ExpirySaleException ex)
+            {
+                var ui = ExpirySaleUi.Format(ex, ExpirySaleUi.Operation.Sale);
+                ShowFinalizeError(ui.Body, pay, ui.Title);
+                return;
+            }
+            catch (PdvException ex)
+            {
+                ShowFinalizeError(ex.Message, pay);
+                return;
+            }
+            catch (CashOperationException ex)
+            {
+                ShowFinalizeError(ex.Message, pay);
+                RefreshCaixaState();
+                return;
+            }
+            catch (Exception ex)
+            {
+                PdvPostPaymentRecovery.Present(
+                    PdvPostPaymentRecovery.RecoverUnexpected(ex, pay.PixPaidAmount, pay.PixPaymentId));
+                return;
+            }
 
-                if (pay.PixPaymentId is long pixId)
-                    PixIntentService.AttachSale(pixId, result.SaleId);
+            try
+            {
+                PdvPostPaymentRecovery.AttachSaleAfterSuccess(pay.PixPaymentId, result.SaleId);
 
                 PeripheralService.TryOpenCashDrawerAfterCashSale(pay.Payments);
 
@@ -949,49 +975,17 @@ public partial class PdvWindow : Window
                 NewSale();
                 return;
             }
-            catch (PdvException ex)
+            catch (Exception ex)
             {
-                ShowFinalizeError(ex.Message, pay);
-                return;
-            }
-            catch (CashOperationException ex)
-            {
-                ShowFinalizeError(ex.Message, pay);
-                RefreshCaixaState();
+                PdvPostPaymentRecovery.PresentPostCommitFailure(ex, result.SaleId);
+                NewSale();
                 return;
             }
         }
     }
 
-    private static void ShowFinalizeError(string message, PdvPaymentWindow pay)
-    {
-        if (pay.PixPaidAmount > 0.009)
-        {
-            if (pay.PixPaymentId is long pixId)
-            {
-                try
-                {
-                    PixCheckoutCoordinator.RefundApprovedWithoutSaleAsync(pixId).GetAwaiter().GetResult();
-                }
-                catch
-                {
-                    // intent fica com last_error
-                }
-            }
-
-            var pid = pay.PixPaymentId is long id ? $"\nPagamento Mercado Pago #{id}" : "";
-            MessageBox.Show(
-                $"{message}\n\n" +
-                $"ATENÇÃO: o cliente JÁ PAGOU R$ {pay.PixPaidAmount:N2} via PIX e a venda não foi registrada." + pid +
-                "\n\nFoi solicitado o estorno no Mercado Pago. Confira se o valor voltou ao cliente.",
-                "PDV — PIX recebido, venda não registrada",
-                MessageBoxButton.OK,
-                MessageBoxImage.Error);
-            return;
-        }
-
-        MessageBox.Show(message, "PDV", MessageBoxButton.OK, MessageBoxImage.Warning);
-    }
+    private static void ShowFinalizeError(string message, PdvPaymentWindow pay, string? title = null) =>
+        PdvPostPaymentRecovery.Show(message, pay.PixPaidAmount, pay.PixPaymentId, title);
 
     private void NewSale()
     {

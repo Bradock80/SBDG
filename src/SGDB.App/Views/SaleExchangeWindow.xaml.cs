@@ -487,6 +487,11 @@ public partial class SaleExchangeWindow : Window
             DialogResult = true;
             Close();
         }
+        catch (ExpirySaleException ex)
+        {
+            var ui = ExpirySaleUi.Format(ex, ExpirySaleUi.Operation.Exchange);
+            MessageBox.Show(ui.Body, ui.Title, MessageBoxButton.OK, MessageBoxImage.Warning);
+        }
         catch (Exception ex)
         {
             MessageBox.Show(ex.Message, "Troca / Devolução", MessageBoxButton.OK, MessageBoxImage.Warning);
