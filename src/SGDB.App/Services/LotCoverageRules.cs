@@ -32,6 +32,7 @@ public static class LotCoverageRules
     public const string LotNotFound = "LotNotFound";
     public const string SplitInvalid = "SplitInvalid";
     public const string ExpiryRequired = "ExpiryRequired";
+    public const string PurchaseOriginProtected = "PurchaseOriginProtected";
 
     public const string ProductNotFoundMessage = "Produto não encontrado.";
 
@@ -79,4 +80,13 @@ public static class LotCoverageRules
 
     public const string SplitSameIdentityMessage =
         "O destino da divisão precisa ter lote ou validade diferente da origem.";
+
+    public const string PurchaseOriginRemoveMessage =
+        "Esta cobertura veio de uma compra. Removê-la quebraria o vínculo com o histórico da compra (purchase_item_lots) e o cancelamento seguro. Ajuste pela compra ou corrija só lote/validade com motivo.";
+
+    public const string PurchaseOriginSplitMessage =
+        "Não é seguro dividir uma cobertura originada de compra neste modelo: a origem financeira ficaria ambígua e o cancelamento da compra pode falhar. Divida apenas coberturas manuais.";
+
+    public const string PurchaseOriginQuantityMessage =
+        "Não é seguro corrigir a quantidade de uma cobertura originada de compra neste modelo: o cancelamento da compra exige que a quantidade atual do lote cubra a origem registrada. Use cobertura manual para o excedente ou ajuste pela compra.";
 }

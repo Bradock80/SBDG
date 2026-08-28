@@ -5,19 +5,19 @@ using SGDB.Models;
 namespace SGDB.Services;
 
 /// <summary>
-/// 70B3A-B — motor de cobertura validade/lote sobre estoque já existente.
+/// 70B3A-B / 70B3A-B1 — motor de cobertura validade/lote sobre estoque já existente.
 /// <para>
 /// Invariante: nenhuma operação altera <c>products.stock</c> nem <c>stock_fridge</c>.
 /// Lotes são cobertura/rastreabilidade, não o estoque físico canônico.
 /// Geladeira é informativa e não entra na capacidade rastreável.
 /// </para>
 /// <para>
-/// Decisão de escrita: <see cref="ProductLotService.Receive(SqliteConnection, SqliteTransaction, ProductLotReceiveInput)"/>
-/// NÃO é alterado nesta etapa (o recebimento de compra depende de receber lote sem teto de stock;
-/// o stock sobe no ApplyStock da compra). AddCoverage valida o teto <c>products.stock</c>
-/// na mesma transação BEGIN IMMEDIATE e só então chama Receive(conn, tx) com unit_cost = 0.
-/// Split/edit/qty/remove escrevem SQL próprio para não mesclar IDs em colisão
-/// (purchase_item_lots.product_lot_id não pode ser apagado em silêncio).
+/// Origem financeira (sem migration): <c>purchase_id != NULL</c> = origem de compra;
+/// <c>purchase_id IS NULL</c> e <c>unit_cost ≈ 0</c> = cobertura manual.
+/// AddCoverage NÃO chama <see cref="ProductLotService.Receive"/> — evita merge implícito
+/// com lote de compra (falso unit_cost / purchase_id). Merge só entre manuais compatíveis.
+/// Linhas de compra: Remove/Split/CorrectQuantity bloqueados; Edit de lote/validade permitido
+/// preservando id, purchase_id e unit_cost.
 /// </para>
 /// Transação: Microsoft.Data.Sqlite mapeia <see cref="IsolationLevel.Serializable"/> para
 /// <c>BEGIN IMMEDIATE</c>, compatível com a infraestrutura atual.
@@ -25,6 +25,7 @@ namespace SGDB.Services;
 public static class LotCoverageService
 {
     public const double QtyEpsilon = 0.0001;
+    public const double CostKnownThreshold = ValidityControlEngine.CostAvailableThreshold;
 
     /// <summary>Somente testes: depois de reduzir a origem no split e antes de gravar o destino.</summary>
     public static Action? TestBeforeSplitDestination { get; set; }
@@ -62,15 +63,9 @@ public static class LotCoverageService
                     LotCoverageRules.QuantityExceedsUntracked,
                     LotCoverageRules.QuantityExceedsUntrackedMessage);
 
-            var lotId = ProductLotService.Receive(conn, tx, new ProductLotReceiveInput
-            {
-                ProductId = product.Id,
-                Quantity = qty,
-                LotNumber = lot,
-                ExpiryDate = expiry,
-                UnitCost = 0,
-                Notes = reason,
-            });
+            var expiryIso = Iso(expiry);
+            // Inserção/merge local: nunca ProductLotService.Receive (compra herda custo/purchase_id).
+            var lotId = InsertOrMergeManualCoverage(conn, tx, product.Id, lot, expiryIso, qty, reason);
 
             var after = ReadSnapshot(conn, tx, product.Id);
             AssertStockUnchanged(snap.Stock, after.Stock);
@@ -80,6 +75,10 @@ public static class LotCoverageService
                     LotCoverageRules.QuantityExceedsUntrackedMessage);
 
             var line = after.Lines.FirstOrDefault(l => l.Id == lotId);
+            if (line is not null && (line.PurchaseId is not null || line.UnitCost > CostKnownThreshold))
+                throw new InvalidOperationException(
+                    "Invariante violado: cobertura manual não pode herdar purchase_id nem unit_cost histórico.");
+
             Audit(conn, tx, LotCoverageRules.ActionAdd, lotId, product.Id, reason, origin,
                 "Cobertura de lote adicionada",
                 new
@@ -88,8 +87,10 @@ public static class LotCoverageService
                     product_id = product.Id,
                     product_lot_id = lotId,
                     quantity = qty,
-                    expiry_date = Iso(expiry),
+                    expiry_date = expiryIso,
                     lot_number = lot,
+                    purchase_id = (int?)null,
+                    unit_cost = 0d,
                     reason,
                     origin,
                     before = (object?)null,
@@ -187,6 +188,7 @@ public static class LotCoverageService
         return InImmediateTransaction((conn, tx) =>
         {
             var row = RequireLotRow(conn, tx, input.ProductLotId);
+            RefuseIfPurchaseOrigin(row, LotCoverageRules.PurchaseOriginQuantityMessage);
             var product = RequireMutableProduct(conn, tx, row.ProductId, forNewCoverage: false);
             var beforeSnap = ReadSnapshot(conn, tx, product.Id);
             var delta = Math.Round(newQty - row.Quantity, 4);
@@ -211,10 +213,14 @@ public static class LotCoverageService
 
             var afterSnap = ReadSnapshot(conn, tx, product.Id);
             AssertStockUnchanged(beforeSnap.Stock, afterSnap.Stock);
-            if (afterSnap.TrackedQuantity > afterSnap.Stock + StockLotConsistencyService.Tolerance)
+            // OverTracked: só recusa se a correção PIORAR o excesso; reduzir tracked é recuperação.
+            if (afterSnap.TrackedQuantity > afterSnap.Stock + StockLotConsistencyService.Tolerance
+                && afterSnap.TrackedQuantity > beforeSnap.TrackedQuantity + StockLotConsistencyService.Tolerance)
+            {
                 throw new LotCoverageException(
                     LotCoverageRules.QuantityExceedsUntracked,
                     LotCoverageRules.QuantityExceedsUntrackedMessage);
+            }
 
             var afterLine = afterSnap.Lines.FirstOrDefault(l => l.Id == row.Id);
             Audit(conn, tx, LotCoverageRules.ActionQuantityCorrect, row.Id, product.Id, reason, origin: "quantity",
@@ -255,6 +261,7 @@ public static class LotCoverageService
         return InImmediateTransaction((conn, tx) =>
         {
             var row = RequireLotRow(conn, tx, input.ProductLotId);
+            RefuseIfPurchaseOrigin(row, LotCoverageRules.PurchaseOriginSplitMessage);
             var product = RequireMutableProduct(conn, tx, row.ProductId, forNewCoverage: false);
             var beforeSnap = ReadSnapshot(conn, tx, product.Id);
             RefuseIfOverTracked(beforeSnap);
@@ -296,11 +303,12 @@ public static class LotCoverageService
                     );
                     SELECT last_insert_rowid();
                     """;
+                // Destino de split manual: sempre origem financeira nula e sem custo histórico.
                 ins.Parameters.AddWithValue("$pid", row.ProductId);
                 ins.Parameters.AddWithValue("$lot", destLot);
                 ins.Parameters.AddWithValue("$exp", destIso);
                 ins.Parameters.AddWithValue("$qty", destQty);
-                ins.Parameters.AddWithValue("$cost", row.UnitCost);
+                ins.Parameters.AddWithValue("$cost", 0d);
                 ins.Parameters.AddWithValue("$notes", reason);
                 destId = Convert.ToInt32(ins.ExecuteScalar());
             }
@@ -347,6 +355,7 @@ public static class LotCoverageService
         return InImmediateTransaction((conn, tx) =>
         {
             var row = RequireLotRow(conn, tx, input.ProductLotId);
+            RefuseIfPurchaseOrigin(row, LotCoverageRules.PurchaseOriginRemoveMessage);
             var product = RequireMutableProduct(conn, tx, row.ProductId, forNewCoverage: false);
             var beforeSnap = ReadSnapshot(conn, tx, product.Id);
 
@@ -436,6 +445,100 @@ public static class LotCoverageService
     {
         if (snap.ConsistencyStatus == LotCoverageConsistencyStatus.OverTracked)
             throw new LotCoverageException(LotCoverageRules.OverTracked, LotCoverageRules.OverTrackedMessage);
+    }
+
+    private static void RefuseIfPurchaseOrigin(LotRow row, string message)
+    {
+        if (row.PurchaseId is not null)
+            throw new LotCoverageException(LotCoverageRules.PurchaseOriginProtected, message);
+    }
+
+    /// <summary>
+    /// Manual mergeável: sem purchase_id e sem custo histórico conhecido.
+    /// Não herda de linha de compra nem de linha com unit_cost &gt; limiar 70B1.
+    /// </summary>
+    private static bool IsManualMergeable(int? purchaseId, double unitCost) =>
+        purchaseId is null && unitCost <= CostKnownThreshold;
+
+    private static int InsertOrMergeManualCoverage(
+        SqliteConnection conn,
+        SqliteTransaction tx,
+        int productId,
+        string lot,
+        string expiryIso,
+        double qty,
+        string notes)
+    {
+        var mergeId = FindManualMergeTarget(conn, tx, productId, lot, expiryIso);
+        if (mergeId is int mid)
+        {
+            using var upd = conn.CreateCommand();
+            upd.Transaction = tx;
+            upd.CommandText = """
+                UPDATE product_lots
+                SET quantity = ROUND(quantity + $qty, 4),
+                    unit_cost = 0,
+                    purchase_id = NULL,
+                    notes = COALESCE($notes, notes)
+                WHERE id = $id
+                  AND purchase_id IS NULL
+                  AND IFNULL(unit_cost,0) <= $thr;
+                """;
+            upd.Parameters.AddWithValue("$qty", qty);
+            upd.Parameters.AddWithValue("$notes", notes);
+            upd.Parameters.AddWithValue("$id", mid);
+            upd.Parameters.AddWithValue("$thr", CostKnownThreshold);
+            if (upd.ExecuteNonQuery() != 1)
+                throw new InvalidOperationException(
+                    "Falha ao consolidar cobertura manual: a linha deixou de ser manual durante a transação.");
+            return mid;
+        }
+
+        using var ins = conn.CreateCommand();
+        ins.Transaction = tx;
+        ins.CommandText = """
+            INSERT INTO product_lots (
+              product_id, lot_number, expiry_date, quantity, purchase_id, unit_cost, notes, created_at
+            ) VALUES (
+              $pid, $lot, $exp, $qty, NULL, 0, $notes, datetime('now','localtime')
+            );
+            SELECT last_insert_rowid();
+            """;
+        ins.Parameters.AddWithValue("$pid", productId);
+        ins.Parameters.AddWithValue("$lot", lot);
+        ins.Parameters.AddWithValue("$exp", expiryIso);
+        ins.Parameters.AddWithValue("$qty", qty);
+        ins.Parameters.AddWithValue("$notes", notes);
+        return Convert.ToInt32(ins.ExecuteScalar());
+    }
+
+    private static int? FindManualMergeTarget(
+        SqliteConnection conn, SqliteTransaction tx, int productId, string lot, string expiryIso)
+    {
+        using var cmd = conn.CreateCommand();
+        cmd.Transaction = tx;
+        cmd.CommandText = """
+            SELECT id, purchase_id, IFNULL(unit_cost,0)
+            FROM product_lots
+            WHERE product_id = $pid
+              AND IFNULL(lot_number,'') = $lot
+              AND IFNULL(expiry_date,'') = IFNULL($exp,'')
+            ORDER BY id ASC;
+            """;
+        cmd.Parameters.AddWithValue("$pid", productId);
+        cmd.Parameters.AddWithValue("$lot", lot);
+        cmd.Parameters.AddWithValue("$exp", string.IsNullOrEmpty(expiryIso) ? DBNull.Value : expiryIso);
+        using var reader = cmd.ExecuteReader();
+        while (reader.Read())
+        {
+            var id = reader.GetInt32(0);
+            int? purchaseId = reader.IsDBNull(1) ? null : reader.GetInt32(1);
+            var unitCost = reader.GetDouble(2);
+            if (IsManualMergeable(purchaseId, unitCost))
+                return id;
+        }
+
+        return null;
     }
 
     private static void AssertStockUnchanged(double before, double after)
@@ -743,6 +846,7 @@ public static class LotCoverageService
                 expiry_date = line.ExpiryDate?.ToString("yyyy-MM-dd"),
                 quantity = line.Quantity,
                 unit_cost = line.UnitCost,
+                purchase_id = line.PurchaseId,
                 traceability = line.Traceability.ToString(),
             };
 }

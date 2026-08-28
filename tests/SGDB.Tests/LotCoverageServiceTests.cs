@@ -731,6 +731,393 @@ public class LotCoverageServiceTests
         Assert.Equal(90, snap.UntrackedQuantity);
     }
 
+    // ---------- 70B3A-B1: origem financeira × cobertura manual ----------
+
+    [Fact]
+    public void B1_AddManual_NaoMergeComCompra_DuasOrigens_ManualNaoLotRecorded()
+    {
+        using var _ = Begin();
+        var id = SeedProduct(50, cost: 4);
+        var purchaseLotId = InsertPurchaseLot(id, qty: 20, lot: "ABC", expiry: ExpA, purchaseId: 123, unitCost: 2);
+        var fridgeBefore = TestDataHelper.GetProductFridge(id);
+
+        var added = Add(id, 30, ExpA, "ABC");
+        var snap = LotCoverageService.GetSnapshot(id);
+
+        Assert.Equal(2, snap.Lines.Count);
+        Assert.NotEqual(purchaseLotId, added.ProductLotId);
+
+        var bought = snap.Lines.Single(l => l.Id == purchaseLotId);
+        Assert.Equal(20, bought.Quantity);
+        Assert.Equal(123, bought.PurchaseId);
+        Assert.Equal(2, bought.UnitCost);
+        Assert.Equal(LotCostSource.LotRecorded, bought.CostSource);
+
+        var manual = snap.Lines.Single(l => l.Id == added.ProductLotId);
+        Assert.Equal(30, manual.Quantity);
+        Assert.Null(manual.PurchaseId);
+        Assert.Equal(0, manual.UnitCost);
+        Assert.Equal(LotCostSource.CurrentAverageEstimate, manual.CostSource);
+        Assert.NotEqual(LotCostSource.LotRecorded, manual.CostSource);
+
+        Assert.Equal(50, TestDataHelper.GetProductStock(id));
+        Assert.Equal(fridgeBefore, TestDataHelper.GetProductFridge(id));
+        Assert.Equal(50, snap.TrackedQuantity);
+    }
+
+    [Fact]
+    public void B1_AddManual_SemprePurchaseIdNull_UnitCostZero()
+    {
+        using var _ = Begin();
+        var id = SeedProduct(100);
+        var result = Add(id, 10, ExpA, "M1");
+        var (purchaseId, unitCost) = GetLotOrigin(result.ProductLotId!.Value);
+        Assert.Null(purchaseId);
+        Assert.Equal(0, unitCost);
+    }
+
+    [Fact]
+    public void B1_DuasManuaisEquivalentes_Consolidam()
+    {
+        using var _ = Begin();
+        var id = SeedProduct(100);
+        var first = Add(id, 20, ExpA, "ABC");
+        var second = Add(id, 15, ExpA, "ABC");
+        Assert.Equal(first.ProductLotId, second.ProductLotId);
+        Assert.Single(second.Snapshot.Lines);
+        Assert.Equal(35, second.Snapshot.TrackedQuantity);
+        var (purchaseId, unitCost) = GetLotOrigin(first.ProductLotId!.Value);
+        Assert.Null(purchaseId);
+        Assert.Equal(0, unitCost);
+    }
+
+    [Fact]
+    public void B1_ManualNaoAbsorveCompra_NemCompraAbsorveManual()
+    {
+        using var _ = Begin();
+        var id = SeedProduct(100);
+        var purchaseLotId = InsertPurchaseLot(id, 20, "ABC", ExpA, 55, 2.5);
+        var manualId = Add(id, 10, ExpA, "ABC").ProductLotId!.Value;
+        Assert.NotEqual(purchaseLotId, manualId);
+
+        // Segunda manual consolida só com a manual, não com a compra.
+        var again = Add(id, 5, ExpA, "ABC");
+        Assert.Equal(manualId, again.ProductLotId);
+        Assert.Equal(2, again.Snapshot.Lines.Count);
+        Assert.Equal(20, GetLotQty(purchaseLotId));
+        Assert.Equal(15, GetLotQty(manualId));
+        Assert.Equal(2.5, GetLotOrigin(purchaseLotId).UnitCost);
+        Assert.Equal(0, GetLotOrigin(manualId).UnitCost);
+    }
+
+    [Fact]
+    public void B1_RemoveManual_Permitido_StockInalterado()
+    {
+        using var _ = Begin();
+        var id = SeedProduct(100);
+        InsertPurchaseLot(id, 20, "BUY", ExpA, 1, 2);
+        var manualId = Add(id, 10, ExpB, "MAN").ProductLotId!.Value;
+        var fridge = TestDataHelper.GetProductFridge(id);
+
+        var result = LotCoverageService.RemoveCoverage(new LotCoverageRemoveInput
+        {
+            ProductLotId = manualId,
+            Reason = "Etiqueta ilegível",
+        });
+
+        Assert.Equal(100, result.Snapshot.Stock);
+        Assert.Equal(20, result.Snapshot.TrackedQuantity);
+        Assert.Equal(100, TestDataHelper.GetProductStock(id));
+        Assert.Equal(fridge, TestDataHelper.GetProductFridge(id));
+    }
+
+    [Fact]
+    public void B1_RemoveLinhaDeCompra_Bloqueado()
+    {
+        using var _ = Begin();
+        var id = SeedProduct(100);
+        var purchaseLotId = InsertPurchaseLot(id, 20, "ABC", ExpA, 9, 2);
+        var ex = Assert.Throws<LotCoverageException>(() =>
+            LotCoverageService.RemoveCoverage(new LotCoverageRemoveInput
+            {
+                ProductLotId = purchaseLotId,
+                Reason = "tentar apagar compra",
+            }));
+        Assert.Equal(LotCoverageRules.PurchaseOriginProtected, ex.ErrorCode);
+        Assert.Equal(20, GetLotQty(purchaseLotId));
+        Assert.Equal(100, TestDataHelper.GetProductStock(id));
+    }
+
+    [Fact]
+    public void B1_SplitManual_Permitido_TotalConstante()
+    {
+        using var _ = Begin();
+        var id = SeedProduct(100);
+        var originId = Add(id, 100, ExpA, "").ProductLotId!.Value;
+        var result = LotCoverageService.SplitCoverage(new LotCoverageSplitInput
+        {
+            ProductLotId = originId,
+            DestinationQuantity = 40,
+            DestinationExpiryDate = ExpB,
+            DestinationLotNumber = "",
+            Reason = "duas validades",
+        });
+        Assert.Equal(100, result.Snapshot.TrackedQuantity);
+        Assert.Equal(100, TestDataHelper.GetProductStock(id));
+        Assert.Null(GetLotOrigin(result.DestinationLotId!.Value).PurchaseId);
+        Assert.Equal(0, GetLotOrigin(result.DestinationLotId!.Value).UnitCost);
+    }
+
+    [Fact]
+    public void B1_SplitLinhaDeCompra_Bloqueado()
+    {
+        using var _ = Begin();
+        var id = SeedProduct(100);
+        var purchaseLotId = InsertPurchaseLot(id, 100, "ABC", ExpA, 11, 2);
+        var ex = Assert.Throws<LotCoverageException>(() =>
+            LotCoverageService.SplitCoverage(new LotCoverageSplitInput
+            {
+                ProductLotId = purchaseLotId,
+                DestinationQuantity = 40,
+                DestinationExpiryDate = ExpB,
+                DestinationLotNumber = "ABC",
+                Reason = "duas validades",
+            }));
+        Assert.Equal(LotCoverageRules.PurchaseOriginProtected, ex.ErrorCode);
+        Assert.Equal(100, GetLotQty(purchaseLotId));
+        Assert.Single(LotCoverageService.GetSnapshot(id).Lines);
+    }
+
+    [Fact]
+    public void B1_EditLinhaDeCompra_PreservaIdPurchaseIdUnitCost_Audit()
+    {
+        using var _ = Begin();
+        var id = SeedProduct(100);
+        var purchaseLotId = InsertPurchaseLot(id, 40, "ABC", ExpA, 77, 2.25);
+        var edited = LotCoverageService.EditCoverage(new LotCoverageEditInput
+        {
+            ProductLotId = purchaseLotId,
+            ExpiryDate = ExpB,
+            LotNumber = "ABC-CORRIGIDO",
+            Reason = "Etiqueta da NF",
+        });
+
+        Assert.Equal(purchaseLotId, edited.ProductLotId);
+        var (purchaseId, unitCost) = GetLotOrigin(purchaseLotId);
+        Assert.Equal(77, purchaseId);
+        Assert.Equal(2.25, unitCost);
+        Assert.Equal("ABC-CORRIGIDO", edited.Snapshot.Lines[0].LotNumber);
+        Assert.Equal(ExpB, edited.Snapshot.Lines[0].ExpiryDate);
+        Assert.Equal(LotCostSource.LotRecorded, edited.Snapshot.Lines[0].CostSource);
+        Assert.Equal(100, TestDataHelper.GetProductStock(id));
+
+        var details = LastAuditDetails(LotCoverageRules.ActionEdit);
+        Assert.True(AuditPayloadBuilder.TryParse(details, out var doc));
+        Assert.Equal(purchaseLotId, doc.Payload.GetProperty("product_lot_id").GetInt32());
+        Assert.Equal("ABC", doc.Payload.GetProperty("before").GetProperty("lot_number").GetString());
+        Assert.Equal("ABC-CORRIGIDO", doc.Payload.GetProperty("after").GetProperty("lot_number").GetString());
+        Assert.Equal(77, doc.Payload.GetProperty("before").GetProperty("purchase_id").GetInt32());
+    }
+
+    [Fact]
+    public void B1_QuantityCorrectionLinhaDeCompra_Bloqueado()
+    {
+        using var _ = Begin();
+        var id = SeedProduct(100);
+        var purchaseLotId = InsertPurchaseLot(id, 100, "ABC", ExpA, 12, 2);
+        var ex = Assert.Throws<LotCoverageException>(() =>
+            LotCoverageService.CorrectQuantity(new LotCoverageQuantityInput
+            {
+                ProductLotId = purchaseLotId,
+                Quantity = 60,
+                Reason = "corrigir cobertura",
+            }));
+        Assert.Equal(LotCoverageRules.PurchaseOriginProtected, ex.ErrorCode);
+        Assert.Equal(100, GetLotQty(purchaseLotId));
+    }
+
+    [Fact]
+    public void B1_CompraReal_AddManualMesmaIdentidade_PurchaseItemLotsIntegro_CancelOk()
+    {
+        using var _ = Begin();
+        var id = SeedProduct(0, code: "B1BUY", name: "B1 COMPRA");
+        var supplierId = SeedSupplier();
+        var purchaseId = PurchaseService.Create(new PurchaseInput
+        {
+            SupplierId = supplierId,
+            EmissionDate = DateTime.Today.ToString("yyyy-MM-dd"),
+            EntryDate = DateTime.Today.ToString("yyyy-MM-dd"),
+            Number = "NF-B1-ORIG",
+            GerarEstoque = true,
+            Items =
+            [
+                new PurchaseItemInput
+                {
+                    ProductId = id,
+                    ProductName = "B1 COMPRA",
+                    Quantity = 50,
+                    UnitPrice = 2,
+                    LotNumber = "ABC",
+                    ExpiryDate = ExpA,
+                },
+            ],
+        }, closeOnSave: true);
+
+        SetStock(id, 80); // sobra física legado
+        var originsBefore = PurchaseService.ListPurchaseItemLots(purchaseId);
+        Assert.Single(originsBefore);
+        var linkedLotId = originsBefore[0].ProductLotId;
+        Assert.NotNull(linkedLotId);
+
+        var manual = Add(id, 30, ExpA, "ABC");
+        Assert.NotEqual(linkedLotId, manual.ProductLotId);
+        Assert.Equal(2, LotCoverageService.GetSnapshot(id).Lines.Count);
+
+        LotCoverageService.EditCoverage(new LotCoverageEditInput
+        {
+            ProductLotId = linkedLotId!.Value,
+            ExpiryDate = ExpA,
+            LotNumber = "ABC-FIX",
+            Reason = "correção etiqueta NF",
+        });
+
+        var originsAfter = PurchaseService.ListPurchaseItemLots(purchaseId);
+        Assert.Single(originsAfter);
+        Assert.Equal(linkedLotId, originsAfter[0].ProductLotId);
+        Assert.Equal(50, GetLotQty(linkedLotId.Value));
+        Assert.Equal(2, GetLotOrigin(linkedLotId.Value).UnitCost);
+        Assert.Equal(purchaseId, GetLotOrigin(linkedLotId.Value).PurchaseId);
+
+        // Cancelamento continua íntegro: stock físico precisa cobrir a compra; lotes manuais não atrapalham DeductExact por ID.
+        SetStock(id, 50);
+        // Remove manual coverage first so tracked purchase lot alone matches cancel deduction (stock already 50).
+        LotCoverageService.RemoveCoverage(new LotCoverageRemoveInput
+        {
+            ProductLotId = manual.ProductLotId!.Value,
+            Reason = "limpar manual antes do cancel",
+        });
+
+        PurchaseService.Cancel(purchaseId);
+        Assert.Equal(0, TestDataHelper.GetProductStock(id));
+        Assert.Equal(0, SumLots(id));
+        // Após DeductExact zerar o lote, ON DELETE SET NULL em purchase_item_lots.product_lot_id.
+        var afterCancel = PurchaseService.ListPurchaseItemLots(purchaseId);
+        Assert.Single(afterCancel);
+        Assert.Equal(50, afterCancel[0].Quantity);
+        Assert.Equal("ABC", afterCancel[0].LotNumber);
+    }
+
+    [Fact]
+    public void B1_NenhumaManutencaoAlteraStockNemFridge()
+    {
+        using var _ = Begin();
+        var id = SeedProduct(100);
+        TestDataHelper.SetProductFridge(id, 7);
+        var fridge = TestDataHelper.GetProductFridge(id);
+        var a = Add(id, 40, ExpA, "A").ProductLotId!.Value;
+        LotCoverageService.EditCoverage(new LotCoverageEditInput
+        {
+            ProductLotId = a, ExpiryDate = ExpB, LotNumber = "A2", Reason = "edit",
+        });
+        LotCoverageService.CorrectQuantity(new LotCoverageQuantityInput
+        {
+            ProductLotId = a, Quantity = 30, Reason = "qty",
+        });
+        var split = LotCoverageService.SplitCoverage(new LotCoverageSplitInput
+        {
+            ProductLotId = a,
+            DestinationQuantity = 10,
+            DestinationExpiryDate = ExpA,
+            DestinationLotNumber = "A3",
+            Reason = "split",
+        });
+        LotCoverageService.RemoveCoverage(new LotCoverageRemoveInput
+        {
+            ProductLotId = split.DestinationLotId!.Value,
+            Reason = "remove",
+        });
+
+        Assert.Equal(100, TestDataHelper.GetProductStock(id));
+        Assert.Equal(fridge, TestDataHelper.GetProductFridge(id));
+    }
+
+    [Fact]
+    public void B1_OverTracked_AumentoRecusado_ReducaoManualPermitida()
+    {
+        using var _ = Begin();
+        var id = SeedProduct(80);
+        var lotId = Add(id, 60, ExpA, "MAN").ProductLotId!.Value;
+        // força overtracked sem passar pelo teto do Add
+        using (var conn = DatabaseService.OpenConnection())
+        using (var cmd = conn.CreateCommand())
+        {
+            cmd.CommandText = "UPDATE product_lots SET quantity = 100 WHERE id = $id;";
+            cmd.Parameters.AddWithValue("$id", lotId);
+            cmd.ExecuteNonQuery();
+        }
+
+        Assert.Equal(LotCoverageConsistencyStatus.OverTracked, LotCoverageService.GetSnapshot(id).ConsistencyStatus);
+
+        var addEx = Assert.Throws<LotCoverageException>(() => Add(id, 1, ExpB, "X"));
+        Assert.Equal(LotCoverageRules.OverTracked, addEx.ErrorCode);
+
+        var worse = Assert.Throws<LotCoverageException>(() =>
+            LotCoverageService.CorrectQuantity(new LotCoverageQuantityInput
+            {
+                ProductLotId = lotId, Quantity = 110, Reason = "piorar",
+            }));
+        Assert.Equal(LotCoverageRules.OverTracked, worse.ErrorCode);
+
+        var reduced = LotCoverageService.CorrectQuantity(new LotCoverageQuantityInput
+        {
+            ProductLotId = lotId, Quantity = 90, Reason = "reduzir excesso",
+        });
+        Assert.Equal(90, reduced.Snapshot.TrackedQuantity);
+        Assert.Equal(LotCoverageConsistencyStatus.OverTracked, reduced.Snapshot.ConsistencyStatus);
+        Assert.Equal(80, TestDataHelper.GetProductStock(id));
+
+        var fixedSnap = LotCoverageService.CorrectQuantity(new LotCoverageQuantityInput
+        {
+            ProductLotId = lotId, Quantity = 70, Reason = "recuperar",
+        });
+        Assert.Equal(70, fixedSnap.Snapshot.TrackedQuantity);
+        Assert.Equal(LotCoverageConsistencyStatus.UnderTracked, fixedSnap.Snapshot.ConsistencyStatus);
+    }
+
+    [Fact]
+    public void B1_EditColisaoComLinhaDeCompra_Recusada()
+    {
+        using var _ = Begin();
+        var id = SeedProduct(100);
+        var purchaseLotId = InsertPurchaseLot(id, 20, "ABC", ExpA, 3, 2);
+        var manualId = Add(id, 10, ExpB, "XYZ").ProductLotId!.Value;
+        var ex = Assert.Throws<LotCoverageException>(() =>
+            LotCoverageService.EditCoverage(new LotCoverageEditInput
+            {
+                ProductLotId = manualId,
+                ExpiryDate = ExpA,
+                LotNumber = "ABC",
+                Reason = "unir com compra",
+            }));
+        Assert.Equal(LotCoverageRules.KeyCollision, ex.ErrorCode);
+        Assert.Equal(20, GetLotQty(purchaseLotId));
+        Assert.Equal(10, GetLotQty(manualId));
+    }
+
+    [Fact]
+    public void B1_AdvogadoDoDiabo_NaoHerdaCustoNemPurchaseId()
+    {
+        using var _ = Begin();
+        var id = SeedProduct(50, cost: 9);
+        InsertPurchaseLot(id, 20, "ABC", ExpA, 99, 2);
+        var manual = Add(id, 30, ExpA, "ABC");
+        var line = LotCoverageService.GetSnapshot(id).Lines.Single(l => l.Id == manual.ProductLotId);
+        Assert.Null(line.PurchaseId);
+        Assert.Equal(0, line.UnitCost);
+        Assert.Equal(LotCostSource.CurrentAverageEstimate, line.CostSource);
+        Assert.Equal(9, line.UsedCost);
+    }
+
     private static LotCoverageMutationResult Add(int productId, double qty, DateTime expiry, string lot) =>
         LotCoverageService.AddCoverage(new LotCoverageAddInput
         {
@@ -739,6 +1126,36 @@ public class LotCoverageServiceTests
             ExpiryDate = expiry,
             LotNumber = lot,
         });
+
+    private static int InsertPurchaseLot(
+        int productId, double qty, string lot, DateTime expiry, int purchaseId, double unitCost)
+    {
+        using var conn = DatabaseService.OpenConnection();
+        using var tx = conn.BeginTransaction();
+        var id = ProductLotService.Receive(conn, tx, new ProductLotReceiveInput
+        {
+            ProductId = productId,
+            Quantity = qty,
+            LotNumber = lot,
+            ExpiryDate = expiry,
+            PurchaseId = purchaseId,
+            UnitCost = unitCost,
+        });
+        tx.Commit();
+        return id;
+    }
+
+    private static (int? PurchaseId, double UnitCost) GetLotOrigin(int lotId)
+    {
+        using var conn = DatabaseService.OpenConnection();
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText = "SELECT purchase_id, IFNULL(unit_cost,0) FROM product_lots WHERE id = $id;";
+        cmd.Parameters.AddWithValue("$id", lotId);
+        using var reader = cmd.ExecuteReader();
+        Assert.True(reader.Read());
+        int? purchaseId = reader.IsDBNull(0) ? null : reader.GetInt32(0);
+        return (purchaseId, reader.GetDouble(1));
+    }
 
     private static int SeedProduct(double stock, double cost = 2, string? code = null, string? name = null)
     {
