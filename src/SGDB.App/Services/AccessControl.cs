@@ -49,6 +49,12 @@ public static class AccessControl
             || role.Equals("gestor", StringComparison.OrdinalIgnoreCase);
     }
 
+    /// <summary>
+    /// 70B3A-B — mutação de cobertura validade/lote: Administrador ou Gestor pelo perfil.
+    /// Vendedor não muta mesmo com RelatoriosAcesso (consulta continua na UI futura).
+    /// </summary>
+    public static bool CanMutateLotCoverage() => CanAccessLegacyMergeCleanup();
+
     public static bool CanAccessModule(string moduleId)
     {
         if (string.IsNullOrWhiteSpace(moduleId) || moduleId == "home")

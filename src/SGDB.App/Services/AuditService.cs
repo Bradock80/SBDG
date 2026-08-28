@@ -43,6 +43,34 @@ public static class AuditService
     public static void LogJson(string action, string entity, string? entityId, object payload, string summary) =>
         Log(action, entity, entityId, AuditPayloadBuilder.Serialize(summary, payload));
 
+    /// <summary>
+    /// Auditoria na mesma transação da operação. Se a inserção falhar, a mutação deve dar rollback.
+    /// Não engole exceção — diferente de <see cref="Log"/>, que nunca derruba o fluxo principal.
+    /// </summary>
+    public static void LogJson(
+        SqliteConnection conn,
+        SqliteTransaction tx,
+        string action,
+        string entity,
+        string? entityId,
+        object payload,
+        string summary)
+    {
+        using var cmd = conn.CreateCommand();
+        cmd.Transaction = tx;
+        cmd.CommandText = """
+            INSERT INTO audit_log (user_login, user_name, action, entity, entity_id, details)
+            VALUES ($login, $nome, $action, $entity, $eid, $details);
+            """;
+        cmd.Parameters.AddWithValue("$login", AppSession.UserLogin);
+        cmd.Parameters.AddWithValue("$nome", AppSession.CurrentUser?.Nome ?? "Sistema");
+        cmd.Parameters.AddWithValue("$action", (action ?? "").Trim());
+        cmd.Parameters.AddWithValue("$entity", (entity ?? "").Trim());
+        cmd.Parameters.AddWithValue("$eid", (object?)entityId?.Trim() ?? DBNull.Value);
+        cmd.Parameters.AddWithValue("$details", AuditPayloadBuilder.Serialize(summary, payload));
+        cmd.ExecuteNonQuery();
+    }
+
     public static int Count(AuditQuery query)
     {
         using var conn = DatabaseService.OpenConnection();
