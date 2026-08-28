@@ -481,6 +481,13 @@ public static class StockService
             throw new InvalidOperationException(
                 $"Quantidade ({quantity:N3}) maior que o depósito ({row.Stock:N3}).");
 
+        // 70I — impede "lavar" quantidade que só poderia vir de vencidos para a geladeira.
+        // Não cria rastreamento falso na geladeira; lotes do depósito não são movidos.
+        ExpirySaleGuard.EnsureWarehouseSellable(
+            conn, tx, productId, quantity,
+            errorCodeOverride: ExpirySaleRules.TransferInsufficientNonExpired,
+            messageOverride: ExpirySaleRules.TransferInsufficientNonExpiredMessage);
+
         using (var upd = conn.CreateCommand())
         {
             upd.Transaction = tx;
@@ -578,7 +585,10 @@ public static class StockService
         };
     }
 
-    /// <summary>Baixa de venda: geladeira primeiro; resto do depósito. Opcional por produto.</summary>
+    /// <summary>
+    /// Baixa de venda: geladeira primeiro; resto do depósito. Opcional por produto.
+    /// 70I: valida somente fromWh (não a linha inteira) e FEFO de venda ignora vencidos.
+    /// </summary>
     public static void ApplySaleDeduction(
         SqliteConnection conn, SqliteTransaction tx, int productId, double qty,
         string? notes = null, string? refType = null, int? refId = null)
@@ -599,6 +609,11 @@ public static class StockService
             fromWh = Math.Round(qty - fromFridge, 4);
         }
 
+        // 70I — barreira compartilhada (PDV / Deck / Swap / Troca).
+        // Valida apenas a parcela de depósito; geladeira não tem prova de vencimento.
+        if (fromWh > 0.0001)
+            ExpirySaleGuard.EnsureWarehouseSellable(conn, tx, productId, fromWh);
+
         using var upd = conn.CreateCommand();
         upd.Transaction = tx;
         upd.CommandText = """
@@ -612,9 +627,9 @@ public static class StockService
         upd.Parameters.AddWithValue("$id", productId);
         upd.ExecuteNonQuery();
 
-        // FEFO: baixa lotes do depósito (geladeira não tem lote separado)
+        // FEFO de venda 70I: nunca consome lote comprovadamente vencido.
         if (fromWh > 0.0001)
-            ProductLotService.DeductFefo(conn, tx, productId, fromWh);
+            ProductLotService.DeductFefoForSale(conn, tx, productId, fromWh);
 
         var stockAfter = Round4(stockBefore - qty);
         InsertMovement(conn, tx, productId, "saida", qty, row.CostPrice,

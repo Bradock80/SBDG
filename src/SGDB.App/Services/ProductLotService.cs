@@ -94,26 +94,55 @@ public static class ProductLotService
         return Convert.ToInt32(ins.ExecuteScalar());
     }
 
-    /// <summary>Baixa FEFO: lotes com validade mais próxima primeiro; sem validade por último.</summary>
+    /// <summary>
+    /// Baixa FEFO em product_lots.
+    /// <paramref name="skipExpired"/>=true (venda 70I): nunca consome expiry_date &lt; hoje;
+    /// ordem = válidos datados ASC, depois sem validade, id ASC.
+    /// Default false preserva callers legados/testes que ainda usam a ordem histórica
+    /// (validade mais próxima, inclusive vencida).
+    /// </summary>
     public static void DeductFefo(
-        SqliteConnection conn, SqliteTransaction tx, int productId, double qty)
+        SqliteConnection conn, SqliteTransaction tx, int productId, double qty,
+        bool skipExpired = false)
     {
         qty = Math.Round(Math.Abs(qty), 4);
         if (productId <= 0 || qty < 0.0001)
             return;
 
+        var todayIso = DateTime.Today.ToString("yyyy-MM-dd");
         var lots = new List<(int Id, double Qty)>();
         using (var cmd = conn.CreateCommand())
         {
             cmd.Transaction = tx;
-            cmd.CommandText = """
-                SELECT id, quantity FROM product_lots
-                WHERE product_id = $pid AND quantity > 0.0001
-                ORDER BY
-                  CASE WHEN expiry_date IS NULL OR TRIM(expiry_date)='' THEN 1 ELSE 0 END,
-                  expiry_date ASC,
-                  id ASC;
-                """;
+            if (skipExpired)
+            {
+                // Venda normal 70I: ignora comprovadamente vencidos.
+                cmd.CommandText = """
+                    SELECT id, quantity FROM product_lots
+                    WHERE product_id = $pid
+                      AND quantity > 0.0001
+                      AND (
+                        expiry_date IS NULL OR TRIM(expiry_date) = ''
+                        OR expiry_date >= $today
+                      )
+                    ORDER BY
+                      CASE WHEN expiry_date IS NULL OR TRIM(expiry_date)='' THEN 1 ELSE 0 END,
+                      expiry_date ASC,
+                      id ASC;
+                    """;
+                cmd.Parameters.AddWithValue("$today", todayIso);
+            }
+            else
+            {
+                cmd.CommandText = """
+                    SELECT id, quantity FROM product_lots
+                    WHERE product_id = $pid AND quantity > 0.0001
+                    ORDER BY
+                      CASE WHEN expiry_date IS NULL OR TRIM(expiry_date)='' THEN 1 ELSE 0 END,
+                      expiry_date ASC,
+                      id ASC;
+                    """;
+            }
             cmd.Parameters.AddWithValue("$pid", productId);
             using var reader = cmd.ExecuteReader();
             while (reader.Read())
@@ -144,6 +173,11 @@ public static class ProductLotService
         }
         // Se ainda sobrar (estoque legado sem lote), não cria lote negativo — só baixa o stock.
     }
+
+    /// <summary>70I — FEFO de venda: nunca consome lote comprovadamente vencido.</summary>
+    public static void DeductFefoForSale(
+        SqliteConnection conn, SqliteTransaction tx, int productId, double qty)
+        => DeductFefo(conn, tx, productId, qty, skipExpired: true);
 
     /// <summary>
     /// Baixa quantidade exata de um lote físico. Não usa FEFO e não recorre a outro lote.
