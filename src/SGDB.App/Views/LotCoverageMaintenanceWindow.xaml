@@ -1,0 +1,91 @@
+<Window x:Class="SGDB.Views.LotCoverageMaintenanceWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:models="clr-namespace:SGDB.Models"
+        Title="Manutenção de validade e lote"
+        Width="960" Height="620"
+        MinWidth="820" MinHeight="480"
+        WindowStartupLocation="CenterOwner"
+        ResizeMode="CanResizeWithGrip"
+        Background="{StaticResource SgdbBgBrush}"
+        FontFamily="Segoe UI, Tahoma"
+        PreviewKeyDown="Window_PreviewKeyDown"
+        Loaded="Window_Loaded">
+    <Grid Margin="14">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <TextBlock Text="Manutenção de validade e lote"
+                   FontSize="15" FontWeight="SemiBold" Foreground="#1E293B"
+                   Margin="0,0,0,8"/>
+
+        <Border Grid.Row="1" Padding="12,10" Margin="0,0,0,8" Background="#F8FAFC"
+                BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="4">
+            <StackPanel>
+                <TextBlock x:Name="HeaderText" FontSize="13" Foreground="#0F172A"
+                           TextWrapping="Wrap"/>
+                <TextBlock FontSize="11" Foreground="#64748B" Margin="0,6,0,0" TextWrapping="Wrap"
+                           Text="{x:Static models:LotCoverageUi.FridgeDisclaimer}"/>
+            </StackPanel>
+        </Border>
+
+        <Border Grid.Row="2" Padding="10,8" Margin="0,0,0,8" Background="#FFFBEB"
+                BorderBrush="#FDE68A" BorderThickness="1" CornerRadius="4"
+                x:Name="StatusBanner" Visibility="Collapsed">
+            <StackPanel>
+                <TextBlock x:Name="StatusTitle" FontSize="12.5" FontWeight="SemiBold"
+                           Foreground="#92400E"/>
+                <TextBlock x:Name="StatusHint" FontSize="12" Foreground="#78350F"
+                           TextWrapping="Wrap" Margin="0,2,0,0"/>
+            </StackPanel>
+        </Border>
+
+        <DataGrid x:Name="Grid" Grid.Row="3"
+                  AutoGenerateColumns="False" IsReadOnly="True"
+                  CanUserAddRows="False" CanUserDeleteRows="False"
+                  HeadersVisibility="Column" GridLinesVisibility="Horizontal"
+                  HorizontalGridLinesBrush="#E2E8F0" BorderBrush="#E2E8F0" BorderThickness="1"
+                  Background="White" RowHeaderWidth="0" RowHeight="32" FontSize="12.5"
+                  AlternatingRowBackground="#F8FAFC"
+                  SelectionChanged="Grid_SelectionChanged">
+            <DataGrid.Columns>
+                <DataGridTextColumn Header="Quantidade" Binding="{Binding QtyDisplay}" Width="90"/>
+                <DataGridTextColumn Header="Validade" Binding="{Binding ExpiryDisplay}" Width="100"/>
+                <DataGridTextColumn Header="Lote" Binding="{Binding LotDisplay}" Width="100"/>
+                <DataGridTextColumn Header="Origem" Binding="{Binding OriginDisplay}" Width="140"/>
+                <DataGridTextColumn Header="Custo utilizado" Binding="{Binding CostDisplay}" Width="220"/>
+                <DataGridTextColumn Header="Rastreabilidade" Binding="{Binding TraceabilityDisplay}" Width="*"/>
+            </DataGrid.Columns>
+        </DataGrid>
+
+        <WrapPanel Grid.Row="4" Margin="0,10,0,0">
+            <Button x:Name="AddBtn" Content="Adicionar validade/lote"
+                    Style="{StaticResource SgdbPrimaryButtonStyle}"
+                    Height="32" Padding="12,6" Margin="0,0,8,8" Click="Add_Click"/>
+            <Button x:Name="EditBtn" Content="Editar" Height="32" Padding="12,6" Margin="0,0,8,8"
+                    Click="Edit_Click"/>
+            <Button x:Name="SplitBtn" Content="Dividir" Height="32" Padding="12,6" Margin="0,0,8,8"
+                    Click="Split_Click"/>
+            <Button x:Name="QtyBtn" Content="Corrigir quantidade" Height="32" Padding="12,6" Margin="0,0,8,8"
+                    Click="Quantity_Click"/>
+            <Button x:Name="RemoveBtn" Content="Remover rastreamento" Height="32" Padding="12,6" Margin="0,0,8,8"
+                    Click="Remove_Click"/>
+            <Button Content="Atualizar (F5)" Height="32" Padding="12,6" Margin="8,0,0,8"
+                    Style="{StaticResource SgdbOutlineButtonStyle}" Click="Refresh_Click"/>
+        </WrapPanel>
+
+        <DockPanel Grid.Row="5" Margin="0,12,0,0" LastChildFill="False">
+            <TextBlock x:Name="FooterText" DockPanel.Dock="Left" VerticalAlignment="Center"
+                       FontSize="11.5" Foreground="#64748B" TextWrapping="Wrap" MaxWidth="640"/>
+            <Button DockPanel.Dock="Right" Content="Fechar (Esc)"
+                    Style="{StaticResource SgdbPrimaryButtonStyle}"
+                    Padding="16,8" IsCancel="True" Click="Close_Click"/>
+        </DockPanel>
+    </Grid>
+</Window>

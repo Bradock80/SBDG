@@ -112,6 +112,28 @@ public partial class LotExpiryModuleView : UserControl
         Load();
     }
 
+    private void OpenMaintain_Click(object sender, RoutedEventArgs e) => OpenMaintain();
+
+    private void OpenMaintain()
+    {
+        if (Grid.SelectedItem is not ValidityControlRow row || row.ProductId <= 0)
+        {
+            MessageBox.Show(
+                LotCoverageUi.SelectProductHint,
+                "Controle de Validades",
+                MessageBoxButton.OK,
+                MessageBoxImage.Information);
+            return;
+        }
+
+        var win = new LotCoverageMaintenanceWindow(row.ProductId)
+        {
+            Owner = Window.GetWindow(this),
+        };
+        win.ShowDialog();
+        Load();
+    }
+
     private void OpenProduct()
     {
         if (Grid.SelectedItem is not ValidityControlRow row || row.ProductId <= 0)

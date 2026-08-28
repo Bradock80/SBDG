@@ -53,8 +53,12 @@
                             Height="32" Padding="12,6" Margin="0,0,8,0" Click="Refresh_Click"/>
                     <Button Content="Ver produto" Height="32" Padding="12,6" Margin="0,0,8,0"
                             Click="OpenProduct_Click"/>
-                    <Button Content="Lotes e validades" Height="32" Padding="12,6"
+                    <Button Content="Lotes e validades" Height="32" Padding="12,6" Margin="0,0,8,0"
                             Click="OpenLots_Click"/>
+                    <Button x:Name="MaintainBtn" Content="Manter validade/lote" Height="32" Padding="12,6"
+                            Style="{StaticResource SgdbPrimaryButtonStyle}"
+                            Click="OpenMaintain_Click"
+                            ToolTip="Cadastrar ou corrigir cobertura de validade/lote do produto selecionado"/>
                 </StackPanel>
             </Border>
 
