@@ -214,32 +214,6 @@ public static class SaleExchangeService
                     throw new SaleExchangeException("Para usar Fiado na diferença, a venda precisa ter cliente.");
             }
 
-            // Estoque: devolve
-            foreach (var line in returnLines)
-            {
-                var product = LoadProduct(conn, tx, line.ProductId);
-                if (product is null)
-                    continue;
-                foreach (var (comp, qtyBack) in ProductCompositionService.StockMovementsForSale(product, line.StockRestore))
-                {
-                    StockService.ApplySaleRestore(conn, tx, comp.Id, qtyBack,
-                        notes: "Devolução / troca de venda",
-                        refType: "sale_exchange",
-                        operation: "devolucao_troca");
-                }
-            }
-
-            // Estoque: novos (quantidade física = qty × StockUnitsPerSale)
-            foreach (var (product, _, _, _, _, stockQty, _, _) in newLines)
-            {
-                foreach (var (comp, deduct) in ProductCompositionService.StockMovementsForSale(product, stockQty))
-                {
-                    StockService.ApplySaleDeduction(conn, tx, comp.Id, deduct,
-                        notes: "Troca — novo item",
-                        refType: "sale_exchange");
-                }
-            }
-
             var user = AppSession.CurrentUser;
             int exchangeId;
             using (var ins = conn.CreateCommand())
@@ -267,6 +241,34 @@ public static class SaleExchangeService
                     (object?)(string.IsNullOrWhiteSpace(request.Notes) ? null : request.Notes.Trim()) ?? DBNull.Value);
                 ins.Parameters.AddWithValue("$sid", (object?)cashSessionId ?? DBNull.Value);
                 exchangeId = Convert.ToInt32(ins.ExecuteScalar());
+            }
+
+            // Estoque: devolve (ref_id = sale_exchanges.id; mesma transaction)
+            foreach (var line in returnLines)
+            {
+                var product = LoadProduct(conn, tx, line.ProductId);
+                if (product is null)
+                    continue;
+                foreach (var (comp, qtyBack) in ProductCompositionService.StockMovementsForSale(product, line.StockRestore))
+                {
+                    StockService.ApplySaleRestore(conn, tx, comp.Id, qtyBack,
+                        notes: "Devolução / troca de venda",
+                        refType: "sale_exchange",
+                        refId: exchangeId,
+                        operation: "devolucao_troca");
+                }
+            }
+
+            // Estoque: novos (quantidade física = qty × StockUnitsPerSale)
+            foreach (var (product, _, _, _, _, stockQty, _, _) in newLines)
+            {
+                foreach (var (comp, deduct) in ProductCompositionService.StockMovementsForSale(product, stockQty))
+                {
+                    StockService.ApplySaleDeduction(conn, tx, comp.Id, deduct,
+                        notes: "Troca — novo item",
+                        refType: "sale_exchange",
+                        refId: exchangeId);
+                }
             }
 
             foreach (var line in returnLines)
