@@ -1,6 +1,5 @@
 using System.Collections.ObjectModel;
 using System.ComponentModel;
-using System.Globalization;
 using System.IO;
 using System.Runtime.CompilerServices;
 using System.Windows;
@@ -92,7 +91,7 @@ public sealed class PurchaseItemDraft : INotifyPropertyChanged
 
     public string QuantityDisplay
     {
-        get => Quantity.ToString("N2");
+        get => ProductPriceHelper.FormatBr(Quantity);
         set
         {
             var q = ProductPriceHelper.ParseBr(value);
@@ -115,7 +114,7 @@ public sealed class PurchaseItemDraft : INotifyPropertyChanged
 
     public string UnitPriceDisplay
     {
-        get => UnitPrice.ToString("N2");
+        get => ProductPriceHelper.FormatBr(UnitPrice);
         set
         {
             var p = ProductPriceHelper.ParseBr(value);
@@ -131,19 +130,19 @@ public sealed class PurchaseItemDraft : INotifyPropertyChanged
         }
     }
 
-    public string SubtotalDisplay => Subtotal.ToString("N2");
-    public string PrevCostDisplay => PrevCost.ToString("N2");
-    public string SuggestedPriceDisplay => SuggestedPrice.ToString("N2");
+    public string SubtotalDisplay => ProductPriceHelper.FormatBr(Subtotal);
+    public string PrevCostDisplay => ProductPriceHelper.FormatBr(PrevCost);
+    public string SuggestedPriceDisplay => ProductPriceHelper.FormatBr(SuggestedPrice);
 
     public string MarginDisplay
     {
-        get => Margin.ToString("N2");
+        get => ProductPriceHelper.FormatBr(Margin);
         set => ApplyMarginPercent(ProductPriceHelper.ParseBr(value));
     }
 
     public string SalePriceDisplay
     {
-        get => SalePrice.ToString("N2");
+        get => ProductPriceHelper.FormatBr(SalePrice);
         set => ApplySalePrice(ProductPriceHelper.ParseBr(value), asOperatorEdit: true);
     }
 

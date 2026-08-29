@@ -1,4 +1,3 @@
-using System.Globalization;
 using SGDB.Services;
 using SGDB.Utils;
 
@@ -54,8 +53,8 @@ public sealed class ProductLotListRow
     public static string FormatQty(double qty)
     {
         if (Math.Abs(qty - Math.Round(qty)) < 0.0001)
-            return Math.Round(qty).ToString("N0", CultureInfo.CurrentCulture);
-        return qty.ToString("N3", CultureInfo.CurrentCulture);
+            return Math.Round(qty).ToString("N0", ProductPriceHelper.Br);
+        return qty.ToString("N3", ProductPriceHelper.Br);
     }
 
     private static string FormatCreated(string? raw)

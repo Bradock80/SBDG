@@ -105,6 +105,30 @@ public class PdvSalePaymentMovementsCharacterizationTests
         Assert.Equal($"VENDA PDV #{sale.SaleId} — Pix R$ 60,00", movs[1].Description);
     }
 
+    [Fact]
+    public void Finalize_DescricaoMonetaria_EstavelQuandoRunnerEnUs()
+    {
+        using var _ = TempDatabase.Create();
+        using var culture = new CultureScope("en-US");
+        OpenCash();
+        var pid = SeedProduct(100);
+
+        var sale = Finalize(
+            pid, qty: 10, unit: 10,
+            parts:
+            [
+                new PdvPaymentPart { PaymentType = "Dinheiro", Amount = 40 },
+                new PdvPaymentPart { PaymentType = "Pix", Amount = 60 },
+            ],
+            cashReceived: 0);
+
+        var movs = LoadMovements(sale.SaleId);
+        Assert.Equal($"VENDA PDV #{sale.SaleId} — Dinheiro R$ 40,00", movs[0].Description);
+        Assert.Equal($"VENDA PDV #{sale.SaleId} — Pix R$ 60,00", movs[1].Description);
+        Assert.DoesNotContain("40.00", movs[0].Description);
+        Assert.DoesNotContain("60.00", movs[1].Description);
+    }
+
     // ── 5. Finalize Dinheiro + Fiado ─────────────────────────────────
 
     [Fact]

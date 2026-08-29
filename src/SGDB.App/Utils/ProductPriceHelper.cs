@@ -6,8 +6,15 @@ namespace SGDB.Utils;
 
 public static class ProductPriceHelper
 {
+    /// <summary>Cultura da UI brasileira (dinheiro/quantidade). Independente do Windows/CI.</summary>
+    public static CultureInfo Br { get; } = CultureInfo.GetCultureInfo("pt-BR");
+
     public static string FormatBr(double value) =>
-        value.ToString("N2", CultureInfo.CurrentCulture);
+        value.ToString("N2", Br);
+
+    /// <summary>Dois decimais pt-BR sem agrupamento (40,00). Textos de caixa/cupom.</summary>
+    public static string FormatFixed2(double value) =>
+        value.ToString("F2", Br);
 
     /// <summary>Valor monetário com prefixo R$ (ex.: R$ 1.234,56).</summary>
     public static string MoneyBr(double value) =>
@@ -34,18 +41,41 @@ public static class ProductPriceHelper
         double stockNow, double costNow, double qtyOut, double costOut) =>
         ProductPriceCalculator.RemoveFromWeightedAverage(stockNow, costNow, qtyOut, costOut);
 
+    /// <summary>
+    /// Interpreta valor digitado na UI brasileira.
+    /// Não usa CurrentCulture: em en-US, NumberStyles.Any trata vírgula como milhar
+    /// e "5,50" vira 550. Separador decimal = o último ',' ou '.'.
+    /// </summary>
     public static double ParseBr(string? text)
     {
         if (string.IsNullOrWhiteSpace(text))
             return 0;
         text = text.Trim()
             .Replace("R$", "", StringComparison.OrdinalIgnoreCase)
+            .Replace("\u00A0", "")
             .Replace(" ", "");
-        if (double.TryParse(text, NumberStyles.Any, CultureInfo.CurrentCulture, out var value))
-            return value;
-        if (double.TryParse(text.Replace(',', '.'), NumberStyles.Any, CultureInfo.InvariantCulture, out value))
-            return value;
-        return 0;
+
+        var lastComma = text.LastIndexOf(',');
+        var lastDot = text.LastIndexOf('.');
+        string normalized;
+        if (lastComma >= 0 && lastDot >= 0)
+        {
+            normalized = lastComma > lastDot
+                ? text.Replace(".", "").Replace(',', '.')
+                : text.Replace(",", "");
+        }
+        else if (lastComma >= 0)
+        {
+            normalized = text.Replace(',', '.');
+        }
+        else
+        {
+            normalized = text;
+        }
+
+        return double.TryParse(normalized, NumberStyles.Number, CultureInfo.InvariantCulture, out var value)
+            ? value
+            : 0;
     }
 
     public static double RoundPrice(double value) =>
