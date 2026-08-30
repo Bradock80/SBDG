@@ -252,6 +252,7 @@ public class StoreNetworkClientGuardTests
         Assert.True(StoreNetworkMode.IsModuleBlockedOnClient("estoque_inventario"));
         Assert.True(StoreNetworkMode.IsModuleBlockedOnClient("contas_bancarias"));
         Assert.True(StoreNetworkMode.IsModuleBlockedOnClient("relatorio_dre"));
+        Assert.True(StoreNetworkMode.IsModuleBlockedOnClient("estoque_inteligente"));
         Assert.True(StoreNetworkMode.IsModuleBlockedOnClient("usuarios"));
         Assert.Equal(
             ApplicationLoginService.LocalUserAdministrationMessage,
