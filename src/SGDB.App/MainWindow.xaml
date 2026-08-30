@@ -114,6 +114,8 @@
                 </MenuItem>
                 <MenuItem Header="Relatórios">
                     <MenuItem Header="Curva ABC / Giro" Tag="estoque_curva_abc" Click="MenuModule_Click"/>
+                    <MenuItem Header="Estoque Inteligente" Tag="estoque_inteligente" Click="MenuModule_Click"
+                              ToolTip="Cobertura, movimentação e alertas de estoque"/>
                     <Separator/>
                     <MenuItem Header="Mais vendidos" Tag="estoque_mais_vendidos" Click="MenuModule_Click"/>
                     <MenuItem Header="Menos vendidos" Tag="estoque_menos_vendidos" Click="MenuModule_Click"/>

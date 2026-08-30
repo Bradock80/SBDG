@@ -801,6 +801,14 @@ public partial class MainWindow : Window
             UpdateToolbarHighlight();
             return;
         }
+        if (moduleId == "estoque_inteligente")
+        {
+            var view = new InventoryIntelligenceModuleView();
+            view.CloseRequested += (_, _) => ShowHome();
+            MainContent.Content = view;
+            UpdateToolbarHighlight();
+            return;
+        }
 
         if (moduleId == "pdv")
         {
