@@ -1,0 +1,241 @@
+<UserControl x:Class="SGDB.Views.InventoryIntelligenceModuleView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:models="clr-namespace:SGDB.Models"
+             Background="{StaticResource SgdbBgBrush}"
+             Focusable="True"
+             PreviewKeyDown="Root_PreviewKeyDown">
+    <Border BorderBrush="#C8C4BC" BorderThickness="1" Background="White">
+        <Grid>
+            <Grid x:Name="ContentRoot">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="*"/>
+                    <RowDefinition Height="Auto"/>
+                </Grid.RowDefinitions>
+
+                <Border Grid.Row="0" Padding="10,6" Background="#F0F0F0"
+                        BorderBrush="#C8C4BC" BorderThickness="0,0,0,1">
+                    <Grid>
+                        <StackPanel VerticalAlignment="Center">
+                            <TextBlock Text="Estoque Inteligente"
+                                       FontWeight="SemiBold" FontSize="13" Foreground="#1E293B"/>
+                            <TextBlock Text="Cobertura, movimentação e alertas de estoque"
+                                       FontSize="11" Foreground="#64748B" Margin="0,1,0,0"/>
+                        </StackPanel>
+                        <Button Style="{StaticResource ModuleTabCloseStyle}"
+                                HorizontalAlignment="Right" VerticalAlignment="Center"
+                                Click="Close_Click"/>
+                    </Grid>
+                </Border>
+
+                <WrapPanel x:Name="CardsPanel" Grid.Row="1" Margin="10,8,10,4"/>
+
+                <Border Grid.Row="2" Padding="12,8" Background="#F8FAFC" BorderBrush="#E2E8F0"
+                        BorderThickness="0,1,0,1">
+                    <WrapPanel VerticalAlignment="Center">
+                        <TextBlock Text="Buscar produto ou código" VerticalAlignment="Center"
+                                   Margin="0,0,8,4" FontSize="12" Foreground="#64748B"/>
+                        <TextBox x:Name="SearchBox" Width="220" Height="32" Padding="8,0"
+                                 VerticalContentAlignment="Center" Margin="0,0,12,4"
+                                 TextChanged="SearchBox_TextChanged"/>
+                        <TextBlock Text="Cobertura" VerticalAlignment="Center" Margin="0,0,8,4"
+                                   FontSize="12" Foreground="#64748B"/>
+                        <ComboBox x:Name="CoverageBox" Width="160" Height="32" Margin="0,0,12,4"
+                                  SelectionChanged="Filter_Changed"/>
+                        <CheckBox x:Name="Silence30Box" Content="Sem venda 30+" VerticalAlignment="Center"
+                                  Margin="0,0,12,4" Checked="ExtraFilter_Changed" Unchecked="ExtraFilter_Changed"/>
+                        <CheckBox x:Name="Silence60Box" Content="Sem venda 60+" VerticalAlignment="Center"
+                                  Margin="0,0,12,4" Checked="ExtraFilter_Changed" Unchecked="ExtraFilter_Changed"/>
+                        <CheckBox x:Name="Silence90Box" Content="Sem venda 90+" VerticalAlignment="Center"
+                                  Margin="0,0,12,4" Checked="ExtraFilter_Changed" Unchecked="ExtraFilter_Changed"/>
+                        <CheckBox x:Name="HistoryBox" Content="Histórico insuficiente" VerticalAlignment="Center"
+                                  Margin="0,0,12,4" Checked="ExtraFilter_Changed" Unchecked="ExtraFilter_Changed"/>
+                        <Button Content="Atualizar (F5)" Style="{StaticResource SgdbPrimaryButtonStyle}"
+                                Height="32" Padding="12,6" Margin="0,0,8,4" Click="Refresh_Click"/>
+                        <Button Content="Limpar filtros" Height="32" Padding="12,6" Margin="0,0,8,4"
+                                Click="ClearFilters_Click"/>
+                        <Button x:Name="BtnOpenProduct" Content="Ver produto" Height="32" Padding="12,6" Margin="0,0,8,4"
+                                Click="OpenProduct_Click"/>
+                        <Button Content="Lotes e validades" Height="32" Padding="12,6" Margin="0,0,8,4"
+                                Click="OpenLots_Click"/>
+                    </WrapPanel>
+                </Border>
+
+                <StackPanel Grid.Row="3" Margin="12,4,12,0">
+                    <TextBlock FontSize="11" Foreground="#64748B" TextWrapping="Wrap"
+                               Text="Clique no card para filtrar. Os filtros se combinam. Duplo clique abre o cadastro."/>
+                </StackPanel>
+
+                <Grid Grid.Row="4" Margin="10">
+                    <DataGrid x:Name="Grid"
+                              AutoGenerateColumns="False" IsReadOnly="True"
+                              CanUserAddRows="False" CanUserSortColumns="True"
+                              HeadersVisibility="Column"
+                              GridLinesVisibility="Horizontal" HorizontalGridLinesBrush="#E2E8F0"
+                              BorderBrush="#C8C4BC" BorderThickness="1" Background="White"
+                              RowHeaderWidth="0" RowHeight="32" FontSize="12.5"
+                              AlternatingRowBackground="#F8FAFC"
+                              EnableRowVirtualization="True"
+                              EnableColumnVirtualization="False"
+                              VirtualizingPanel.IsVirtualizing="True"
+                              VirtualizingPanel.VirtualizationMode="Recycling"
+                              VirtualizingPanel.ScrollUnit="Pixel"
+                              MouseDoubleClick="Grid_MouseDoubleClick"
+                              SelectionChanged="Grid_SelectionChanged">
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Header="Produto" Binding="{Binding Name}" Width="*"/>
+                            <DataGridTextColumn Header="Código" Binding="{Binding Code}" Width="80"/>
+                            <DataGridTextColumn Header="Depósito" Binding="{Binding StockDisplay}" Width="80">
+                                <DataGridTextColumn.ElementStyle>
+                                    <Style TargetType="TextBlock">
+                                        <Setter Property="TextAlignment" Value="Right"/>
+                                        <Setter Property="VerticalAlignment" Value="Center"/>
+                                    </Style>
+                                </DataGridTextColumn.ElementStyle>
+                            </DataGridTextColumn>
+                            <DataGridTextColumn Header="Geladeira" Binding="{Binding StockFridgeDisplay}" Width="80">
+                                <DataGridTextColumn.ElementStyle>
+                                    <Style TargetType="TextBlock">
+                                        <Setter Property="TextAlignment" Value="Right"/>
+                                        <Setter Property="VerticalAlignment" Value="Center"/>
+                                    </Style>
+                                </DataGridTextColumn.ElementStyle>
+                            </DataGridTextColumn>
+                            <DataGridTextColumn Header="Total" Binding="{Binding TotalStockDisplay}" Width="80">
+                                <DataGridTextColumn.ElementStyle>
+                                    <Style TargetType="TextBlock">
+                                        <Setter Property="TextAlignment" Value="Right"/>
+                                        <Setter Property="VerticalAlignment" Value="Center"/>
+                                    </Style>
+                                </DataGridTextColumn.ElementStyle>
+                            </DataGridTextColumn>
+                            <DataGridTextColumn Header="VMV 30" Binding="{Binding Vmv30Display}" Width="80">
+                                <DataGridTextColumn.ElementStyle>
+                                    <Style TargetType="TextBlock">
+                                        <Setter Property="TextAlignment" Value="Right"/>
+                                        <Setter Property="VerticalAlignment" Value="Center"/>
+                                    </Style>
+                                </DataGridTextColumn.ElementStyle>
+                            </DataGridTextColumn>
+                            <DataGridTextColumn Header="Cobertura" Binding="{Binding CoverageDisplay}" Width="80">
+                                <DataGridTextColumn.ElementStyle>
+                                    <Style TargetType="TextBlock">
+                                        <Setter Property="TextAlignment" Value="Right"/>
+                                        <Setter Property="VerticalAlignment" Value="Center"/>
+                                    </Style>
+                                </DataGridTextColumn.ElementStyle>
+                            </DataGridTextColumn>
+                            <DataGridTextColumn Header="Última venda" Binding="{Binding LastSaleDisplay}" Width="100"/>
+                            <DataGridTextColumn Header="Dias sem venda" Binding="{Binding DaysWithoutSaleDisplay}" Width="110">
+                                <DataGridTextColumn.ElementStyle>
+                                    <Style TargetType="TextBlock">
+                                        <Setter Property="TextAlignment" Value="Right"/>
+                                        <Setter Property="VerticalAlignment" Value="Center"/>
+                                    </Style>
+                                </DataGridTextColumn.ElementStyle>
+                            </DataGridTextColumn>
+                            <DataGridTemplateColumn Header="Situação" Width="190">
+                                <DataGridTemplateColumn.CellTemplate>
+                                    <DataTemplate>
+                                        <Border CornerRadius="8" Padding="8,2" HorizontalAlignment="Left" Margin="2,0">
+                                            <Border.Style>
+                                                <Style TargetType="Border">
+                                                    <Setter Property="Background" Value="#F1F5F9"/>
+                                                    <Setter Property="BorderBrush" Value="#CBD5E1"/>
+                                                    <Setter Property="BorderThickness" Value="1"/>
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding Tone}" Value="expired">
+                                                            <Setter Property="Background" Value="#7F1D1D"/>
+                                                            <Setter Property="BorderBrush" Value="#7F1D1D"/>
+                                                        </DataTrigger>
+                                                        <DataTrigger Binding="{Binding Tone}" Value="alert">
+                                                            <Setter Property="Background" Value="#FEE2E2"/>
+                                                            <Setter Property="BorderBrush" Value="#FECACA"/>
+                                                        </DataTrigger>
+                                                        <DataTrigger Binding="{Binding Tone}" Value="attention">
+                                                            <Setter Property="Background" Value="#FEF3C7"/>
+                                                            <Setter Property="BorderBrush" Value="#FDE68A"/>
+                                                        </DataTrigger>
+                                                        <DataTrigger Binding="{Binding Tone}" Value="notice">
+                                                            <Setter Property="Background" Value="#FEF9C3"/>
+                                                            <Setter Property="BorderBrush" Value="#FDE68A"/>
+                                                        </DataTrigger>
+                                                        <DataTrigger Binding="{Binding Tone}" Value="info">
+                                                            <Setter Property="Background" Value="#E0F2FE"/>
+                                                            <Setter Property="BorderBrush" Value="#BAE6FD"/>
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </Border.Style>
+                                            <TextBlock Text="{Binding SituationDisplay}" FontSize="11" FontWeight="SemiBold">
+                                                <TextBlock.Style>
+                                                    <Style TargetType="TextBlock">
+                                                        <Setter Property="Foreground" Value="#334155"/>
+                                                        <Style.Triggers>
+                                                            <DataTrigger Binding="{Binding Tone}" Value="expired">
+                                                                <Setter Property="Foreground" Value="White"/>
+                                                            </DataTrigger>
+                                                            <DataTrigger Binding="{Binding Tone}" Value="alert">
+                                                                <Setter Property="Foreground" Value="#991B1B"/>
+                                                            </DataTrigger>
+                                                            <DataTrigger Binding="{Binding Tone}" Value="attention">
+                                                                <Setter Property="Foreground" Value="#92400E"/>
+                                                            </DataTrigger>
+                                                            <DataTrigger Binding="{Binding Tone}" Value="notice">
+                                                                <Setter Property="Foreground" Value="#854D0E"/>
+                                                            </DataTrigger>
+                                                            <DataTrigger Binding="{Binding Tone}" Value="info">
+                                                                <Setter Property="Foreground" Value="#075985"/>
+                                                            </DataTrigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </TextBlock.Style>
+                                            </TextBlock>
+                                        </Border>
+                                    </DataTemplate>
+                                </DataGridTemplateColumn.CellTemplate>
+                            </DataGridTemplateColumn>
+                            <DataGridTextColumn Header="Alerta" Binding="{Binding AlertDisplay}" Width="170"/>
+                            <DataGridTextColumn Header="Histórico" Binding="{Binding HistoryDisplay}" Width="90"/>
+                        </DataGrid.Columns>
+                    </DataGrid>
+                    <Border x:Name="EmptyOverlay" Background="#CCFFFFFF" Visibility="Collapsed"
+                            IsHitTestVisible="False">
+                        <TextBlock x:Name="EmptyText" Text="{x:Static models:InventoryIntelligencePresentation.EmptySnapshotMessage}"
+                                   HorizontalAlignment="Center" VerticalAlignment="Center"
+                                   FontSize="13" Foreground="#64748B" TextWrapping="Wrap"
+                                   TextAlignment="Center" Margin="24"/>
+                    </Border>
+                </Grid>
+
+                <Border Grid.Row="5" Padding="12,8" Background="#F8FAFC" BorderBrush="#C8C4BC"
+                        BorderThickness="0,1,0,0">
+                    <StackPanel>
+                        <TextBlock x:Name="DetailText" FontSize="11" Foreground="#475569" TextWrapping="Wrap"
+                                   Text="Selecione uma linha para ver o detalhe."/>
+                        <TextBlock x:Name="MetaText" FontSize="12" Foreground="#334155" TextWrapping="Wrap"
+                                   Margin="0,4,0,0"/>
+                        <TextBlock FontSize="11" Foreground="#64748B" TextWrapping="Wrap" Margin="0,6,0,0"
+                                   Text="{x:Static models:InventoryIntelligencePresentation.CoverageDisclaimer}"
+                                   ToolTip="{x:Static models:InventoryIntelligencePresentation.CompositionDisclaimer}"/>
+                        <TextBlock FontSize="11" Foreground="#64748B" TextWrapping="Wrap" Margin="0,2,0,0"
+                                   Text="{x:Static models:InventoryIntelligencePresentation.CompositionDisclaimer}"/>
+                    </StackPanel>
+                </Border>
+            </Grid>
+
+            <Border x:Name="ClientBlockOverlay" Background="#F8FAFC" Visibility="Collapsed">
+                <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" MaxWidth="520" Margin="24">
+                    <TextBlock Text="Estoque Inteligente" FontWeight="SemiBold" FontSize="14"
+                               Foreground="#1E293B" TextAlignment="Center"/>
+                    <TextBlock x:Name="ClientBlockText" Margin="0,12,0,0" FontSize="13"
+                               Foreground="#475569" TextWrapping="Wrap" TextAlignment="Center"/>
+                </StackPanel>
+            </Border>
+        </Grid>
+    </Border>
+</UserControl>
