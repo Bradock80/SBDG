@@ -1265,20 +1265,20 @@ public static class PdvService
             if (IsFiado(part.PaymentType))
             {
                 var desc = string.IsNullOrWhiteSpace(customerName)
-                    ? $"{descPrefix} — FIADO R$ {part.Amount:F2}"
-                    : $"{descPrefix} — FIADO R$ {part.Amount:F2} — {customerName}";
+                    ? $"{descPrefix} — FIADO R$ {ProductPriceHelper.FormatFixed2(part.Amount)}"
+                    : $"{descPrefix} — FIADO R$ {ProductPriceHelper.FormatFixed2(part.Amount)} — {customerName}";
                 CashService.AddSalePaymentMovement(conn, tx, saleDate, saleId, CashMovementKind.VendaFiado,
                     desc, part.PaymentType, part.Amount, customerName, affectsBalance: false);
             }
             else
             {
                 var desc = parts.Count > 1
-                    ? $"{descPrefix} — {part.PaymentType} R$ {part.Amount:F2}"
+                    ? $"{descPrefix} — {part.PaymentType} R$ {ProductPriceHelper.FormatFixed2(part.Amount)}"
                     : $"{descPrefix} — {part.PaymentType}";
                 string? movNotes = null;
                 if (hasTroco && i == firstCashIndex)
                 {
-                    desc = $"{desc} (recebido R$ {cashReceived:F2}, troco R$ {changeAmount:F2})";
+                    desc = $"{desc} (recebido R$ {ProductPriceHelper.FormatFixed2(cashReceived!.Value)}, troco R$ {ProductPriceHelper.FormatFixed2(changeAmount)})";
                     movNotes =
                         $"{{\"cash_received\":{cashReceived!.Value.ToString(System.Globalization.CultureInfo.InvariantCulture)},\"change\":{changeAmount.ToString(System.Globalization.CultureInfo.InvariantCulture)}}}";
                 }
