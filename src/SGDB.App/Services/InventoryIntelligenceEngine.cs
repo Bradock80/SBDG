@@ -3,7 +3,8 @@ using SGDB.Models;
 namespace SGDB.Services;
 
 /// <summary>
-/// Regras puras do giro físico 70C-B1/B1R. Sem I/O.
+/// Regras puras do giro físico 70C-B1 e classificações derivadas 70C-B2. Sem I/O.
+/// VMV/cobertura oficial não mudam. Não classifica "baixo giro".
 /// </summary>
 public static class InventoryIntelligenceEngine
 {
@@ -12,9 +13,15 @@ public static class InventoryIntelligenceEngine
 
     /// <summary>
     /// Limiar de LowCoverage alinhado aos filtros futuros &lt;= 15.
-    /// Não é recomendação de compra.
+    /// Não é recomendação de compra. CoverageDays &gt; 15 também não é baixo giro.
     /// </summary>
     public const double LowCoverageDaysThreshold = 15;
+
+    /// <summary>Faixa crítica / estoque insuficiente (cobertura calculável ≤ 3).</summary>
+    public const double CoverageCriticalDays = 3;
+
+    /// <summary>Teto da faixa baixa de cobertura (3 &lt; dias ≤ 7).</summary>
+    public const double CoverageLowDays = 7;
 
     public const int Window7 = 7;
     public const int Window30 = 30;
@@ -183,6 +190,87 @@ public static class InventoryIntelligenceEngine
         return (InventoryCoverageState.Calculable, days);
     }
 
+    /// <summary>
+    /// Faixa derivada. Não altera CoverageDays. Normal (&gt; 15) não é baixo giro.
+    /// </summary>
+    public static InventoryCoverageBand ClassifyCoverageBand(
+        InventoryCoverageState state, double? coverageDays)
+    {
+        switch (state)
+        {
+            case InventoryCoverageState.NegativeStock:
+                return InventoryCoverageBand.Negative;
+            case InventoryCoverageState.ZeroStock:
+                return InventoryCoverageBand.Zero;
+            case InventoryCoverageState.Calculable:
+                if (coverageDays is not double days || !IsFinite(days) || days < 0)
+                    return InventoryCoverageBand.NotCalculable;
+                if (days <= CoverageCriticalDays + Epsilon)
+                    return InventoryCoverageBand.Critical;
+                if (days <= CoverageLowDays + Epsilon)
+                    return InventoryCoverageBand.Low;
+                if (days <= LowCoverageDaysThreshold + Epsilon)
+                    return InventoryCoverageBand.Attention;
+                return InventoryCoverageBand.Normal;
+            default:
+                return InventoryCoverageBand.NotCalculable;
+        }
+    }
+
+    /// <summary>
+    /// Estoque insuficiente ≡ faixa Critical (estoque &gt; 0 e cobertura ≤ 3).
+    /// Distinto de estoque zerado.
+    /// </summary>
+    public static bool ClassifyInsufficientStock(InventoryCoverageBand band) =>
+        band == InventoryCoverageBand.Critical;
+
+    public static bool ClassifyZeroStockWithTurnover(double totalStock, double vmv30)
+    {
+        if (!IsFinite(totalStock) || !IsFinite(vmv30))
+            return false;
+        if (Math.Abs(totalStock) > Epsilon)
+            return false;
+        return vmv30 > Epsilon;
+    }
+
+    public static bool ClassifyUnobservedSale(
+        bool hasPhysicalAvailabilityEvidence,
+        DateTime? lastValidSaleDate,
+        bool isCompositionProduct) =>
+        hasPhysicalAvailabilityEvidence && lastValidSaleDate is null && !isCompositionProduct;
+
+    public static bool ClassifyLocationStockAnomaly(double stock, double stockFridge)
+    {
+        var warehouse = IsFinite(stock) ? stock : 0;
+        var fridge = IsFinite(stockFridge) ? stockFridge : 0;
+        return warehouse < -Epsilon || fridge < -Epsilon;
+    }
+
+    /// <summary>
+    /// Parado. SKU de kit não entra: a demanda física está nos componentes.
+    /// Cadastro sem evidência física não entra.
+    /// </summary>
+    public static bool ClassifyIdle(
+        bool hasPhysicalAvailabilityEvidence,
+        int historyDays,
+        double totalStock,
+        DateTime? lastValidSaleDate,
+        int? daysWithoutSale,
+        bool isCompositionProduct)
+    {
+        if (isCompositionProduct)
+            return false;
+        if (!hasPhysicalAvailabilityEvidence)
+            return false;
+        if (historyDays < Window90)
+            return false;
+        if (!IsFinite(totalStock) || totalStock <= Epsilon)
+            return false;
+        if (lastValidSaleDate is null)
+            return true;
+        return (daysWithoutSale ?? 0) >= Window90;
+    }
+
     public static DateTime? LastValidSaleDate(IReadOnlyList<DailyFlow> daily)
     {
         DateTime? last = null;
@@ -233,7 +321,8 @@ public static class InventoryIntelligenceEngine
         double stockFridge,
         DateTime today,
         LifeStartDecision life,
-        IReadOnlyList<DailyFlow> daily)
+        IReadOnlyList<DailyFlow> daily,
+        bool isCompositionProduct = false)
     {
         today = today.Date;
         var history = HistoryDays(today, life.StartDate);
@@ -256,6 +345,8 @@ public static class InventoryIntelligenceEngine
         var lastSale = LastValidSaleDate(daily);
         var daysWithout = DaysWithoutSale(today, lastSale);
         var situation = ClassifySituation(covState, lastSale, history, covDays);
+        var band = ClassifyCoverageBand(covState, covDays);
+        var hasEvidence = life.HasPhysicalAvailabilityEvidence;
 
         return new ProductTurnoverRow
         {
@@ -270,13 +361,21 @@ public static class InventoryIntelligenceEngine
             Vmv90 = vmv90,
             CoverageDays = covDays,
             CoverageState = covState,
+            CoverageBand = band,
+            IsInsufficientStock = ClassifyInsufficientStock(band),
+            IsZeroStockWithTurnover = ClassifyZeroStockWithTurnover(totalStock, vmv30),
+            HasUnobservedSale = ClassifyUnobservedSale(hasEvidence, lastSale, isCompositionProduct),
+            IsIdle = ClassifyIdle(
+                hasEvidence, history, totalStock, lastSale, daysWithout, isCompositionProduct),
+            HasLocationStockAnomaly = ClassifyLocationStockAnomaly(stock, stockFridge),
+            IsCompositionProduct = isCompositionProduct,
             LastValidSaleDate = lastSale,
             DaysWithoutSale = daysWithout,
             HistoryDays = history,
             IsHistoryInsufficient7 = history < Window7,
             IsHistoryInsufficient30 = history < Window30,
             IsHistoryInsufficient90 = history < Window90,
-            HasPhysicalAvailabilityEvidence = life.HasPhysicalAvailabilityEvidence,
+            HasPhysicalAvailabilityEvidence = hasEvidence,
             Situation = situation,
         };
     }
