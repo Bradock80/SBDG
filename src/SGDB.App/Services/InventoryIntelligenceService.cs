@@ -6,8 +6,9 @@ using SGDB.Utils;
 namespace SGDB.Services;
 
 /// <summary>
-/// Motor analítico 70C-B1/B1R — VMV físico, cobertura comercial, última venda.
-/// Sem UI. Sem ABC. Sem schema/índice novo.
+/// Motor analítico 70C-B1/B2 — VMV físico, cobertura comercial, última venda
+/// e classificações derivadas em memória (faixa, silêncio, parado, anomalia local).
+/// Sem UI. Sem ABC. Sem schema/índice novo. QueryCount constante = 6.
 ///
 /// Fonte física preferencial: movements ligados a venda/troca/swap
 /// (ref_type/operation/ref_id). Nunca SUM cru de saídas.
@@ -146,7 +147,8 @@ public static class InventoryIntelligenceService
             }
 
             rows.Add(InventoryIntelligenceEngine.BuildRow(
-                p.Id, p.Code, p.Name, p.Stock, p.StockFridge, day, life, flows));
+                p.Id, p.Code, p.Name, p.Stock, p.StockFridge, day, life, flows,
+                isCompositionProduct: p.IsComposition));
         }
 
         rows.Sort((a, b) =>
@@ -192,7 +194,7 @@ public static class InventoryIntelligenceService
     }
 
     private readonly record struct ProductSeed(
-        int Id, string Code, string Name, double Stock, double StockFridge, DateTime? CreatedAt);
+        int Id, string Code, string Name, double Stock, double StockFridge, DateTime? CreatedAt, bool IsComposition);
 
     private static DateTime? MinDate(DateTime? a, DateTime? b)
     {
@@ -210,7 +212,8 @@ public static class InventoryIntelligenceService
                    IFNULL(name, ''),
                    IFNULL(stock, 0),
                    IFNULL(stock_fridge, 0),
-                   created_at
+                   created_at,
+                   IFNULL(extra_json, '')
             FROM products
             WHERE IFNULL(active, 1) = 1
             ORDER BY id;
@@ -225,7 +228,8 @@ public static class InventoryIntelligenceService
                 reader.GetString(2),
                 reader.GetDouble(3),
                 reader.GetDouble(4),
-                ParseCatalogDate(reader.IsDBNull(5) ? null : reader.GetString(5))));
+                ParseCatalogDate(reader.IsDBNull(5) ? null : reader.GetString(5)),
+                IsCompositionProduct(reader.IsDBNull(6) ? "" : reader.GetString(6))));
         }
         return list;
     }
