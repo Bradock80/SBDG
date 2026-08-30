@@ -16,9 +16,10 @@ namespace SGDB.Services;
 /// Kit no fallback: não conta SKU nem explode composição atual.
 ///
 /// Trocas — por evento (sale_exchanges.id):
+///   Confirm() grava movements.ref_id = sale_exchanges.id nas trocas novas;
 ///   movements com ref_id = exchange.id → fonte física dessa troca;
-///   Confirm() atual NÃO grava ref_id (limitação do PDV, não alterado aqui);
-///   esses movements ficam "não atribuídos" (ref_id NULL) e já entram na série física;
+///   histórico legado pode continuar com ref_id NULL (sem backfill heurístico);
+///   esses movements NULL ficam "não atribuídos" e já entram na série física;
 ///   fallback tabular da troca E / produto P só se:
 ///     não existe movement.ref_id = E.id
 ///     E não existe movement sale_exchange com ref_id NULL para o produto P.
@@ -422,9 +423,9 @@ public static class InventoryIntelligenceService
 
     /// <summary>
     /// Fallback tabular por evento. Não é global.
-    /// Chave segura: sale_exchanges.id = movements.ref_id quando gravado.
-    /// Confirm() atual deixa ref_id NULL — esses movements já entram na série física;
-    /// o fallback do mesmo produto é omitido para não duplicar.
+    /// Chave segura: sale_exchanges.id = movements.ref_id nas trocas novas.
+    /// Histórico legado pode ter ref_id NULL — esses movements já entram na série física;
+    /// o fallback do mesmo produto é omitido para não duplicar. Sem backfill heurístico.
     /// </summary>
     private static List<PhysicalEvent> LoadExchangeTableFallback(
         SqliteConnection conn,
