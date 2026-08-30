@@ -87,7 +87,7 @@
                               MouseDoubleClick="Grid_MouseDoubleClick"
                               SelectionChanged="Grid_SelectionChanged">
                         <DataGrid.Columns>
-                            <DataGridTextColumn Header="Produto" Binding="{Binding Name}" Width="*"/>
+                            <DataGridTextColumn Header="Produto" Binding="{Binding Name}" Width="*" MinWidth="220"/>
                             <DataGridTextColumn Header="Código" Binding="{Binding Code}" Width="80"/>
                             <DataGridTextColumn Header="Depósito" Binding="{Binding StockDisplay}" Width="80">
                                 <DataGridTextColumn.ElementStyle>
