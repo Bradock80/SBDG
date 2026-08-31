@@ -63,6 +63,24 @@ public class InventoryProjectionEngineReviewTests
     }
 
     [Fact]
+    public void Invalid_expiry_text_does_not_block_sku()
+    {
+        var lot = new InventoryProjectionLotInput
+        {
+            LotId = 1,
+            Quantity = 40,
+            HasInvalidExpiryText = true,
+        };
+        var result = InventoryProjectionEngine.Project(Allowed(50, 1, lots: lot));
+        Assert.True(result.CanProjectSku);
+        Assert.False(result.CanProjectExpiry);
+        Assert.Equal(
+            InventoryExpiryProjectionBlockedReason.InvalidExpiryDate,
+            result.ExpiryBlockedReason);
+        Assert.Empty(result.Lots);
+    }
+
+    [Fact]
     public void Invalid_cost_never_blocks_quantity()
     {
         var result = InventoryProjectionEngine.Project(Allowed(

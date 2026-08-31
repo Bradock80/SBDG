@@ -33,6 +33,10 @@ public enum InventoryExpiryProjectionBlockedReason
     DuplicateLotId,
     InvalidLotQuantity,
     TrackedQuantityExceedsWarehouse,
+    /// <summary>
+    /// Texto de validade não vazio fora de yyyy-MM-dd. Não é Undated.
+    /// </summary>
+    InvalidExpiryDate,
 }
 
 /// <summary>
@@ -57,6 +61,12 @@ public sealed class InventoryProjectionLotInput
     public double Quantity { get; init; }
     public DateTime? ExpiryDate { get; init; }
     public double? UnitCost { get; init; }
+
+    /// <summary>
+    /// Validade persistida com texto não vazio inválido. Não usar ExpiryDate = null
+    /// para esse caso: null significa sem validade (Undated).
+    /// </summary>
+    public bool HasInvalidExpiryText { get; init; }
 }
 
 /// <summary>Pedido puro de projeção. Todos os campos vêm do chamador.</summary>

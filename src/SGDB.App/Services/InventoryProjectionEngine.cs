@@ -54,7 +54,8 @@ public static class InventoryProjectionEngine
             && request.FridgeStock > InventoryIntelligenceEngine.Epsilon;
 
         var lots = ClassifyLots(request.Lots, today);
-        if (expiryReason == InventoryExpiryProjectionBlockedReason.DuplicateLotId)
+        if (expiryReason is InventoryExpiryProjectionBlockedReason.DuplicateLotId
+            or InventoryExpiryProjectionBlockedReason.InvalidExpiryDate)
             lots = [];
         else if (expiryReason == InventoryExpiryProjectionBlockedReason.None)
             FillSurplus(lots, today, request.Vmv30);
@@ -129,6 +130,8 @@ public static class InventoryProjectionEngine
             return InventoryExpiryProjectionBlockedReason.DuplicateLotId;
         if (HasInvalidLotQuantity(request.Lots))
             return InventoryExpiryProjectionBlockedReason.InvalidLotQuantity;
+        if (HasInvalidExpiryText(request.Lots))
+            return InventoryExpiryProjectionBlockedReason.InvalidExpiryDate;
         var tracked = SumPositiveLots(request.Lots);
         if (InventoryIntelligenceEngine.IsFinite(request.WarehouseStock)
             && tracked > request.WarehouseStock + InventoryIntelligenceEngine.Epsilon)
@@ -207,6 +210,16 @@ public static class InventoryProjectionEngine
         {
             if (!InventoryIntelligenceEngine.IsFinite(lot.Quantity)
                 || lot.Quantity < -InventoryIntelligenceEngine.Epsilon)
+                return true;
+        }
+        return false;
+    }
+
+    static bool HasInvalidExpiryText(IReadOnlyList<InventoryProjectionLotInput> lots)
+    {
+        foreach (var lot in lots)
+        {
+            if (lot.HasInvalidExpiryText)
                 return true;
         }
         return false;
