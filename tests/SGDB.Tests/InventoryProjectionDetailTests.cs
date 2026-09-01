@@ -417,12 +417,8 @@ public class InventoryProjectionDetailTests
         var detail = ReadModel("InventoryProjectionDetail.cs");
         Assert.DoesNotContain("ConsumeDatedFefo", detail, StringComparison.Ordinal);
         Assert.DoesNotContain("DateTime.Today", detail, StringComparison.Ordinal);
-
-        var view = ReadSource("src", "SGDB.App", "Views", "InventoryIntelligenceModuleView.xaml");
-        var viewCs = ReadSource("src", "SGDB.App", "Views", "InventoryIntelligenceModuleView.xaml.cs");
-        Assert.DoesNotContain("Detalhar projeção", view, StringComparison.OrdinalIgnoreCase);
-        Assert.DoesNotContain("InventoryProjectionDetail", viewCs, StringComparison.Ordinal);
-        Assert.DoesNotContain("InventoryProjectionWindow", viewCs, StringComparison.Ordinal);
+        Assert.DoesNotContain("System.Windows", detail, StringComparison.Ordinal);
+        Assert.DoesNotContain("InventoryProjectionDetailWindow", detail, StringComparison.Ordinal);
     }
 
     private static string ReadModel(string fileName) =>

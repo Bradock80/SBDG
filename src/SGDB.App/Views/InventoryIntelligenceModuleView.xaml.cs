@@ -136,6 +136,31 @@ public partial class InventoryIntelligenceModuleView : UserControl
         win.ShowDialog();
     }
 
+    private void OpenProjectionDetail_Click(object sender, RoutedEventArgs e)
+    {
+        if (_clientBlocked)
+            return;
+        if (Grid.SelectedItem is not InventoryIntelligenceProjectionGridRow row || row.ProductId <= 0)
+            return;
+
+        var detail = InventoryProjectionDetail.TryCreate(_snapshot, _presented, row.ProductId);
+        if (detail is null)
+        {
+            MessageBox.Show(
+                InventoryProjectionDetailUi.UnavailableDetailMessage,
+                "Estoque Inteligente",
+                MessageBoxButton.OK,
+                MessageBoxImage.Information);
+            return;
+        }
+
+        var win = new InventoryProjectionDetailWindow(detail)
+        {
+            Owner = Window.GetWindow(this),
+        };
+        win.ShowDialog();
+    }
+
     private void OpenProduct()
     {
         if (Grid.SelectedItem is not InventoryIntelligenceProjectionGridRow row || row.ProductId <= 0)
@@ -190,6 +215,7 @@ public partial class InventoryIntelligenceModuleView : UserControl
                 Grid.Items.SortDescriptions.Clear();
                 ShowEmpty(_loadError);
                 DetailText.Text = "Selecione uma linha para ver o detalhe.";
+                BtnDetailProjection.IsEnabled = false;
                 MetaText.Text = failure.Value.OperatorMessage;
             }
         }
@@ -255,12 +281,14 @@ public partial class InventoryIntelligenceModuleView : UserControl
 
     private void UpdateDetail()
     {
-        if (Grid.SelectedItem is not InventoryIntelligenceProjectionGridRow row)
+        if (Grid.SelectedItem is not InventoryIntelligenceProjectionGridRow row || row.ProductId <= 0)
         {
             DetailText.Text = "Selecione uma linha para ver o detalhe.";
+            BtnDetailProjection.IsEnabled = false;
             return;
         }
 
+        BtnDetailProjection.IsEnabled = !_clientBlocked;
         var giro = row.Intelligence;
         DetailText.Text =
             $"{giro.Name} · {giro.Code} · Depósito {giro.StockDisplay} · Geladeira {giro.StockFridgeDisplay} · " +

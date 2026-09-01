@@ -62,6 +62,9 @@
                                 Click="OpenProduct_Click"/>
                         <Button Content="Lotes e validades" Height="32" Padding="12,6" Margin="0,0,8,4"
                                 Click="OpenLots_Click"/>
+                        <Button x:Name="BtnDetailProjection" Content="Detalhar projeção"
+                                Height="32" Padding="12,6" Margin="0,0,8,4"
+                                IsEnabled="False" Click="OpenProjectionDetail_Click"/>
                     </WrapPanel>
                 </Border>
 
