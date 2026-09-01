@@ -10,12 +10,23 @@ public sealed class InventoryProjectedLotCost
     public LotCostSource CostSource { get; init; }
 }
 
+/// <summary>
+/// Número comercial do lote, paralelo ao motor. LotId continua a identidade técnica.
+/// Não é localização.
+/// </summary>
+public sealed class InventoryProjectedLotIdentity
+{
+    public int LotId { get; init; }
+    public string? LotNumber { get; init; }
+}
+
 /// <summary>Projeção de um produto ativo da 70C + origem de custo por lote.</summary>
 public sealed class InventoryProjectedProduct
 {
     public int ProductId { get; init; }
     public InventoryProjectionResult Projection { get; init; } = new();
     public IReadOnlyList<InventoryProjectedLotCost> LotCosts { get; init; } = [];
+    public IReadOnlyList<InventoryProjectedLotIdentity> LotIdentities { get; init; } = [];
 }
 
 /// <summary>

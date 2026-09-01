@@ -269,6 +269,9 @@ public class InventoryProjectionServiceTests
         var item = Require(snap, id);
         Assert.Equal(2, item.Projection.Lots.Count);
         Assert.Equal(2, item.LotCosts.Count);
+        Assert.Equal(2, item.LotIdentities.Count);
+        var numbers = item.LotIdentities.Select(l => l.LotNumber).OrderBy(n => n).ToArray();
+        Assert.Equal(new[] { "A", "B" }, numbers);
     }
 
     [Fact]
@@ -518,6 +521,34 @@ public class InventoryProjectionServiceTests
     }
 
     [Fact]
+    public void Lot_number_is_loaded_beside_lot_id_from_the_same_query()
+    {
+        using var db = Begin();
+        var today = DateTime.Today;
+        var id = SeedEligible(today, "LN", 40, 4);
+        var lotId = InsertLot(id, 40, today.AddDays(10).ToString("yyyy-MM-dd"), 5, "ABC-99");
+        var item = Require(InventoryProjectionService.Load(today), id);
+        var identity = Assert.Single(item.LotIdentities);
+        Assert.Equal(lotId, identity.LotId);
+        Assert.Equal("ABC-99", identity.LotNumber);
+        Assert.NotEqual(identity.LotId.ToString(), identity.LotNumber);
+        Assert.Equal(7, InventoryProjectionService.Load(today).QueryCount);
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData("   ")]
+    public void Empty_or_spaces_lot_number_is_kept_without_inventing(string lotNumber)
+    {
+        using var db = Begin();
+        var today = DateTime.Today;
+        var id = SeedEligible(today, "LNE", 40, 4);
+        InsertLot(id, 40, today.AddDays(10).ToString("yyyy-MM-dd"), 5, lotNumber);
+        var identity = Assert.Single(Require(InventoryProjectionService.Load(today), id).LotIdentities);
+        Assert.Equal(lotNumber, identity.LotNumber);
+    }
+
+    [Fact]
     public void Service_source_does_not_call_get_by_product_id()
     {
         var path = Path.Combine(
@@ -531,9 +562,25 @@ public class InventoryProjectionServiceTests
         Assert.True(File.Exists(path), path);
         var source = File.ReadAllText(path);
         Assert.DoesNotContain("GetByProductId", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("ListByProduct", source, StringComparison.Ordinal);
         Assert.DoesNotContain("DateTime.Now", source, StringComparison.Ordinal);
         Assert.DoesNotContain("DateTime.UtcNow", source, StringComparison.Ordinal);
         Assert.DoesNotContain("DateTime.Today", source, StringComparison.Ordinal);
+        Assert.Contains("l.lot_number", source, StringComparison.Ordinal);
+        Assert.Equal(1, CountOccurrences(source, "FROM product_lots"));
+        Assert.Contains("ExpectedLotsQueryCount = 1", source, StringComparison.Ordinal);
+    }
+
+    static int CountOccurrences(string text, string value)
+    {
+        var count = 0;
+        var idx = 0;
+        while ((idx = text.IndexOf(value, idx, StringComparison.Ordinal)) >= 0)
+        {
+            count++;
+            idx += value.Length;
+        }
+        return count;
     }
 
     static string FindServiceSource()

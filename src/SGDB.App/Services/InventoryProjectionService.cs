@@ -47,6 +47,7 @@ public static class InventoryProjectionService
     {
         var inputs = new List<InventoryProjectionLotInput>(lots.Count);
         var costs = new List<InventoryProjectedLotCost>(lots.Count);
+        var identities = new List<InventoryProjectedLotIdentity>(lots.Count);
 
         foreach (var lot in lots)
         {
@@ -67,6 +68,11 @@ public static class InventoryProjectionService
                 LotId = lot.Id,
                 UsedCost = cost.UsedCost,
                 CostSource = cost.Source,
+            });
+            identities.Add(new InventoryProjectedLotIdentity
+            {
+                LotId = lot.Id,
+                LotNumber = lot.LotNumber,
             });
         }
 
@@ -90,6 +96,7 @@ public static class InventoryProjectionService
             ProductId = row.ProductId,
             Projection = InventoryProjectionEngine.Project(request),
             LotCosts = costs,
+            LotIdentities = identities,
         };
     }
 
@@ -101,6 +108,7 @@ public static class InventoryProjectionService
             SELECT
                 l.id,
                 l.product_id,
+                l.lot_number,
                 l.quantity,
                 l.expiry_date,
                 l.unit_cost,
@@ -117,10 +125,11 @@ public static class InventoryProjectionService
             var productId = reader.GetInt32(1);
             var lot = new LoadedLot(
                 reader.GetInt32(0),
-                InventoryProjectionLotParser.ReadSqliteNumber(reader.GetValue(2)),
-                reader.IsDBNull(3) ? null : reader.GetString(3),
-                InventoryProjectionLotParser.ReadSqliteNumber(reader.GetValue(4)),
-                InventoryProjectionLotParser.ReadSqliteNumber(reader.GetValue(5)));
+                reader.IsDBNull(2) ? null : reader.GetString(2),
+                InventoryProjectionLotParser.ReadSqliteNumber(reader.GetValue(3)),
+                reader.IsDBNull(4) ? null : reader.GetString(4),
+                InventoryProjectionLotParser.ReadSqliteNumber(reader.GetValue(5)),
+                InventoryProjectionLotParser.ReadSqliteNumber(reader.GetValue(6)));
 
             if (!map.TryGetValue(productId, out var list))
             {
@@ -135,6 +144,7 @@ public static class InventoryProjectionService
 
     readonly record struct LoadedLot(
         int Id,
+        string? LotNumber,
         double Quantity,
         string? ExpiryRaw,
         double UnitCost,

@@ -38,10 +38,12 @@ public enum InventoryProjectionSurplusValueQuality
     Partial,
 }
 
-/// <summary>Lote pronto para o detalhe B5. Sem I/O.</summary>
+/// <summary>Lote pronto para o detalhe B5. Sem I/O. Sem localização.</summary>
 public sealed class InventoryProjectedLotPresentation
 {
     public int LotId { get; init; }
+    public string? LotNumber { get; init; }
+    public string LotNumberDisplay { get; init; } = "";
     public InventoryProjectionLotKind Kind { get; init; }
     public string KindDisplay { get; init; } = "";
     public double Quantity { get; init; }
@@ -51,6 +53,8 @@ public sealed class InventoryProjectedLotPresentation
     public int? DaysUntilExpiry { get; init; }
     public string DaysUntilExpiryDisplay { get; init; } = "";
     public bool AlreadyExpired { get; init; }
+    public double? ProjectedConsumptionUntilExpiry { get; init; }
+    public string ProjectedConsumptionUntilExpiryDisplay { get; init; } = "";
     public double? ProjectedSurplusAtExpiry { get; init; }
     public string SurplusAtExpiryDisplay { get; init; } = "";
     public double? ProjectedSurplusValue { get; init; }
@@ -194,11 +198,12 @@ public static class InventoryProjectionPresentation
         product ??= new InventoryProjectedProduct();
         var projection = product.Projection ?? new InventoryProjectionResult();
         var costs = IndexCostsByLotId(product.LotCosts);
+        var lotNumbers = IndexLotNumbersByLotId(product.LotIdentities);
         var excess = ClassifyExcess(projection);
         var validity = ClassifyValidity(projection);
         var expiryQty = SumExpirySurplusQuantity(projection.Lots);
         var (expiryValue, valueQuality) = ResolveExpirySurplusValue(projection.Lots, costs);
-        var lots = PresentLots(projection.Lots, costs);
+        var lots = PresentLots(projection.Lots, costs, lotNumbers, projection.ExpiryBlockedReason);
         var untracked = projection.UntrackedWarehouseQuantity;
         var hasUntracked = IsPositive(untracked);
         var untrackedAlert = hasUntracked
@@ -439,6 +444,40 @@ public static class InventoryProjectionPresentation
             _ => ("Projeção indisponível", "A projeção de validade não pôde ser calculada."),
         };
 
+    /// <summary>
+    /// Consumo projetado até a validade: Quantity − sobra, só quando o motor já
+    /// calculou sobra de um lote Dated e a validade não está bloqueada.
+    /// Não recalcula FEFO. Ausência permanece null, nunca vira zero.
+    /// </summary>
+    public static double? ProjectedConsumptionUntilExpiry(
+        InventoryProjectionLotKind kind,
+        double quantity,
+        double? projectedSurplusAtExpiry,
+        InventoryExpiryProjectionBlockedReason expiryBlockedReason)
+    {
+        if (expiryBlockedReason != InventoryExpiryProjectionBlockedReason.None)
+            return null;
+        if (kind != InventoryProjectionLotKind.Dated)
+            return null;
+        if (projectedSurplusAtExpiry is not double surplus
+            || !double.IsFinite(surplus)
+            || surplus < 0)
+            return null;
+        if (!double.IsFinite(quantity) || quantity < 0)
+            return null;
+
+        var consumption = quantity - surplus;
+        if (!double.IsFinite(consumption))
+            return null;
+        return Math.Max(0, consumption);
+    }
+
+    public static string FormatLotNumber(string? lotNumber)
+    {
+        var trimmed = (lotNumber ?? "").Trim();
+        return trimmed.Length == 0 ? EmDash : trimmed;
+    }
+
     public static string DemandCaptionFor(int horizonDays) =>
         $"Demanda projetada em {Math.Max(0, horizonDays)} dias";
 
@@ -552,7 +591,9 @@ public static class InventoryProjectionPresentation
 
     static IReadOnlyList<InventoryProjectedLotPresentation> PresentLots(
         IReadOnlyList<InventoryProjectionLotResult>? lots,
-        IReadOnlyDictionary<int, InventoryProjectedLotCost> costs)
+        IReadOnlyDictionary<int, InventoryProjectedLotCost> costs,
+        IReadOnlyDictionary<int, string?> lotNumbers,
+        InventoryExpiryProjectionBlockedReason expiryBlocked)
     {
         if (lots is null || lots.Count == 0)
             return [];
@@ -561,17 +602,26 @@ public static class InventoryProjectionPresentation
         foreach (var lot in lots)
         {
             costs.TryGetValue(lot.LotId, out var cost);
+            lotNumbers.TryGetValue(lot.LotId, out var lotNumber);
             var source = cost?.CostSource ?? LotCostSource.Unavailable;
             var surplusDisplay = FormatCalculatedQty(lot.ProjectedSurplusAtExpiry);
+            var consumption = ProjectedConsumptionUntilExpiry(
+                lot.Kind,
+                lot.Quantity,
+                lot.ProjectedSurplusAtExpiry,
+                expiryBlocked);
             var valueDisplay = lot.ProjectedSurplusValue is double value && double.IsFinite(value)
                 ? source == LotCostSource.CurrentAverageEstimate
                     ? ProductPriceHelper.MoneyBr(value) + SurplusValueEstimatedMarker
                     : ProductPriceHelper.MoneyBr(value)
                 : EmDash;
+            var commercialNumber = string.IsNullOrWhiteSpace(lotNumber) ? null : lotNumber.Trim();
 
             list.Add(new InventoryProjectedLotPresentation
             {
                 LotId = lot.LotId,
+                LotNumber = commercialNumber,
+                LotNumberDisplay = FormatLotNumber(lotNumber),
                 Kind = lot.Kind,
                 KindDisplay = LotKindLabel(lot.Kind),
                 Quantity = lot.Quantity,
@@ -581,6 +631,8 @@ public static class InventoryProjectionPresentation
                 DaysUntilExpiry = lot.DaysUntilExpiry,
                 DaysUntilExpiryDisplay = FormatDays(lot.DaysUntilExpiry),
                 AlreadyExpired = lot.AlreadyExpired,
+                ProjectedConsumptionUntilExpiry = consumption,
+                ProjectedConsumptionUntilExpiryDisplay = FormatCalculatedQty(consumption),
                 ProjectedSurplusAtExpiry = lot.ProjectedSurplusAtExpiry,
                 SurplusAtExpiryDisplay = surplusDisplay,
                 ProjectedSurplusValue = lot.ProjectedSurplusValue,
@@ -612,6 +664,22 @@ public static class InventoryProjectionPresentation
             && expiryShort != skuShort)
             alerts.Add(expiryShort);
         return alerts;
+    }
+
+    static Dictionary<int, string?> IndexLotNumbersByLotId(
+        IReadOnlyList<InventoryProjectedLotIdentity>? identities)
+    {
+        var map = new Dictionary<int, string?>();
+        if (identities is null)
+            return map;
+
+        foreach (var identity in identities)
+        {
+            if (!map.ContainsKey(identity.LotId))
+                map[identity.LotId] = identity.LotNumber;
+        }
+
+        return map;
     }
 
     static Dictionary<int, InventoryProjectedLotCost> IndexCostsByLotId(
