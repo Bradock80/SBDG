@@ -145,7 +145,8 @@ public partial class InventoryIntelligenceModuleView : UserControl
         if (Grid.SelectedItem is not InventoryIntelligenceProjectionGridRow row || row.ProductId <= 0)
             return;
 
-        var detail = InventoryProjectionDetail.TryCreate(_snapshot, _presented, row.ProductId);
+        var detail = InventoryProjectionDetail.TryCreate(
+            _snapshot, _presented, row.ProductId, _attentionPresented);
         if (detail is null)
         {
             MessageBox.Show(
@@ -301,6 +302,7 @@ public partial class InventoryIntelligenceModuleView : UserControl
         BtnDetailProjection.IsEnabled = !_clientBlocked;
         var giro = row.Intelligence;
         DetailText.Text =
+            $"{row.PriorityDisplay} · {row.PrimaryReasonDisplay} · " +
             $"{giro.Name} · {giro.Code} · Depósito {giro.StockDisplay} · Geladeira {giro.StockFridgeDisplay} · " +
             $"Total {giro.TotalStockDisplay} · VMV 30 {giro.Vmv30Display} · Cobertura {giro.CoverageDisplay} · " +
             $"{giro.SituationDisplay} · Alerta {giro.AlertDisplay}.";

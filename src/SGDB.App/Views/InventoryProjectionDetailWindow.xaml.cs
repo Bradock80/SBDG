@@ -23,6 +23,19 @@ public partial class InventoryProjectionDetailWindow : Window
         ProductNameText.Text = name;
         ProductCodeText.Text = $"Código {code}";
 
+        var attention = detail.Attention ?? InventoryAttentionPresentation.MissingRow(
+            detail.Intelligence.ProductId);
+        AttentionPriorityText.Text = attention.PriorityDisplay;
+        AttentionReasonText.Text = attention.PrimaryReasonDisplay;
+        AttentionActionText.Text = attention.ActionDisplay;
+        AttentionConfidenceText.Text = attention.ConfidenceDisplay;
+        AttentionExplanationText.Text = attention.Explanation;
+        if (attention.SecondaryReasonDisplays.Count > 0)
+        {
+            AttentionSecondaryPanel.Visibility = Visibility.Visible;
+            AttentionSecondaryList.ItemsSource = attention.SecondaryReasonDisplays;
+        }
+
         StockText.Text = giro.StockDisplay;
         FridgeText.Text = giro.StockFridgeDisplay;
         TotalText.Text = giro.TotalStockDisplay;

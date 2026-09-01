@@ -27,6 +27,54 @@
                 <TextBlock x:Name="ProductCodeText"
                            FontSize="13" Foreground="#475569" Margin="0,2,0,12"/>
 
+                <Border x:Name="AttentionSection" Padding="12,10" Margin="0,0,0,10" Background="#F8FAFC"
+                        BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="4">
+                    <StackPanel>
+                        <TextBlock Text="ATENÇÃO" FontSize="12" FontWeight="SemiBold" Foreground="#64748B"/>
+                        <WrapPanel Margin="0,8,0,0">
+                            <StackPanel Width="200" Margin="0,0,16,8">
+                                <TextBlock Text="Prioridade" FontSize="11" Foreground="#64748B"/>
+                                <TextBlock x:Name="AttentionPriorityText"
+                                           FontSize="14" FontWeight="SemiBold" Foreground="#0F172A"
+                                           TextWrapping="Wrap"/>
+                            </StackPanel>
+                            <StackPanel Width="280" Margin="0,0,16,8">
+                                <TextBlock Text="Motivo principal" FontSize="11" Foreground="#64748B"/>
+                                <TextBlock x:Name="AttentionReasonText"
+                                           FontSize="14" FontWeight="SemiBold" Foreground="#0F172A"
+                                           TextWrapping="Wrap"/>
+                            </StackPanel>
+                            <StackPanel Width="220" Margin="0,0,16,8">
+                                <TextBlock Text="Ação recomendada" FontSize="11" Foreground="#64748B"/>
+                                <TextBlock x:Name="AttentionActionText"
+                                           FontSize="14" FontWeight="SemiBold" Foreground="#0F172A"
+                                           TextWrapping="Wrap"/>
+                            </StackPanel>
+                            <StackPanel Width="240" Margin="0,0,16,8">
+                                <TextBlock Text="Confiança" FontSize="11" Foreground="#64748B"/>
+                                <TextBlock x:Name="AttentionConfidenceText"
+                                           FontSize="14" FontWeight="SemiBold" Foreground="#0F172A"
+                                           TextWrapping="Wrap"/>
+                            </StackPanel>
+                        </WrapPanel>
+                        <TextBlock Text="Explicação" FontSize="11" Foreground="#64748B" Margin="0,4,0,0"/>
+                        <TextBlock x:Name="AttentionExplanationText"
+                                   FontSize="13" Foreground="#0F172A"
+                                   TextWrapping="Wrap" Margin="0,2,0,0"/>
+                        <StackPanel x:Name="AttentionSecondaryPanel" Margin="0,10,0,0" Visibility="Collapsed">
+                            <TextBlock Text="Outras atenções" FontSize="11" Foreground="#64748B"/>
+                            <ItemsControl x:Name="AttentionSecondaryList" Margin="0,4,0,0">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <TextBlock Text="{Binding}" FontSize="13" Foreground="#0F172A"
+                                                   TextWrapping="Wrap" Margin="0,0,0,4"/>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </StackPanel>
+                    </StackPanel>
+                </Border>
+
                 <Border Padding="12,10" Margin="0,0,0,10" Background="#F8FAFC"
                         BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="4">
                     <StackPanel>

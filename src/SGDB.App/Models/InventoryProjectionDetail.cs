@@ -1,13 +1,15 @@
 namespace SGDB.Models;
 
 /// <summary>
-/// Envelope somente leitura do detalhe de projeção (70D-B5).
-/// Sem I/O, sem recálculo FEFO e sem consulta. A janela futura recebe este objeto.
+/// Envelope somente leitura do detalhe de projeção (70D-B5) com atenção 70E.
+/// Sem I/O, sem recálculo FEFO/70E e sem consulta. A janela recebe este objeto.
 /// </summary>
 public sealed class InventoryProjectionDetail
 {
     public required ProductTurnoverRow Intelligence { get; init; }
     public required InventoryProjectedProductPresentation Projection { get; init; }
+    public InventoryAttentionPresentationRow Attention { get; init; } =
+        InventoryAttentionPresentation.MissingRow();
 
     public IReadOnlyList<InventoryProjectedLotPresentation> Lots => Projection.Lots;
     public IReadOnlyList<string> Alerts => Projection.Alerts;
@@ -25,7 +27,8 @@ public sealed class InventoryProjectionDetail
     public static InventoryProjectionDetail? TryCreate(
         InventoryProjectionSnapshot? snapshot,
         InventoryProjectionPresentationSnapshot? presented,
-        int productId)
+        int productId,
+        InventoryAttentionPresentationSnapshot? attention = null)
     {
         if (productId <= 0 || snapshot?.Intelligence.Rows is null)
             return null;
@@ -56,6 +59,7 @@ public sealed class InventoryProjectionDetail
         {
             Intelligence = intelligence,
             Projection = projection,
+            Attention = InventoryAttentionPresentation.ResolveForDetail(attention, productId),
         };
     }
 }

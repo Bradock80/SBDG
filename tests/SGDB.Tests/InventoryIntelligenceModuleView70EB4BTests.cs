@@ -138,14 +138,16 @@ public class InventoryIntelligenceModuleView70EB4BTests
         var detail = MethodBody(cs, "private void UpdateDetail()");
         Assert.Contains("giro.SituationDisplay", detail, StringComparison.Ordinal);
         Assert.Contains("giro.AlertDisplay", detail, StringComparison.Ordinal);
-        Assert.DoesNotContain("PriorityDisplay", detail, StringComparison.Ordinal);
-        Assert.DoesNotContain("PrimaryReasonDisplay", detail, StringComparison.Ordinal);
+        Assert.Contains("row.PriorityDisplay", detail, StringComparison.Ordinal);
+        Assert.Contains("row.PrimaryReasonDisplay", detail, StringComparison.Ordinal);
         Assert.DoesNotContain("ActionDisplay", detail, StringComparison.Ordinal);
+        Assert.DoesNotContain("Explanation", detail, StringComparison.Ordinal);
+        Assert.DoesNotContain("SecondaryReason", detail, StringComparison.Ordinal);
         Assert.DoesNotContain("ATENÇÃO", detail, StringComparison.Ordinal);
         Assert.DoesNotContain("ATENÇÃO", xaml, StringComparison.Ordinal);
 
-        Assert.Contains("InventoryProjectionDetail.TryCreate(_snapshot, _presented, row.ProductId)", cs, StringComparison.Ordinal);
-        Assert.DoesNotContain("TryCreate(_snapshot, _presented, _attention", cs, StringComparison.Ordinal);
+        Assert.Contains("InventoryProjectionDetail.TryCreate(", cs, StringComparison.Ordinal);
+        Assert.Contains("row.ProductId, _attentionPresented)", cs, StringComparison.Ordinal);
 
         Assert.Contains("InventoryIntelligencePresentation.Cards", cs, StringComparison.Ordinal);
         Assert.Equal(7, InventoryIntelligencePresentation.Cards.Length);

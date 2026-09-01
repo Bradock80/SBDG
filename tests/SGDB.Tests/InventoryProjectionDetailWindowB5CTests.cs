@@ -34,7 +34,10 @@ public class InventoryProjectionDetailWindowB5CTests
     {
         var cs = ReadViewCs();
         var body = MethodBody(cs, "private void OpenProjectionDetail_Click");
-        Assert.Contains("InventoryProjectionDetail.TryCreate(_snapshot, _presented, row.ProductId)", body, StringComparison.Ordinal);
+        Assert.Contains("InventoryProjectionDetail.TryCreate(", body, StringComparison.Ordinal);
+        Assert.Contains("row.ProductId, _attentionPresented)", body, StringComparison.Ordinal);
+        Assert.DoesNotContain("InventoryAttentionComposer", body, StringComparison.Ordinal);
+        Assert.DoesNotContain("InventoryAttentionEngine", body, StringComparison.Ordinal);
         Assert.Contains("new InventoryProjectionDetailWindow(detail)", body, StringComparison.Ordinal);
         Assert.Contains("ShowDialog()", body, StringComparison.Ordinal);
         Assert.DoesNotContain("InventoryProjectionService.Load", body, StringComparison.Ordinal);

@@ -35,6 +35,9 @@ public sealed class InventoryAttentionPresentationRow
 
     /// <summary>True só quando não há atenção e a análise está disponível.</summary>
     public bool IsAllClear { get; init; }
+
+    /// <summary>True quando o join 70E não encontrou o ProductId. Não é Normal confiável.</summary>
+    public bool IsJoinMissing { get; init; }
 }
 
 /// <summary>Presentation em lote. Ordem = snapshot 70E (Intelligence.Rows). Sem reordenar.</summary>
@@ -81,6 +84,43 @@ public static class InventoryAttentionPresentation
 
     /// <summary>Depois de <see cref="InventoryAttentionPriority.Normal"/> para não misturar missing com Normal.</summary>
     public const int MissingPrioritySortKey = (int)InventoryAttentionPriority.Normal + 1;
+
+    public const string MissingExplanation =
+        "A priorização deste produto não está disponível nesta análise.";
+
+    /// <summary>
+    /// Presentation segura para detalhe/grade quando o ProductId não está no snapshot 70E.
+    /// Não é Normal, “Sem atenção” nem “Nenhuma ação imediata”.
+    /// </summary>
+    public static InventoryAttentionPresentationRow MissingRow(int productId = 0) =>
+        new()
+        {
+            ProductId = productId,
+            PriorityDisplay = MissingPriorityDisplay,
+            PrimaryReasonDisplay = MissingReasonDisplay,
+            Action = InventoryOperatorAction.None,
+            ActionDisplay = ActionNoneUnavailable,
+            Confidence = InventoryAttentionConfidence.Unavailable,
+            ConfidenceDisplay = ConfidenceUnavailable,
+            Explanation = MissingExplanation,
+            SecondaryReasons = [],
+            SecondaryReasonDisplays = [],
+            IsAllClear = false,
+            IsJoinMissing = true,
+        };
+
+    /// <summary>Lookup O(1) por ProductId. Sem motor, sem I/O. Ausente → <see cref="MissingRow"/>.</summary>
+    public static InventoryAttentionPresentationRow ResolveForDetail(
+        InventoryAttentionPresentationSnapshot? snapshot,
+        int productId)
+    {
+        if (snapshot?.ByProductId is { Count: > 0 } map
+            && map.TryGetValue(productId, out var row)
+            && row is not null)
+            return row;
+
+        return MissingRow(productId);
+    }
 
     public static InventoryAttentionPresentationSnapshot Apply(
         InventoryAttentionSnapshot? snapshot,
