@@ -13,6 +13,8 @@ public partial class InventoryIntelligenceModuleView : UserControl
 
     InventoryProjectionSnapshot _snapshot = new();
     InventoryProjectionPresentationSnapshot _presented = new();
+    InventoryAttentionSnapshot _attention = new();
+    InventoryAttentionPresentationSnapshot _attentionPresented = new();
     readonly InventoryIntelligenceUiFilter _filter = new();
     string? _loadError;
     bool _hasValidSnapshot;
@@ -190,8 +192,12 @@ public partial class InventoryIntelligenceModuleView : UserControl
             Cursor = Cursors.Wait;
             var snapshot = InventoryProjectionService.Load();
             var presented = InventoryProjectionPresentation.Apply(snapshot);
+            var attention = InventoryAttentionComposer.Build(snapshot);
+            var attentionPresented = InventoryAttentionPresentation.Apply(attention, presented);
             _snapshot = snapshot;
             _presented = presented;
+            _attention = attention;
+            _attentionPresented = attentionPresented;
             _hasValidSnapshot = true;
             _loadError = null;
             RebuildCards();
@@ -209,6 +215,8 @@ public partial class InventoryIntelligenceModuleView : UserControl
             {
                 _snapshot = new InventoryProjectionSnapshot();
                 _presented = new InventoryProjectionPresentationSnapshot();
+                _attention = new InventoryAttentionSnapshot();
+                _attentionPresented = new InventoryAttentionPresentationSnapshot();
                 _loadError = failure.Value.OperatorMessage;
                 RebuildCards();
                 Grid.ItemsSource = null;
@@ -239,6 +247,8 @@ public partial class InventoryIntelligenceModuleView : UserControl
         _clientBlocked = true;
         _snapshot = new InventoryProjectionSnapshot();
         _presented = new InventoryProjectionPresentationSnapshot();
+        _attention = new InventoryAttentionSnapshot();
+        _attentionPresented = new InventoryAttentionPresentationSnapshot();
         _loadError = null;
         ContentRoot.Visibility = Visibility.Collapsed;
         ClientBlockOverlay.Visibility = Visibility.Visible;
@@ -248,7 +258,7 @@ public partial class InventoryIntelligenceModuleView : UserControl
     private void ApplyView()
     {
         var rows = InventoryIntelligenceProjectionPresentation.Apply(
-            _snapshot.Intelligence.Rows, _filter, _presented);
+            _snapshot.Intelligence.Rows, _filter, _presented, _attentionPresented);
         Grid.ItemsSource = null;
         Grid.Items.SortDescriptions.Clear();
         Grid.ItemsSource = rows;

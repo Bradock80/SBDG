@@ -43,6 +43,8 @@ public sealed class InventoryAttentionPresentationSnapshot
     public DateTime Today { get; init; }
     public int QueryCount { get; init; }
     public IReadOnlyList<InventoryAttentionPresentationRow> Rows { get; init; } = [];
+    public IReadOnlyDictionary<int, InventoryAttentionPresentationRow> ByProductId { get; init; } =
+        new Dictionary<int, InventoryAttentionPresentationRow>();
 }
 
 /// <summary>
@@ -71,6 +73,15 @@ public static class InventoryAttentionPresentation
     public const string ConfidenceLimited = "Análise com limitações";
     public const string ConfidenceUnavailable = "Análise indisponível";
 
+    /// <summary>Grade: 70E ausente no join. Não é Normal nem “Sem atenção”.</summary>
+    public const string MissingPriorityDisplay = InventoryProjectionPresentation.EmDash;
+
+    /// <summary>Grade: 70E ausente no join. Reusa o rótulo de confiança indisponível.</summary>
+    public const string MissingReasonDisplay = ConfidenceUnavailable;
+
+    /// <summary>Depois de <see cref="InventoryAttentionPriority.Normal"/> para não misturar missing com Normal.</summary>
+    public const int MissingPrioritySortKey = (int)InventoryAttentionPriority.Normal + 1;
+
     public static InventoryAttentionPresentationSnapshot Apply(
         InventoryAttentionSnapshot? snapshot,
         InventoryProjectionPresentationSnapshot? presented = null)
@@ -78,11 +89,15 @@ public static class InventoryAttentionPresentation
         snapshot ??= new InventoryAttentionSnapshot();
         presented ??= new InventoryProjectionPresentationSnapshot();
         var lookup = presented.ByProductId ?? new Dictionary<int, InventoryProjectedProductPresentation>();
-        var rows = new List<InventoryAttentionPresentationRow>(snapshot.Results.Count);
-        foreach (var result in snapshot.Results ?? [])
+        var results = snapshot.Results ?? [];
+        var rows = new List<InventoryAttentionPresentationRow>(results.Count);
+        var map = new Dictionary<int, InventoryAttentionPresentationRow>(results.Count);
+        foreach (var result in results)
         {
             lookup.TryGetValue(result.ProductId, out var product);
-            rows.Add(FromResult(result, product));
+            var row = FromResult(result, product);
+            rows.Add(row);
+            map.TryAdd(row.ProductId, row);
         }
 
         return new InventoryAttentionPresentationSnapshot
@@ -90,6 +105,7 @@ public static class InventoryAttentionPresentation
             Today = snapshot.Today,
             QueryCount = snapshot.QueryCount,
             Rows = rows,
+            ByProductId = map,
         };
     }
 

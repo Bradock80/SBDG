@@ -215,10 +215,15 @@ public class InventoryIntelligenceModuleViewB4BTests
     {
         var cs = ReadViewCs();
         Assert.Contains("InventoryIntelligenceProjectionPresentation.Apply(", cs, StringComparison.Ordinal);
-        Assert.Contains("_snapshot.Intelligence.Rows, _filter, _presented)", cs, StringComparison.Ordinal);
+        Assert.Contains(
+            "_snapshot.Intelligence.Rows, _filter, _presented, _attentionPresented)",
+            cs,
+            StringComparison.Ordinal);
         Assert.Contains("Grid.Items.SortDescriptions.Clear();", cs, StringComparison.Ordinal);
         Assert.Contains("InventoryProjectionSnapshot _snapshot", cs, StringComparison.Ordinal);
         Assert.Contains("InventoryProjectionPresentationSnapshot _presented", cs, StringComparison.Ordinal);
+        Assert.Contains("InventoryAttentionSnapshot _attention", cs, StringComparison.Ordinal);
+        Assert.Contains("InventoryAttentionPresentationSnapshot _attentionPresented", cs, StringComparison.Ordinal);
     }
 
     private static ProductTurnoverRow Turnover(

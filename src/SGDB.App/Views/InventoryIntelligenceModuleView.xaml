@@ -92,6 +92,30 @@
                         <DataGrid.Columns>
                             <DataGridTextColumn Header="Produto" Binding="{Binding Name}" Width="*" MinWidth="220"/>
                             <DataGridTextColumn Header="Código" Binding="{Binding Code}" Width="80"/>
+                            <DataGridTextColumn Header="Prioridade"
+                                                Binding="{Binding PriorityDisplay}"
+                                                SortMemberPath="PrioritySortKey"
+                                                Width="96">
+                                <DataGridTextColumn.ElementStyle>
+                                    <Style TargetType="TextBlock">
+                                        <Setter Property="TextAlignment" Value="Left"/>
+                                        <Setter Property="VerticalAlignment" Value="Center"/>
+                                    </Style>
+                                </DataGridTextColumn.ElementStyle>
+                            </DataGridTextColumn>
+                            <DataGridTextColumn Header="Motivo"
+                                                Binding="{Binding PrimaryReasonDisplay}"
+                                                Width="160">
+                                <DataGridTextColumn.ElementStyle>
+                                    <Style TargetType="TextBlock">
+                                        <Setter Property="TextAlignment" Value="Left"/>
+                                        <Setter Property="VerticalAlignment" Value="Center"/>
+                                        <Setter Property="TextWrapping" Value="NoWrap"/>
+                                        <Setter Property="TextTrimming" Value="CharacterEllipsis"/>
+                                        <Setter Property="ToolTip" Value="{Binding PrimaryReasonDisplay}"/>
+                                    </Style>
+                                </DataGridTextColumn.ElementStyle>
+                            </DataGridTextColumn>
                             <DataGridTextColumn Header="Depósito" Binding="{Binding StockDisplay}" Width="80">
                                 <DataGridTextColumn.ElementStyle>
                                     <Style TargetType="TextBlock">
