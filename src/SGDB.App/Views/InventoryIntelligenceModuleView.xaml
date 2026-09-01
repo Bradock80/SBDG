@@ -201,6 +201,30 @@
                             </DataGridTemplateColumn>
                             <DataGridTextColumn Header="Alerta" Binding="{Binding AlertDisplay}" Width="170"/>
                             <DataGridTextColumn Header="Histórico" Binding="{Binding HistoryDisplay}" Width="90"/>
+                            <DataGridTextColumn Header="Sobra 30d"
+                                                Binding="{Binding Surplus30Display}"
+                                                SortMemberPath="ProjectedExcessQuantity"
+                                                Width="90">
+                                <DataGridTextColumn.ElementStyle>
+                                    <Style TargetType="TextBlock">
+                                        <Setter Property="TextAlignment" Value="Right"/>
+                                        <Setter Property="VerticalAlignment" Value="Center"/>
+                                        <Setter Property="ToolTip" Value="{Binding ExcessStatusDisplay}"/>
+                                    </Style>
+                                </DataGridTextColumn.ElementStyle>
+                            </DataGridTextColumn>
+                            <DataGridTextColumn Header="Validade / risco"
+                                                Binding="{Binding ValidityRiskDisplay}"
+                                                SortMemberPath="ValidityStatus"
+                                                Width="180">
+                                <DataGridTextColumn.ElementStyle>
+                                    <Style TargetType="TextBlock">
+                                        <Setter Property="TextAlignment" Value="Left"/>
+                                        <Setter Property="VerticalAlignment" Value="Center"/>
+                                        <Setter Property="ToolTip" Value="{Binding ValidityRiskDisplay}"/>
+                                    </Style>
+                                </DataGridTextColumn.ElementStyle>
+                            </DataGridTextColumn>
                         </DataGrid.Columns>
                     </DataGrid>
                     <Border x:Name="EmptyOverlay" Background="#CCFFFFFF" Visibility="Collapsed"
