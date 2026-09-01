@@ -78,6 +78,10 @@ public enum InventoryAttentionReason
     NoPhysicalEvidence,
     CompositionProduct,
     NoObservableDemand,
+    /// <summary>Join 70C sem InventoryProjectedProduct. Não é ausência de lote nem histórico curto.</summary>
+    ProjectionMissing,
+    /// <summary>Duas projeções 70D para o mesmo ProductId. Não escolhe last-wins.</summary>
+    DuplicateProjection,
 }
 
 /// <summary>
@@ -106,4 +110,17 @@ public sealed class InventoryAttentionResult
     /// <summary>Qualidade do valor 70D da sobra até validade. Não é prejuízo.</summary>
     public InventoryProjectionSurplusValueQuality SurplusValueQuality { get; init; } =
         InventoryProjectionSurplusValueQuality.Unavailable;
+}
+
+/// <summary>
+/// Classificação 70E em lote sobre o snapshot 70D. Sem recópia de giro/projeção.
+/// QueryCount é herdado (70D = 7). Lista na ordem de Intelligence.Rows.
+/// </summary>
+public sealed class InventoryAttentionSnapshot
+{
+    public DateTime Today { get; init; }
+    public int QueryCount { get; init; }
+    public IReadOnlyList<InventoryAttentionResult> Results { get; init; } = [];
+    public IReadOnlyDictionary<int, InventoryAttentionResult> ByProductId { get; init; } =
+        new Dictionary<int, InventoryAttentionResult>();
 }

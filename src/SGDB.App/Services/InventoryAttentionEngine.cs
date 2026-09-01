@@ -120,19 +120,8 @@ public static class InventoryAttentionEngine
         };
     }
 
-    public static IReadOnlyList<InventoryAttentionResult> Apply(InventoryProjectionSnapshot? snapshot)
-    {
-        snapshot ??= new InventoryProjectionSnapshot();
-        var rows = snapshot.Intelligence.Rows ?? [];
-        var list = new List<InventoryAttentionResult>(rows.Count);
-        foreach (var row in rows)
-        {
-            snapshot.ByProductId.TryGetValue(row.ProductId, out var product);
-            list.Add(Evaluate(row, product));
-        }
-
-        return list;
-    }
+    public static IReadOnlyList<InventoryAttentionResult> Apply(InventoryProjectionSnapshot? snapshot) =>
+        InventoryAttentionComposer.Build(snapshot).Results;
 
     static List<InventoryAttentionReason> CollectReasons(
         ProductTurnoverRow? turnover,
