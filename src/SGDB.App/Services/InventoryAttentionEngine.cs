@@ -377,8 +377,9 @@ public static class InventoryAttentionEngine
             InventoryAttentionReason.DatedWithoutSurplusInWindow
                 => InventoryOperatorAction.Monitor,
             InventoryAttentionReason.ProjectedExcess30
-                or InventoryAttentionReason.Idle
                 => InventoryOperatorAction.EvaluateExcess,
+            InventoryAttentionReason.Idle
+                => InventoryOperatorAction.Monitor,
             _ => InventoryOperatorAction.None,
         };
 

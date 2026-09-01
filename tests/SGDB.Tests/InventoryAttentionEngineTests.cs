@@ -307,9 +307,31 @@ public class InventoryAttentionEngineTests
             InventoryAttentionPriority.Medium,
             InventoryAttentionFamily.Turnover,
             InventoryAttentionReason.Idle,
-            InventoryOperatorAction.EvaluateExcess,
+            InventoryOperatorAction.Monitor,
             InventoryAttentionConfidence.Reliable);
         Assert.NotEqual(InventoryAttentionFamily.Expiry, result.Family);
+    }
+
+    [Fact]
+    public void Idle_sem_excesso_usa_Monitor()
+    {
+        var result = Eval(Turnover(stock: 30, vmv30: 1, idle: true, history: 90), Lot(1, 30, 90));
+        Assert.Equal(InventoryAttentionReason.Idle, result.PrimaryReason);
+        Assert.Equal(InventoryAttentionFamily.Turnover, result.Family);
+        Assert.Equal(InventoryAttentionPriority.Medium, result.Priority);
+        Assert.Equal(InventoryOperatorAction.Monitor, result.Action);
+        Assert.DoesNotContain(InventoryAttentionReason.ProjectedExcess30, result.SecondaryReasons);
+        Assert.NotEqual(InventoryOperatorAction.EvaluateExcess, result.Action);
+    }
+
+    [Fact]
+    public void Idle_com_excesso_preserva_EvaluateExcess()
+    {
+        var result = Eval(Turnover(stock: 100, vmv30: 1, idle: true, history: 90), Lot(1, 100, 120));
+        Assert.Equal(InventoryAttentionReason.ProjectedExcess30, result.PrimaryReason);
+        Assert.Contains(InventoryAttentionReason.Idle, result.SecondaryReasons);
+        Assert.Equal(InventoryOperatorAction.EvaluateExcess, result.Action);
+        Assert.Equal(InventoryAttentionFamily.Excess, result.Family);
     }
 
     [Fact]
