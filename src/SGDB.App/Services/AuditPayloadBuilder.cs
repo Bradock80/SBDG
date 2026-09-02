@@ -248,4 +248,24 @@ public static class AuditPayloadBuilder
             merge_audit_original_at = mergeAuditAt,
             source = "sanear_merge_legado",
         };
+
+    public static object CommercialPolicyChange(
+        string operation,
+        string previousStatus,
+        decimal? previousPercent,
+        string? previousRaw,
+        decimal? newPercent,
+        string? newRaw) =>
+        new
+        {
+            nivel = "global",
+            alvo = "global",
+            operation,
+            origem = "sistema.politica_comercial",
+            previous_status = previousStatus,
+            previous_percent = previousPercent,
+            previous_raw = previousRaw,
+            new_percent = newPercent,
+            new_raw = newRaw,
+        };
 }

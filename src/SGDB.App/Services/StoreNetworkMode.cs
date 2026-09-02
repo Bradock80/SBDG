@@ -225,6 +225,7 @@ public static class StoreNetworkMode
                 or "auditoria"
                 or "usuarios"
                 or "residuos_unificacoes"
+                or "politica_comercial"
                 => true,
             _ => false,
         };
@@ -237,7 +238,9 @@ public static class StoreNetworkMode
     public static string BlockedModuleMessage(string moduleId) =>
         moduleId == "usuarios"
             ? ApplicationLoginService.LocalUserAdministrationMessage
-            : ClientBlockedModuleMessage;
+            : moduleId == InventoryCommercialMarginAdminService.ModuleId
+                ? InventoryCommercialMarginAdminService.ClientBlockedMessage
+                : ClientBlockedModuleMessage;
 
     /// <summary>Cliente não abre o PDV de venda — só o resumo do dia.</summary>
     public static bool IsPdvSalesBlockedOnClient => IsClient;

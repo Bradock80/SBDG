@@ -1,0 +1,62 @@
+<UserControl x:Class="SGDB.Views.CommercialPolicyModuleView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             Background="#ECE9E4" Focusable="True" PreviewKeyDown="Root_PreviewKeyDown">
+    <Border BorderBrush="#C8C4BC" BorderThickness="1" Background="White">
+        <Grid>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="*"/>
+                <RowDefinition Height="Auto"/>
+            </Grid.RowDefinitions>
+
+            <Border Padding="10,6" Background="#F0F0F0" BorderBrush="#C8C4BC" BorderThickness="0,0,0,1">
+                <Grid>
+                    <TextBlock Text="Política comercial" FontWeight="SemiBold" FontSize="13"/>
+                    <Button Style="{StaticResource ModuleTabCloseStyle}" HorizontalAlignment="Right" Click="Close_Click"/>
+                </Grid>
+            </Border>
+
+            <ScrollViewer Grid.Row="1" Padding="16" VerticalScrollBarVisibility="Auto">
+                <StackPanel MaxWidth="640" HorizontalAlignment="Left">
+                    <TextBlock Text="MARGEM MÍNIMA GLOBAL" FontSize="11" FontWeight="SemiBold"
+                               Foreground="#64748B" Margin="0,0,0,10"/>
+
+                    <TextBlock FontSize="12" Foreground="#475569" TextWrapping="Wrap" Margin="0,0,0,10"
+                               Text="Margem mínima é o limite inferior usado pelas análises comerciais do Estoque Inteligente. O sistema não altera preços automaticamente."/>
+
+                    <TextBlock FontSize="12" Foreground="#64748B" TextWrapping="Wrap" Margin="0,0,0,16"
+                               Text="Essa margem será usada pelo Estoque Inteligente para calcular limites comerciais seguros."/>
+
+                    <TextBlock x:Name="StatusText" FontSize="13" FontWeight="SemiBold"
+                               Foreground="#0F172A" TextWrapping="Wrap" Margin="0,0,0,16"
+                               Text="Margem mínima não configurada."/>
+
+                    <TextBlock Text="Percentual" Margin="0,0,0,4" FontSize="12"/>
+                    <TextBox x:Name="PercentBox" Height="32" Width="160" HorizontalAlignment="Left"
+                             MaxLength="12"/>
+                    <TextBlock FontSize="11" Foreground="#94A3B8" Margin="0,6,0,0" TextWrapping="Wrap"
+                               Text="Use vírgula decimal. Informe um valor de 0 até menos de 100. O campo vazio não configura 0%."/>
+
+                    <TextBlock x:Name="FeedbackText" FontSize="12" Margin="0,16,0,0"
+                               TextWrapping="Wrap" Foreground="#64748B"/>
+                </StackPanel>
+            </ScrollViewer>
+
+            <Border Grid.Row="2" Padding="12,10" Background="#F5F3EE" BorderBrush="#E2E8F0" BorderThickness="0,1,0,0">
+                <Grid>
+                    <Button x:Name="ClearBtn" Content="Remover configuração"
+                            Style="{StaticResource SgdbOutlineButtonStyle}"
+                            Padding="14,8" HorizontalAlignment="Left" Click="Clear_Click"/>
+                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                        <Button Content="Fechar" Style="{StaticResource SgdbOutlineButtonStyle}"
+                                Padding="14,8" Margin="0,0,8,0" Click="Close_Click"/>
+                        <Button x:Name="SaveBtn" Content="Salvar (F9)"
+                                Style="{StaticResource SgdbPrimaryButtonStyle}"
+                                Padding="16,8" Click="Save_Click"/>
+                    </StackPanel>
+                </Grid>
+            </Border>
+        </Grid>
+    </Border>
+</UserControl>

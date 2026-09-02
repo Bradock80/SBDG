@@ -75,6 +75,8 @@
                 <Separator/>
                 <MenuItem Header="Impressoras &amp; Cupom" Tag="impressoras" Click="MenuModule_Click"/>
                 <MenuItem Header="Periféricos (Leitor, Gaveta e Balança)" Tag="perifericos" Click="MenuModule_Click"/>
+                <MenuItem Header="Política comercial" Tag="politica_comercial" Click="MenuModule_Click"
+                          ToolTip="Margem mínima global do Estoque Inteligente. Não altera preços."/>
                 <Separator/>
                 <MenuItem Header="Log de Operações (Auditoria)" Tag="auditoria" Click="MenuModule_Click"/>
                 <MenuItem Header="Backup &amp; Restauração" Tag="backup" Click="MenuModule_Click"/>

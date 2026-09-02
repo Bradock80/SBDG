@@ -55,6 +55,12 @@ public static class AccessControl
     /// </summary>
     public static bool CanMutateLotCoverage() => CanAccessLegacyMergeCleanup();
 
+    /// <summary>
+    /// 70F-B3D — política comercial (margem mínima global): Administrador ou Gestor pelo perfil.
+    /// Vendedor não acessa, mesmo com RelatoriosAcesso customizado.
+    /// </summary>
+    public static bool CanAccessCommercialPolicy() => CanAccessLegacyMergeCleanup();
+
     public static bool CanAccessModule(string moduleId)
     {
         if (string.IsNullOrWhiteSpace(moduleId) || moduleId == "home")
@@ -98,6 +104,7 @@ public static class AccessControl
             "usuarios" or "auditoria" => p.SistemaUsuarios,
             "backup" => p.SistemaBackup,
             "residuos_unificacoes" => CanAccessLegacyMergeCleanup(),
+            "politica_comercial" => CanAccessCommercialPolicy(),
 
             // Configurações da loja: admin/usuários OU gestor (relatórios)
             "empresa" or "impressoras" or "perifericos"

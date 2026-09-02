@@ -573,6 +573,15 @@ public partial class MainWindow : Window
             return;
         }
 
+        if (moduleId == "politica_comercial")
+        {
+            var view = new CommercialPolicyModuleView();
+            view.CloseRequested += (_, _) => ShowHome();
+            MainContent.Content = view;
+            UpdateToolbarHighlight();
+            return;
+        }
+
         if (moduleId == "usuarios")
         {
             var view = new UsersModuleView();
