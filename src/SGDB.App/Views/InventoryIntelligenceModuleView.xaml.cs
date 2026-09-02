@@ -11,7 +11,10 @@ public partial class InventoryIntelligenceModuleView : UserControl
 {
     public event EventHandler? CloseRequested;
 
-    InventoryIntelligenceSnapshot _snapshot = new();
+    InventoryProjectionSnapshot _snapshot = new();
+    InventoryProjectionPresentationSnapshot _presented = new();
+    InventoryAttentionSnapshot _attention = new();
+    InventoryAttentionPresentationSnapshot _attentionPresented = new();
     readonly InventoryIntelligenceUiFilter _filter = new();
     string? _loadError;
     bool _hasValidSnapshot;
@@ -126,7 +129,7 @@ public partial class InventoryIntelligenceModuleView : UserControl
 
     private void OpenLots_Click(object sender, RoutedEventArgs e)
     {
-        if (Grid.SelectedItem is not InventoryIntelligenceGridRow row || row.ProductId <= 0)
+        if (Grid.SelectedItem is not InventoryIntelligenceProjectionGridRow row || row.ProductId <= 0)
             return;
         var win = new ProductLotsWindow(row.ProductId, row.Name)
         {
@@ -135,9 +138,35 @@ public partial class InventoryIntelligenceModuleView : UserControl
         win.ShowDialog();
     }
 
+    private void OpenProjectionDetail_Click(object sender, RoutedEventArgs e)
+    {
+        if (_clientBlocked)
+            return;
+        if (Grid.SelectedItem is not InventoryIntelligenceProjectionGridRow row || row.ProductId <= 0)
+            return;
+
+        var detail = InventoryProjectionDetail.TryCreate(
+            _snapshot, _presented, row.ProductId, _attentionPresented);
+        if (detail is null)
+        {
+            MessageBox.Show(
+                InventoryProjectionDetailUi.UnavailableDetailMessage,
+                "Estoque Inteligente",
+                MessageBoxButton.OK,
+                MessageBoxImage.Information);
+            return;
+        }
+
+        var win = new InventoryProjectionDetailWindow(detail)
+        {
+            Owner = Window.GetWindow(this),
+        };
+        win.ShowDialog();
+    }
+
     private void OpenProduct()
     {
-        if (Grid.SelectedItem is not InventoryIntelligenceGridRow row || row.ProductId <= 0)
+        if (Grid.SelectedItem is not InventoryIntelligenceProjectionGridRow row || row.ProductId <= 0)
             return;
         if (!AccessControl.Ensure("ProdutosEditar", "cadastrar e alterar produtos", Window.GetWindow(this)))
             return;
@@ -162,8 +191,14 @@ public partial class InventoryIntelligenceModuleView : UserControl
         try
         {
             Cursor = Cursors.Wait;
-            var snapshot = InventoryIntelligenceService.Load();
+            var snapshot = InventoryProjectionService.Load();
+            var presented = InventoryProjectionPresentation.Apply(snapshot);
+            var attention = InventoryAttentionComposer.Build(snapshot);
+            var attentionPresented = InventoryAttentionPresentation.Apply(attention, presented);
             _snapshot = snapshot;
+            _presented = presented;
+            _attention = attention;
+            _attentionPresented = attentionPresented;
             _hasValidSnapshot = true;
             _loadError = null;
             RebuildCards();
@@ -179,13 +214,17 @@ public partial class InventoryIntelligenceModuleView : UserControl
             }
             else
             {
-                _snapshot = new InventoryIntelligenceSnapshot();
+                _snapshot = new InventoryProjectionSnapshot();
+                _presented = new InventoryProjectionPresentationSnapshot();
+                _attention = new InventoryAttentionSnapshot();
+                _attentionPresented = new InventoryAttentionPresentationSnapshot();
                 _loadError = failure.Value.OperatorMessage;
                 RebuildCards();
                 Grid.ItemsSource = null;
                 Grid.Items.SortDescriptions.Clear();
                 ShowEmpty(_loadError);
                 DetailText.Text = "Selecione uma linha para ver o detalhe.";
+                BtnDetailProjection.IsEnabled = false;
                 MetaText.Text = failure.Value.OperatorMessage;
             }
         }
@@ -207,7 +246,10 @@ public partial class InventoryIntelligenceModuleView : UserControl
     private void ShowClientBlocked()
     {
         _clientBlocked = true;
-        _snapshot = new InventoryIntelligenceSnapshot();
+        _snapshot = new InventoryProjectionSnapshot();
+        _presented = new InventoryProjectionPresentationSnapshot();
+        _attention = new InventoryAttentionSnapshot();
+        _attentionPresented = new InventoryAttentionPresentationSnapshot();
         _loadError = null;
         ContentRoot.Visibility = Visibility.Collapsed;
         ClientBlockOverlay.Visibility = Visibility.Visible;
@@ -216,16 +258,17 @@ public partial class InventoryIntelligenceModuleView : UserControl
 
     private void ApplyView()
     {
-        var rows = InventoryIntelligencePresentation.Apply(_snapshot.Rows, _filter);
+        var rows = InventoryIntelligenceProjectionPresentation.Apply(
+            _snapshot.Intelligence.Rows, _filter, _presented, _attentionPresented);
         Grid.ItemsSource = null;
         Grid.Items.SortDescriptions.Clear();
         Grid.ItemsSource = rows;
 
         var empty = InventoryIntelligencePresentation.EmptyStateMessage(
-            _snapshot.Rows.Count, rows.Count, _loadError);
+            _snapshot.Intelligence.Rows.Count, rows.Count, _loadError);
         ShowEmpty(empty);
 
-        var cards = InventoryIntelligencePresentation.CountCards(_snapshot.Rows);
+        var cards = InventoryIntelligencePresentation.CountCards(_snapshot.Intelligence.Rows);
         MetaText.Text = string.IsNullOrEmpty(empty)
             ? $"{rows.Count} produto(s) · {cards.Critical} crítica(s) · {cards.Low} baixa(s) · {cards.Idle} parado(s)."
             : empty;
@@ -249,22 +292,26 @@ public partial class InventoryIntelligenceModuleView : UserControl
 
     private void UpdateDetail()
     {
-        if (Grid.SelectedItem is not InventoryIntelligenceGridRow row)
+        if (Grid.SelectedItem is not InventoryIntelligenceProjectionGridRow row || row.ProductId <= 0)
         {
             DetailText.Text = "Selecione uma linha para ver o detalhe.";
+            BtnDetailProjection.IsEnabled = false;
             return;
         }
 
+        BtnDetailProjection.IsEnabled = !_clientBlocked;
+        var giro = row.Intelligence;
         DetailText.Text =
-            $"{row.Name} · {row.Code} · Depósito {row.StockDisplay} · Geladeira {row.StockFridgeDisplay} · " +
-            $"Total {row.TotalStockDisplay} · VMV 30 {row.Vmv30Display} · Cobertura {row.CoverageDisplay} · " +
-            $"{row.SituationDisplay} · Alerta {row.AlertDisplay}.";
+            $"{row.PriorityDisplay} · {row.PrimaryReasonDisplay} · " +
+            $"{giro.Name} · {giro.Code} · Depósito {giro.StockDisplay} · Geladeira {giro.StockFridgeDisplay} · " +
+            $"Total {giro.TotalStockDisplay} · VMV 30 {giro.Vmv30Display} · Cobertura {giro.CoverageDisplay} · " +
+            $"{giro.SituationDisplay} · Alerta {giro.AlertDisplay}.";
     }
 
     private void RebuildCards()
     {
         CardsPanel.Children.Clear();
-        var counts = InventoryIntelligencePresentation.CountCards(_snapshot.Rows);
+        var counts = InventoryIntelligencePresentation.CountCards(_snapshot.Intelligence.Rows);
         foreach (var card in InventoryIntelligencePresentation.Cards)
             AddCard(card.Title, counts.Of(card.Kind), card.Kind, card.Bg, card.Fg);
     }

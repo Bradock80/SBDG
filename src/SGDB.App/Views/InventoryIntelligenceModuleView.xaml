@@ -62,6 +62,9 @@
                                 Click="OpenProduct_Click"/>
                         <Button Content="Lotes e validades" Height="32" Padding="12,6" Margin="0,0,8,4"
                                 Click="OpenLots_Click"/>
+                        <Button x:Name="BtnDetailProjection" Content="Detalhar projeção"
+                                Height="32" Padding="12,6" Margin="0,0,8,4"
+                                IsEnabled="False" Click="OpenProjectionDetail_Click"/>
                     </WrapPanel>
                 </Border>
 
@@ -89,6 +92,30 @@
                         <DataGrid.Columns>
                             <DataGridTextColumn Header="Produto" Binding="{Binding Name}" Width="*" MinWidth="220"/>
                             <DataGridTextColumn Header="Código" Binding="{Binding Code}" Width="80"/>
+                            <DataGridTextColumn Header="Prioridade"
+                                                Binding="{Binding PriorityDisplay}"
+                                                SortMemberPath="PrioritySortKey"
+                                                Width="96">
+                                <DataGridTextColumn.ElementStyle>
+                                    <Style TargetType="TextBlock">
+                                        <Setter Property="TextAlignment" Value="Left"/>
+                                        <Setter Property="VerticalAlignment" Value="Center"/>
+                                    </Style>
+                                </DataGridTextColumn.ElementStyle>
+                            </DataGridTextColumn>
+                            <DataGridTextColumn Header="Motivo"
+                                                Binding="{Binding PrimaryReasonDisplay}"
+                                                Width="160">
+                                <DataGridTextColumn.ElementStyle>
+                                    <Style TargetType="TextBlock">
+                                        <Setter Property="TextAlignment" Value="Left"/>
+                                        <Setter Property="VerticalAlignment" Value="Center"/>
+                                        <Setter Property="TextWrapping" Value="NoWrap"/>
+                                        <Setter Property="TextTrimming" Value="CharacterEllipsis"/>
+                                        <Setter Property="ToolTip" Value="{Binding PrimaryReasonDisplay}"/>
+                                    </Style>
+                                </DataGridTextColumn.ElementStyle>
+                            </DataGridTextColumn>
                             <DataGridTextColumn Header="Depósito" Binding="{Binding StockDisplay}" Width="80">
                                 <DataGridTextColumn.ElementStyle>
                                     <Style TargetType="TextBlock">
@@ -201,6 +228,30 @@
                             </DataGridTemplateColumn>
                             <DataGridTextColumn Header="Alerta" Binding="{Binding AlertDisplay}" Width="170"/>
                             <DataGridTextColumn Header="Histórico" Binding="{Binding HistoryDisplay}" Width="90"/>
+                            <DataGridTextColumn Header="Sobra 30d"
+                                                Binding="{Binding Surplus30Display}"
+                                                SortMemberPath="ProjectedExcessQuantity"
+                                                Width="90">
+                                <DataGridTextColumn.ElementStyle>
+                                    <Style TargetType="TextBlock">
+                                        <Setter Property="TextAlignment" Value="Right"/>
+                                        <Setter Property="VerticalAlignment" Value="Center"/>
+                                        <Setter Property="ToolTip" Value="{Binding ExcessStatusDisplay}"/>
+                                    </Style>
+                                </DataGridTextColumn.ElementStyle>
+                            </DataGridTextColumn>
+                            <DataGridTextColumn Header="Validade / risco"
+                                                Binding="{Binding ValidityRiskDisplay}"
+                                                SortMemberPath="ValidityStatus"
+                                                Width="180">
+                                <DataGridTextColumn.ElementStyle>
+                                    <Style TargetType="TextBlock">
+                                        <Setter Property="TextAlignment" Value="Left"/>
+                                        <Setter Property="VerticalAlignment" Value="Center"/>
+                                        <Setter Property="ToolTip" Value="{Binding ValidityRiskDisplay}"/>
+                                    </Style>
+                                </DataGridTextColumn.ElementStyle>
+                            </DataGridTextColumn>
                         </DataGrid.Columns>
                     </DataGrid>
                     <Border x:Name="EmptyOverlay" Background="#CCFFFFFF" Visibility="Collapsed"
