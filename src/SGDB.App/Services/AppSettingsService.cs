@@ -43,6 +43,19 @@ public static class AppSettingsService
         cmd.ExecuteNonQuery();
     }
 
+    /// <summary>
+    /// Remove a chave. Ausência ≠ valor vazio.
+    /// Usado por 70F-B3B para desconfigurar a margem mínima global.
+    /// </summary>
+    public static void DeleteSetting(string key)
+    {
+        using var conn = DatabaseService.OpenConnection();
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText = "DELETE FROM app_settings WHERE key = $key;";
+        cmd.Parameters.AddWithValue("$key", key);
+        cmd.ExecuteNonQuery();
+    }
+
     public static CompanyProfile GetCompanyProfile()
     {
         return new CompanyProfile
