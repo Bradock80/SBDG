@@ -146,3 +146,48 @@ public sealed class InventoryCommercialScenarioInput
     public InventoryProjectedProduct? Projection { get; init; }
     public InventoryAttentionResult? Attention { get; init; }
 }
+
+/// <summary>
+/// Entrada já carregada 70F-B4C. Sem I/O. Policy vem resolvida; B3/B4B correm em memória.
+/// ProjectionRows, se informado, permite detectar DuplicateProjection como a 70E.
+/// </summary>
+public sealed record InventoryCommercialScenarioComposeInput
+{
+    public InventoryIntelligenceSnapshot? Intelligence { get; init; }
+    public InventoryProjectionSnapshot? Projection { get; init; }
+    public IReadOnlyList<InventoryProjectedProduct>? ProjectionRows { get; init; }
+    public InventoryAttentionSnapshot? Attention { get; init; }
+    public IReadOnlyList<InventoryCommercialEligibilityResult>? Eligibility { get; init; }
+    public InventoryCommercialFactsSnapshot? Facts { get; init; }
+    public InventoryCommercialMarginPolicyResolution? PolicyResolution { get; init; }
+}
+
+/// <summary>
+/// Linha composta 70F-B4C. ProductId é o da autoridade 70C.
+/// PolicyResolution é global no snapshot, não copiada aqui.
+/// ScenarioResult permanece autoridade de status.
+/// </summary>
+public sealed class InventoryCommercialScenarioRow
+{
+    public int ProductId { get; init; }
+    public ProductTurnoverRow Turnover { get; init; } = new();
+    public InventoryProjectedProduct? Projection { get; init; }
+    public InventoryAttentionResult Attention { get; init; } = new();
+    public InventoryCommercialEligibilityResult Eligibility { get; init; } = new();
+    public InventoryCommercialFacts Facts { get; init; } = new();
+    public InventoryCommercialPriceFloorResult PriceFloor { get; init; } = new();
+    public InventoryCommercialScenarioResult ScenarioResult { get; init; } = new();
+}
+
+/// <summary>
+/// Snapshot composto 70F-B4C. Rows na ordem de Intelligence.Rows.
+/// QueryCount documenta o pipeline (9); o composer não executa query.
+/// </summary>
+public sealed class InventoryCommercialScenarioSnapshot
+{
+    public int QueryCount { get; init; }
+    public InventoryCommercialMarginPolicyResolution PolicyResolution { get; init; } = new();
+    public IReadOnlyList<InventoryCommercialScenarioRow> Rows { get; init; } = [];
+    public IReadOnlyDictionary<int, InventoryCommercialScenarioRow> ByProductId { get; init; } =
+        new Dictionary<int, InventoryCommercialScenarioRow>();
+}
