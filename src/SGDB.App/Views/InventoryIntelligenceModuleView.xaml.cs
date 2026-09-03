@@ -19,6 +19,8 @@ public partial class InventoryIntelligenceModuleView : UserControl
     InventoryCommercialScenarioPresentationSnapshot _commercialPresented = new();
     InventoryPromotionSuggestionSnapshot _promotion = new();
     InventoryPromotionSuggestionPresentationSnapshot _promotionPresented = new();
+    InventoryPurchaseGuidanceSnapshot _guidance = new();
+    InventoryPurchaseGuidancePresentationSnapshot _guidancePresented = new();
     readonly InventoryIntelligenceUiFilter _filter = new();
     string? _loadError;
     bool _hasValidSnapshot;
@@ -150,7 +152,8 @@ public partial class InventoryIntelligenceModuleView : UserControl
             return;
 
         var detail = InventoryProjectionDetail.TryCreate(
-            _snapshot, _presented, row.ProductId, _attentionPresented, _commercialPresented, _promotionPresented);
+            _snapshot, _presented, row.ProductId, _attentionPresented, _commercialPresented,
+            _promotionPresented, _guidancePresented);
         if (detail is null)
         {
             MessageBox.Show(
@@ -209,6 +212,9 @@ public partial class InventoryIntelligenceModuleView : UserControl
             var commercialPresented = InventoryCommercialScenarioPresentation.Apply(commercial);
             var promotion = InventoryPromotionSuggestionComposer.Compose(snapshot.Intelligence, commercial);
             var promotionPresented = InventoryPromotionSuggestionPresentation.Apply(promotion);
+            var guidance = InventoryPurchaseGuidanceComposer.Compose(snapshot);
+            var guidancePresented = InventoryPurchaseGuidancePresentation.Apply(
+                guidance, snapshot.Intelligence, snapshot);
             _snapshot = snapshot;
             _presented = presented;
             _attention = attention;
@@ -217,6 +223,8 @@ public partial class InventoryIntelligenceModuleView : UserControl
             _commercialPresented = commercialPresented;
             _promotion = promotion;
             _promotionPresented = promotionPresented;
+            _guidance = guidance;
+            _guidancePresented = guidancePresented;
             _hasValidSnapshot = true;
             _loadError = null;
             RebuildCards();
@@ -240,6 +248,8 @@ public partial class InventoryIntelligenceModuleView : UserControl
                 _commercialPresented = new InventoryCommercialScenarioPresentationSnapshot();
                 _promotion = new InventoryPromotionSuggestionSnapshot();
                 _promotionPresented = new InventoryPromotionSuggestionPresentationSnapshot();
+                _guidance = new InventoryPurchaseGuidanceSnapshot();
+                _guidancePresented = new InventoryPurchaseGuidancePresentationSnapshot();
                 _loadError = failure.Value.OperatorMessage;
                 RebuildCards();
                 Grid.ItemsSource = null;
@@ -276,6 +286,8 @@ public partial class InventoryIntelligenceModuleView : UserControl
         _commercialPresented = new InventoryCommercialScenarioPresentationSnapshot();
         _promotion = new InventoryPromotionSuggestionSnapshot();
         _promotionPresented = new InventoryPromotionSuggestionPresentationSnapshot();
+        _guidance = new InventoryPurchaseGuidanceSnapshot();
+        _guidancePresented = new InventoryPurchaseGuidancePresentationSnapshot();
         _loadError = null;
         ContentRoot.Visibility = Visibility.Collapsed;
         ClientBlockOverlay.Visibility = Visibility.Visible;

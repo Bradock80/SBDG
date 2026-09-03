@@ -136,7 +136,8 @@ public partial class InventoryPurchaseGuidanceModuleView : UserControl
             return;
 
         var detail = InventoryProjectionDetail.TryCreate(
-            _snapshot, _presented, row.ProductId, _attentionPresented, _commercialPresented, _promotionPresented);
+            _snapshot, _presented, row.ProductId, _attentionPresented, _commercialPresented,
+            _promotionPresented, _guidancePresented);
         if (detail is null)
         {
             MessageBox.Show(

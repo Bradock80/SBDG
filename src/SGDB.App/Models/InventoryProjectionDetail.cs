@@ -1,8 +1,8 @@
 namespace SGDB.Models;
 
 /// <summary>
-/// Envelope somente leitura do detalhe de projeção (70D-B5) com atenção 70E.
-/// Sem I/O, sem recálculo FEFO/70E e sem consulta. A janela recebe este objeto.
+/// Envelope somente leitura do detalhe de projeção (70D) com 70E/70F/70G.
+/// Sem I/O, sem recálculo e sem consulta. A janela recebe este objeto.
 /// </summary>
 public sealed class InventoryProjectionDetail
 {
@@ -14,6 +14,8 @@ public sealed class InventoryProjectionDetail
         InventoryCommercialScenarioPresentation.MissingRow();
     public InventoryPromotionSuggestionPresentationRow PromotionSuggestion { get; init; } =
         InventoryPromotionSuggestionPresentation.MissingRow();
+    public InventoryPurchaseGuidancePresentationRow PurchaseGuidance { get; init; } =
+        InventoryPurchaseGuidancePresentation.MissingRow();
 
     public IReadOnlyList<InventoryProjectedLotPresentation> Lots => Projection.Lots;
     public IReadOnlyList<string> Alerts => Projection.Alerts;
@@ -34,7 +36,8 @@ public sealed class InventoryProjectionDetail
         int productId,
         InventoryAttentionPresentationSnapshot? attention = null,
         InventoryCommercialScenarioPresentationSnapshot? commercial = null,
-        InventoryPromotionSuggestionPresentationSnapshot? promotion = null)
+        InventoryPromotionSuggestionPresentationSnapshot? promotion = null,
+        InventoryPurchaseGuidancePresentationSnapshot? guidance = null)
     {
         if (productId <= 0 || snapshot?.Intelligence.Rows is null)
             return null;
@@ -68,6 +71,7 @@ public sealed class InventoryProjectionDetail
             Attention = InventoryAttentionPresentation.ResolveForDetail(attention, productId),
             Commercial = InventoryCommercialScenarioPresentation.ResolveForDetail(commercial, productId),
             PromotionSuggestion = InventoryPromotionSuggestionPresentation.ResolveForDetail(promotion, productId),
+            PurchaseGuidance = InventoryPurchaseGuidancePresentation.ResolveForDetail(guidance, productId),
         };
     }
 }

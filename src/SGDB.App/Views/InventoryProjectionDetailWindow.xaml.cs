@@ -84,6 +84,7 @@ public partial class InventoryProjectionDetailWindow : Window
 
         BindCommercial(detail.Commercial);
         BindPromotion(detail.PromotionSuggestion);
+        BindPurchaseGuidance(detail.PurchaseGuidance);
     }
 
     private void BindCommercial(InventoryCommercialScenarioPresentationRow commercial)
@@ -174,6 +175,37 @@ public partial class InventoryProjectionDetailWindow : Window
         CommercialActionDisclaimerText.Visibility = string.IsNullOrWhiteSpace(suggestion.DisclaimerText)
             ? Visibility.Collapsed
             : Visibility.Visible;
+    }
+
+    private void BindPurchaseGuidance(InventoryPurchaseGuidancePresentationRow guidance)
+    {
+        guidance = InventoryPurchaseGuidanceDetailUi.Row(guidance);
+        ReplenishmentActionText.Text = guidance.ActionLabel;
+        ReplenishmentReasonText.Text = guidance.PrimaryReasonLabel;
+        ReplenishmentConfidenceText.Text = guidance.ConfidenceLabel;
+        ReplenishmentExplanationText.Text = InventoryPurchaseGuidanceDetailUi.Explanation(guidance);
+
+        if (InventoryPurchaseGuidanceDetailUi.ShowSecondary(guidance))
+        {
+            ReplenishmentSecondaryPanel.Visibility = Visibility.Visible;
+            ReplenishmentSecondaryList.ItemsSource = guidance.SecondaryReasonLabels;
+        }
+        else
+        {
+            ReplenishmentSecondaryPanel.Visibility = Visibility.Collapsed;
+            ReplenishmentSecondaryList.ItemsSource = null;
+        }
+
+        if (InventoryPurchaseGuidanceDetailUi.ShowConsiderNote(guidance))
+        {
+            ReplenishmentConsiderNote.Visibility = Visibility.Visible;
+            ReplenishmentConsiderNote.Text = guidance.ConsiderLimitationNote;
+        }
+        else
+        {
+            ReplenishmentConsiderNote.Visibility = Visibility.Collapsed;
+            ReplenishmentConsiderNote.Text = "";
+        }
     }
 
     private void Close_Click(object sender, RoutedEventArgs e) => Close();
