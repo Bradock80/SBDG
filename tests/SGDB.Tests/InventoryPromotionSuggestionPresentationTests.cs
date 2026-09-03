@@ -848,17 +848,13 @@ public class InventoryPromotionSuggestionPresentationTests
     }
 
     [Fact]
-    public void Nao_integrado_na_Window()
+    public void Presentation_nao_entra_no_grid_do_modulo()
     {
-        var view = ReadSource("src", "SGDB.App", "Views", "InventoryIntelligenceModuleView.xaml.cs");
-        var xaml = ReadSource("src", "SGDB.App", "Views", "InventoryIntelligenceModuleView.xaml");
-        var detailCs = ReadSource("src", "SGDB.App", "Views", "InventoryProjectionDetailWindow.xaml.cs");
-        var detailXaml = ReadSource("src", "SGDB.App", "Views", "InventoryProjectionDetailWindow.xaml");
-        foreach (var text in new[] { view, xaml, detailCs, detailXaml })
-        {
-            Assert.DoesNotContain("InventoryPromotionSuggestionPresentation", text, StringComparison.Ordinal);
-            Assert.DoesNotContain("InventoryPromotionSuggestionComposer", text, StringComparison.Ordinal);
-        }
+        var viewXaml = ReadSource("src", "SGDB.App", "Views", "InventoryIntelligenceModuleView.xaml");
+        Assert.DoesNotContain("InventoryPromotionSuggestionPresentation", viewXaml, StringComparison.Ordinal);
+        Assert.DoesNotContain("InventoryPromotionSuggestionComposer", viewXaml, StringComparison.Ordinal);
+        Assert.DoesNotContain("Header=\"Sugestão\"", viewXaml, StringComparison.Ordinal);
+        Assert.DoesNotContain("Header=\"Ação comercial\"", viewXaml, StringComparison.Ordinal);
     }
 
     static InventoryPromotionSuggestionPresentationRow Present(

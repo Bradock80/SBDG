@@ -12,6 +12,8 @@ public sealed class InventoryProjectionDetail
         InventoryAttentionPresentation.MissingRow();
     public InventoryCommercialScenarioPresentationRow Commercial { get; init; } =
         InventoryCommercialScenarioPresentation.MissingRow();
+    public InventoryPromotionSuggestionPresentationRow PromotionSuggestion { get; init; } =
+        InventoryPromotionSuggestionPresentation.MissingRow();
 
     public IReadOnlyList<InventoryProjectedLotPresentation> Lots => Projection.Lots;
     public IReadOnlyList<string> Alerts => Projection.Alerts;
@@ -31,7 +33,8 @@ public sealed class InventoryProjectionDetail
         InventoryProjectionPresentationSnapshot? presented,
         int productId,
         InventoryAttentionPresentationSnapshot? attention = null,
-        InventoryCommercialScenarioPresentationSnapshot? commercial = null)
+        InventoryCommercialScenarioPresentationSnapshot? commercial = null,
+        InventoryPromotionSuggestionPresentationSnapshot? promotion = null)
     {
         if (productId <= 0 || snapshot?.Intelligence.Rows is null)
             return null;
@@ -64,6 +67,7 @@ public sealed class InventoryProjectionDetail
             Projection = projection,
             Attention = InventoryAttentionPresentation.ResolveForDetail(attention, productId),
             Commercial = InventoryCommercialScenarioPresentation.ResolveForDetail(commercial, productId),
+            PromotionSuggestion = InventoryPromotionSuggestionPresentation.ResolveForDetail(promotion, productId),
         };
     }
 }

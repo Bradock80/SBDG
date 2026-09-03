@@ -17,6 +17,8 @@ public partial class InventoryIntelligenceModuleView : UserControl
     InventoryAttentionPresentationSnapshot _attentionPresented = new();
     InventoryCommercialScenarioSnapshot _commercial = new();
     InventoryCommercialScenarioPresentationSnapshot _commercialPresented = new();
+    InventoryPromotionSuggestionSnapshot _promotion = new();
+    InventoryPromotionSuggestionPresentationSnapshot _promotionPresented = new();
     readonly InventoryIntelligenceUiFilter _filter = new();
     string? _loadError;
     bool _hasValidSnapshot;
@@ -148,7 +150,7 @@ public partial class InventoryIntelligenceModuleView : UserControl
             return;
 
         var detail = InventoryProjectionDetail.TryCreate(
-            _snapshot, _presented, row.ProductId, _attentionPresented, _commercialPresented);
+            _snapshot, _presented, row.ProductId, _attentionPresented, _commercialPresented, _promotionPresented);
         if (detail is null)
         {
             MessageBox.Show(
@@ -205,12 +207,16 @@ public partial class InventoryIntelligenceModuleView : UserControl
             var commercial = InventoryCommercialScenarioComposer.Compose(
                 snapshot.Intelligence, snapshot, attention, eligibility, facts, policy);
             var commercialPresented = InventoryCommercialScenarioPresentation.Apply(commercial);
+            var promotion = InventoryPromotionSuggestionComposer.Compose(snapshot.Intelligence, commercial);
+            var promotionPresented = InventoryPromotionSuggestionPresentation.Apply(promotion);
             _snapshot = snapshot;
             _presented = presented;
             _attention = attention;
             _attentionPresented = attentionPresented;
             _commercial = commercial;
             _commercialPresented = commercialPresented;
+            _promotion = promotion;
+            _promotionPresented = promotionPresented;
             _hasValidSnapshot = true;
             _loadError = null;
             RebuildCards();
@@ -232,6 +238,8 @@ public partial class InventoryIntelligenceModuleView : UserControl
                 _attentionPresented = new InventoryAttentionPresentationSnapshot();
                 _commercial = new InventoryCommercialScenarioSnapshot();
                 _commercialPresented = new InventoryCommercialScenarioPresentationSnapshot();
+                _promotion = new InventoryPromotionSuggestionSnapshot();
+                _promotionPresented = new InventoryPromotionSuggestionPresentationSnapshot();
                 _loadError = failure.Value.OperatorMessage;
                 RebuildCards();
                 Grid.ItemsSource = null;
@@ -266,6 +274,8 @@ public partial class InventoryIntelligenceModuleView : UserControl
         _attentionPresented = new InventoryAttentionPresentationSnapshot();
         _commercial = new InventoryCommercialScenarioSnapshot();
         _commercialPresented = new InventoryCommercialScenarioPresentationSnapshot();
+        _promotion = new InventoryPromotionSuggestionSnapshot();
+        _promotionPresented = new InventoryPromotionSuggestionPresentationSnapshot();
         _loadError = null;
         ContentRoot.Visibility = Visibility.Collapsed;
         ClientBlockOverlay.Visibility = Visibility.Visible;

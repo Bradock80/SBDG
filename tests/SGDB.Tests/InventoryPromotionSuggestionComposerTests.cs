@@ -709,18 +709,19 @@ public class InventoryPromotionSuggestionComposerTests
     }
 
     [Fact]
-    public void Nao_integrado_na_Window()
+    public void Composer_nao_vive_no_detalhe_nem_no_XAML()
     {
-        var view = ReadSource("src", "SGDB.App", "Views", "InventoryIntelligenceModuleView.xaml.cs");
-        var xaml = ReadSource("src", "SGDB.App", "Views", "InventoryIntelligenceModuleView.xaml");
+        var viewXaml = ReadSource("src", "SGDB.App", "Views", "InventoryIntelligenceModuleView.xaml");
         var detailCs = ReadSource("src", "SGDB.App", "Views", "InventoryProjectionDetailWindow.xaml.cs");
         var detailXaml = ReadSource("src", "SGDB.App", "Views", "InventoryProjectionDetailWindow.xaml");
-        foreach (var text in new[] { view, xaml, detailCs, detailXaml })
+        foreach (var text in new[] { viewXaml, detailCs, detailXaml })
         {
             Assert.DoesNotContain("InventoryPromotionSuggestionComposer", text, StringComparison.Ordinal);
-            Assert.DoesNotContain("InventoryPromotionSuggestionSnapshot", text, StringComparison.Ordinal);
-            Assert.DoesNotContain("InventoryPromotionSuggestionRow", text, StringComparison.Ordinal);
+            Assert.DoesNotContain("InventoryPromotionSuggestionEngine", text, StringComparison.Ordinal);
         }
+
+        Assert.DoesNotContain("InventoryPromotionSuggestionRow", viewXaml, StringComparison.Ordinal);
+        Assert.DoesNotContain("InventoryPromotionSuggestionSnapshot", viewXaml, StringComparison.Ordinal);
     }
 
     [Fact]

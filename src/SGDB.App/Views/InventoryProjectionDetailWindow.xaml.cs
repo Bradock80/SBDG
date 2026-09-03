@@ -83,6 +83,7 @@ public partial class InventoryProjectionDetailWindow : Window
         }
 
         BindCommercial(detail.Commercial);
+        BindPromotion(detail.PromotionSuggestion);
     }
 
     private void BindCommercial(InventoryCommercialScenarioPresentationRow commercial)
@@ -133,6 +134,46 @@ public partial class InventoryProjectionDetailWindow : Window
         CommercialDisclaimerText.Visibility = showDisclaimer ? Visibility.Visible : Visibility.Collapsed;
         CommercialFooterText.Text = showDisclaimer ? commercial.OperatorFooter : "";
         CommercialFooterText.Visibility = showDisclaimer ? Visibility.Visible : Visibility.Collapsed;
+    }
+
+    private void BindPromotion(InventoryPromotionSuggestionPresentationRow suggestion)
+    {
+        suggestion ??= InventoryPromotionSuggestionPresentation.MissingRow();
+        CommercialActionStatusText.Text = suggestion.StatusLabel;
+        CommercialActionSuggestionText.Text = suggestion.ActionLabel;
+        CommercialActionPriorityText.Text = suggestion.PriorityLabel;
+        CommercialActionConfidenceText.Text = suggestion.ConfidenceLabel;
+        CommercialActionReasonText.Text = suggestion.PrimaryReasonLabel;
+        CommercialActionExplanationText.Text = suggestion.Explanation;
+        CommercialActionObjectiveText.Text = suggestion.ObjectiveLabel;
+
+        var showQuantity = InventoryPromotionSuggestionDetailUi.ShowQuantity(suggestion);
+        CommercialActionQuantityPanel.Visibility = showQuantity ? Visibility.Visible : Visibility.Collapsed;
+        CommercialActionQuantityText.Text = suggestion.AttentionQuantityText;
+        CommercialActionSourceText.Text = suggestion.AttentionQuantitySourceLabel;
+
+        var possibilities = InventoryPromotionSuggestionDetailUi.PossibilityLines(suggestion);
+        CommercialActionPossibilitiesPanel.Visibility = possibilities.Count > 0
+            ? Visibility.Visible
+            : Visibility.Collapsed;
+        CommercialActionPossibilitiesList.ItemsSource = possibilities;
+
+        if (InventoryPromotionSuggestionDetailUi.ShowWarnings(suggestion))
+        {
+            CommercialActionWarningsPanel.Visibility = Visibility.Visible;
+            CommercialActionWarningsList.ItemsSource = suggestion.WarningLabels;
+        }
+
+        if (InventoryPromotionSuggestionDetailUi.ShowSecondary(suggestion))
+        {
+            CommercialActionSecondaryPanel.Visibility = Visibility.Visible;
+            CommercialActionSecondaryList.ItemsSource = suggestion.SecondaryReasonLabels;
+        }
+
+        CommercialActionDisclaimerText.Text = suggestion.DisclaimerText;
+        CommercialActionDisclaimerText.Visibility = string.IsNullOrWhiteSpace(suggestion.DisclaimerText)
+            ? Visibility.Collapsed
+            : Visibility.Visible;
     }
 
     private void Close_Click(object sender, RoutedEventArgs e) => Close();

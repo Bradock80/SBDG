@@ -147,7 +147,7 @@ public class InventoryIntelligenceModuleView70EB4BTests
         Assert.DoesNotContain("ATENÇÃO", xaml, StringComparison.Ordinal);
 
         Assert.Contains("InventoryProjectionDetail.TryCreate(", cs, StringComparison.Ordinal);
-        Assert.Contains("row.ProductId, _attentionPresented, _commercialPresented)", cs, StringComparison.Ordinal);
+        Assert.Contains("row.ProductId, _attentionPresented, _commercialPresented, _promotionPresented)", cs, StringComparison.Ordinal);
 
         Assert.Contains("InventoryIntelligencePresentation.Cards", cs, StringComparison.Ordinal);
         Assert.Equal(7, InventoryIntelligencePresentation.Cards.Length);
