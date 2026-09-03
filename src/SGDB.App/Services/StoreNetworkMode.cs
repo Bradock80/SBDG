@@ -222,6 +222,7 @@ public static class StoreNetworkMode
                 or "estoque_marcas"
                 or "estoque_consistencia_lotes"
                 or "estoque_inteligente"
+                or "reposicao_inteligente"
                 or "auditoria"
                 or "usuarios"
                 or "residuos_unificacoes"

@@ -16,6 +16,7 @@ public class InventoryIntelligenceAccessTests
     {
         TestDataHelper.SetSessionRole(role);
         Assert.True(AccessControl.CanAccessModule("estoque_inteligente"));
+        Assert.True(AccessControl.CanAccessModule("reposicao_inteligente"));
         Assert.True(AccessControl.Can("RelatoriosAcesso"));
     }
 
@@ -25,6 +26,7 @@ public class InventoryIntelligenceAccessTests
         TestDataHelper.SetSessionRole("vendedor");
         Assert.False(AccessControl.Can("RelatoriosAcesso"));
         Assert.False(AccessControl.CanAccessModule("estoque_inteligente"));
+        Assert.False(AccessControl.CanAccessModule("reposicao_inteligente"));
     }
 
     [Fact]
@@ -36,8 +38,22 @@ public class InventoryIntelligenceAccessTests
             p.ProdutosEditar = false;
         });
         Assert.True(AccessControl.CanAccessModule("estoque_inteligente"));
+        Assert.True(AccessControl.CanAccessModule("reposicao_inteligente"));
         Assert.True(AccessControl.Can("RelatoriosAcesso"));
         Assert.False(AccessControl.Can("ProdutosEditar"));
         Assert.False(AccessControl.Can("EstoqueAjustar"));
+    }
+
+    [Fact]
+    public void EstoqueAjustar_sozinho_nao_abre_reposicao_inteligente()
+    {
+        TestDataHelper.SetSessionCustomPermissions("vendedor", p =>
+        {
+            p.EstoqueAjustar = true;
+            p.RelatoriosAcesso = false;
+        });
+        Assert.True(AccessControl.Can("EstoqueAjustar"));
+        Assert.False(AccessControl.CanAccessModule("reposicao_inteligente"));
+        Assert.False(AccessControl.CanAccessModule("estoque_inteligente"));
     }
 }

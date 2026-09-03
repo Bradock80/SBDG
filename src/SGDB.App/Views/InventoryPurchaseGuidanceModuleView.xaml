@@ -1,0 +1,230 @@
+<UserControl x:Class="SGDB.Views.InventoryPurchaseGuidanceModuleView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:models="clr-namespace:SGDB.Models"
+             Background="{StaticResource SgdbBgBrush}"
+             Focusable="True"
+             PreviewKeyDown="Root_PreviewKeyDown">
+    <Border BorderBrush="#C8C4BC" BorderThickness="1" Background="White">
+        <Grid>
+            <Grid x:Name="ContentRoot">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="*"/>
+                    <RowDefinition Height="Auto"/>
+                </Grid.RowDefinitions>
+
+                <Border Grid.Row="0" Padding="10,6" Background="#F0F0F0"
+                        BorderBrush="#C8C4BC" BorderThickness="0,0,0,1">
+                    <Grid>
+                        <StackPanel VerticalAlignment="Center">
+                            <TextBlock Text="{x:Static models:InventoryPurchaseGuidancePresentation.ModuleTitle}"
+                                       FontWeight="SemiBold" FontSize="13" Foreground="#1E293B"/>
+                            <TextBlock Text="Orientações baseadas no estoque, giro e projeções atuais."
+                                       FontSize="11" Foreground="#64748B" Margin="0,1,0,0"/>
+                        </StackPanel>
+                        <Button Style="{StaticResource ModuleTabCloseStyle}"
+                                HorizontalAlignment="Right" VerticalAlignment="Center"
+                                Click="Close_Click"/>
+                    </Grid>
+                </Border>
+
+                <WrapPanel x:Name="CardsPanel" Grid.Row="1" Margin="10,8,10,4"/>
+
+                <Border Grid.Row="2" Padding="12,8" Background="#F8FAFC" BorderBrush="#E2E8F0"
+                        BorderThickness="0,1,0,1">
+                    <WrapPanel VerticalAlignment="Center">
+                        <TextBlock Text="Buscar produto ou código" VerticalAlignment="Center"
+                                   Margin="0,0,8,4" FontSize="12" Foreground="#64748B"/>
+                        <TextBox x:Name="SearchBox" Width="220" Height="32" Padding="8,0"
+                                 VerticalContentAlignment="Center" Margin="0,0,12,4"
+                                 TextChanged="SearchBox_TextChanged"/>
+                        <TextBlock Text="Cobertura" VerticalAlignment="Center" Margin="0,0,8,4"
+                                   FontSize="12" Foreground="#64748B"/>
+                        <ComboBox x:Name="CoverageBox" Width="160" Height="32" Margin="0,0,12,4"
+                                  SelectionChanged="Filter_Changed"/>
+                        <Button Content="Atualizar (F5)" Style="{StaticResource SgdbPrimaryButtonStyle}"
+                                Height="32" Padding="12,6" Margin="0,0,8,4" Click="Refresh_Click"/>
+                        <Button Content="Limpar filtros" Height="32" Padding="12,6" Margin="0,0,8,4"
+                                Click="ClearFilters_Click"/>
+                        <Button x:Name="BtnOpenProduct" Content="Ver produto" Height="32" Padding="12,6" Margin="0,0,8,4"
+                                Click="OpenProduct_Click"/>
+                        <Button x:Name="BtnDetailProjection" Content="Ver análise"
+                                Height="32" Padding="12,6" Margin="0,0,8,4"
+                                IsEnabled="False" Click="OpenProjectionDetail_Click"/>
+                    </WrapPanel>
+                </Border>
+
+                <StackPanel Grid.Row="3" Margin="12,4,12,0">
+                    <TextBlock FontSize="11" Foreground="#64748B" TextWrapping="Wrap"
+                               Text="Clique no card para filtrar. Os filtros se combinam."/>
+                </StackPanel>
+
+                <Grid Grid.Row="4" Margin="10">
+                    <DataGrid x:Name="Grid"
+                              AutoGenerateColumns="False" IsReadOnly="True"
+                              CanUserAddRows="False" CanUserSortColumns="True"
+                              HeadersVisibility="Column"
+                              GridLinesVisibility="Horizontal" HorizontalGridLinesBrush="#E2E8F0"
+                              BorderBrush="#C8C4BC" BorderThickness="1" Background="White"
+                              RowHeaderWidth="0" RowHeight="32" FontSize="12.5"
+                              AlternatingRowBackground="#F8FAFC"
+                              EnableRowVirtualization="True"
+                              EnableColumnVirtualization="False"
+                              VirtualizingPanel.IsVirtualizing="True"
+                              VirtualizingPanel.VirtualizationMode="Recycling"
+                              VirtualizingPanel.ScrollUnit="Pixel"
+                              MouseDoubleClick="Grid_MouseDoubleClick"
+                              SelectionChanged="Grid_SelectionChanged">
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Header="Produto" Binding="{Binding Name}" Width="*" MinWidth="180"/>
+                            <DataGridTextColumn Header="Código" Binding="{Binding Code}" Width="80"/>
+                            <DataGridTextColumn Header="Estoque" Binding="{Binding TotalStockDisplay}" Width="80">
+                                <DataGridTextColumn.ElementStyle>
+                                    <Style TargetType="TextBlock">
+                                        <Setter Property="TextAlignment" Value="Right"/>
+                                        <Setter Property="VerticalAlignment" Value="Center"/>
+                                    </Style>
+                                </DataGridTextColumn.ElementStyle>
+                            </DataGridTextColumn>
+                            <DataGridTextColumn Header="VMV 30" Binding="{Binding Vmv30Display}" Width="80">
+                                <DataGridTextColumn.ElementStyle>
+                                    <Style TargetType="TextBlock">
+                                        <Setter Property="TextAlignment" Value="Right"/>
+                                        <Setter Property="VerticalAlignment" Value="Center"/>
+                                    </Style>
+                                </DataGridTextColumn.ElementStyle>
+                            </DataGridTextColumn>
+                            <DataGridTextColumn Header="Cobertura" Binding="{Binding CoverageDisplay}" Width="100">
+                                <DataGridTextColumn.ElementStyle>
+                                    <Style TargetType="TextBlock">
+                                        <Setter Property="TextAlignment" Value="Right"/>
+                                        <Setter Property="VerticalAlignment" Value="Center"/>
+                                    </Style>
+                                </DataGridTextColumn.ElementStyle>
+                            </DataGridTextColumn>
+                            <DataGridTextColumn Header="Validade / risco" Binding="{Binding ValidityLabel}" Width="140">
+                                <DataGridTextColumn.ElementStyle>
+                                    <Style TargetType="TextBlock">
+                                        <Setter Property="TextAlignment" Value="Left"/>
+                                        <Setter Property="VerticalAlignment" Value="Center"/>
+                                        <Setter Property="ToolTip" Value="{Binding ValidityLabel}"/>
+                                    </Style>
+                                </DataGridTextColumn.ElementStyle>
+                            </DataGridTextColumn>
+                            <DataGridTemplateColumn Header="Orientação" Width="160">
+                                <DataGridTemplateColumn.CellTemplate>
+                                    <DataTemplate>
+                                        <Border CornerRadius="8" Padding="8,2" HorizontalAlignment="Left" Margin="2,0">
+                                            <Border.Style>
+                                                <Style TargetType="Border">
+                                                    <Setter Property="Background" Value="#F1F5F9"/>
+                                                    <Setter Property="BorderBrush" Value="#CBD5E1"/>
+                                                    <Setter Property="BorderThickness" Value="1"/>
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding Tone}" Value="alert">
+                                                            <Setter Property="Background" Value="#FEE2E2"/>
+                                                            <Setter Property="BorderBrush" Value="#FECACA"/>
+                                                        </DataTrigger>
+                                                        <DataTrigger Binding="{Binding Tone}" Value="attention">
+                                                            <Setter Property="Background" Value="#FEF3C7"/>
+                                                            <Setter Property="BorderBrush" Value="#FDE68A"/>
+                                                        </DataTrigger>
+                                                        <DataTrigger Binding="{Binding Tone}" Value="notice">
+                                                            <Setter Property="Background" Value="#FEF9C3"/>
+                                                            <Setter Property="BorderBrush" Value="#FDE68A"/>
+                                                        </DataTrigger>
+                                                        <DataTrigger Binding="{Binding Tone}" Value="info">
+                                                            <Setter Property="Background" Value="#E0F2FE"/>
+                                                            <Setter Property="BorderBrush" Value="#BAE6FD"/>
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </Border.Style>
+                                            <TextBlock Text="{Binding ActionLabel}" FontSize="11" FontWeight="SemiBold">
+                                                <TextBlock.Style>
+                                                    <Style TargetType="TextBlock">
+                                                        <Setter Property="Foreground" Value="#334155"/>
+                                                        <Style.Triggers>
+                                                            <DataTrigger Binding="{Binding Tone}" Value="alert">
+                                                                <Setter Property="Foreground" Value="#991B1B"/>
+                                                            </DataTrigger>
+                                                            <DataTrigger Binding="{Binding Tone}" Value="attention">
+                                                                <Setter Property="Foreground" Value="#92400E"/>
+                                                            </DataTrigger>
+                                                            <DataTrigger Binding="{Binding Tone}" Value="notice">
+                                                                <Setter Property="Foreground" Value="#854D0E"/>
+                                                            </DataTrigger>
+                                                            <DataTrigger Binding="{Binding Tone}" Value="info">
+                                                                <Setter Property="Foreground" Value="#075985"/>
+                                                            </DataTrigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </TextBlock.Style>
+                                            </TextBlock>
+                                        </Border>
+                                    </DataTemplate>
+                                </DataGridTemplateColumn.CellTemplate>
+                            </DataGridTemplateColumn>
+                            <DataGridTextColumn Header="Motivo" Binding="{Binding PrimaryReasonLabel}" Width="180">
+                                <DataGridTextColumn.ElementStyle>
+                                    <Style TargetType="TextBlock">
+                                        <Setter Property="TextAlignment" Value="Left"/>
+                                        <Setter Property="VerticalAlignment" Value="Center"/>
+                                        <Setter Property="TextWrapping" Value="NoWrap"/>
+                                        <Setter Property="TextTrimming" Value="CharacterEllipsis"/>
+                                        <Setter Property="ToolTip" Value="{Binding PrimaryReasonLabel}"/>
+                                    </Style>
+                                </DataGridTextColumn.ElementStyle>
+                            </DataGridTextColumn>
+                            <DataGridTextColumn Header="Confiança" Binding="{Binding ConfidenceLabel}" Width="150">
+                                <DataGridTextColumn.ElementStyle>
+                                    <Style TargetType="TextBlock">
+                                        <Setter Property="TextAlignment" Value="Left"/>
+                                        <Setter Property="VerticalAlignment" Value="Center"/>
+                                        <Setter Property="TextTrimming" Value="CharacterEllipsis"/>
+                                        <Setter Property="ToolTip" Value="{Binding ConfidenceLabel}"/>
+                                    </Style>
+                                </DataGridTextColumn.ElementStyle>
+                            </DataGridTextColumn>
+                        </DataGrid.Columns>
+                    </DataGrid>
+                    <Border x:Name="EmptyOverlay" Background="#CCFFFFFF" Visibility="Collapsed"
+                            IsHitTestVisible="False">
+                        <TextBlock x:Name="EmptyText" Text="{x:Static models:InventoryPurchaseGuidanceUi.EmptySnapshotMessage}"
+                                   HorizontalAlignment="Center" VerticalAlignment="Center"
+                                   FontSize="13" Foreground="#64748B" TextWrapping="Wrap"
+                                   TextAlignment="Center" Margin="24"/>
+                    </Border>
+                </Grid>
+
+                <Border Grid.Row="5" Padding="12,8" Background="#F8FAFC" BorderBrush="#C8C4BC"
+                        BorderThickness="0,1,0,0">
+                    <ScrollViewer VerticalScrollBarVisibility="Auto" MaxHeight="140">
+                        <StackPanel>
+                            <TextBlock x:Name="DetailText" FontSize="11" Foreground="#475569" TextWrapping="Wrap"
+                                       Text="{x:Static models:InventoryPurchaseGuidanceUi.SelectRowHint}"/>
+                            <TextBlock x:Name="MetaText" FontSize="12" Foreground="#334155" TextWrapping="Wrap"
+                                       Margin="0,4,0,0"/>
+                            <TextBlock FontSize="11" Foreground="#64748B" TextWrapping="Wrap" Margin="0,6,0,0"
+                                       Text="{x:Static models:InventoryPurchaseGuidancePresentation.GuidanceDisclaimer}"/>
+                        </StackPanel>
+                    </ScrollViewer>
+                </Border>
+            </Grid>
+
+            <Border x:Name="ClientBlockOverlay" Background="#F8FAFC" Visibility="Collapsed">
+                <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" MaxWidth="520" Margin="24">
+                    <TextBlock Text="{x:Static models:InventoryPurchaseGuidancePresentation.ModuleTitle}"
+                               FontWeight="SemiBold" FontSize="14"
+                               Foreground="#1E293B" TextAlignment="Center"/>
+                    <TextBlock x:Name="ClientBlockText" Margin="0,12,0,0" FontSize="13"
+                               Foreground="#475569" TextWrapping="Wrap" TextAlignment="Center"/>
+                </StackPanel>
+            </Border>
+        </Grid>
+    </Border>
+</UserControl>

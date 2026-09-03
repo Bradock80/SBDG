@@ -118,6 +118,8 @@
                     <MenuItem Header="Curva ABC / Giro" Tag="estoque_curva_abc" Click="MenuModule_Click"/>
                     <MenuItem Header="Estoque Inteligente" Tag="estoque_inteligente" Click="MenuModule_Click"
                               ToolTip="Cobertura, movimentação e alertas de estoque"/>
+                    <MenuItem Header="Reposição Inteligente" Tag="reposicao_inteligente" Click="MenuModule_Click"
+                              ToolTip="Orientações qualitativas de reposição"/>
                     <Separator/>
                     <MenuItem Header="Mais vendidos" Tag="estoque_mais_vendidos" Click="MenuModule_Click"/>
                     <MenuItem Header="Menos vendidos" Tag="estoque_menos_vendidos" Click="MenuModule_Click"/>
@@ -230,6 +232,11 @@
                 <Button Style="{StaticResource IconToolbarButtonStyle}" Tag="vasilhame"
                         Click="Toolbar_Click" x:Name="BtnVasilhame">
                     <controls:ToolbarIconContent IconKey="vasilhame" Label="Vasilhame"/>
+                </Button>
+                <Button Style="{StaticResource IconToolbarButtonStyle}" Tag="reposicao_inteligente"
+                        Click="Toolbar_Click" x:Name="BtnReposicao"
+                        ToolTip="Reposição Inteligente">
+                    <controls:ToolbarIconContent IconKey="relatorio" Label="Reposição"/>
                 </Button>
                 <Button Style="{StaticResource IconToolbarButtonStyle}" Tag="compras"
                         Click="Toolbar_Click" x:Name="BtnCompras">
