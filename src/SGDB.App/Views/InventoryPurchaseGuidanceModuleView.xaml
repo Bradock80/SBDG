@@ -7,13 +7,18 @@
              PreviewKeyDown="Root_PreviewKeyDown">
     <Border BorderBrush="#C8C4BC" BorderThickness="1" Background="White">
         <Grid>
-            <Grid x:Name="ContentRoot">
+            <ScrollViewer x:Name="ModuleScroll"
+                          VerticalScrollBarVisibility="Auto"
+                          HorizontalScrollBarVisibility="Disabled"
+                          CanContentScroll="False">
+            <Grid x:Name="ContentRoot"
+                  MinHeight="{Binding ActualHeight, ElementName=ModuleScroll}">
                 <Grid.RowDefinitions>
                     <RowDefinition Height="Auto"/>
                     <RowDefinition Height="Auto"/>
                     <RowDefinition Height="Auto"/>
                     <RowDefinition Height="Auto"/>
-                    <RowDefinition Height="*"/>
+                    <RowDefinition Height="*" MinHeight="168"/>
                     <RowDefinition Height="Auto"/>
                 </Grid.RowDefinitions>
 
@@ -80,7 +85,15 @@
                               MouseDoubleClick="Grid_MouseDoubleClick"
                               SelectionChanged="Grid_SelectionChanged">
                         <DataGrid.Columns>
-                            <DataGridTextColumn Header="Produto" Binding="{Binding Name}" Width="*" MinWidth="180"/>
+                            <DataGridTextColumn Header="Produto" Binding="{Binding Name}" Width="*" MinWidth="180">
+                                <DataGridTextColumn.ElementStyle>
+                                    <Style TargetType="TextBlock">
+                                        <Setter Property="VerticalAlignment" Value="Center"/>
+                                        <Setter Property="TextTrimming" Value="CharacterEllipsis"/>
+                                        <Setter Property="ToolTip" Value="{Binding Name}"/>
+                                    </Style>
+                                </DataGridTextColumn.ElementStyle>
+                            </DataGridTextColumn>
                             <DataGridTextColumn Header="Código" Binding="{Binding Code}" Width="80"/>
                             <DataGridTextColumn Header="Estoque" Binding="{Binding TotalStockDisplay}" Width="80">
                                 <DataGridTextColumn.ElementStyle>
@@ -215,6 +228,7 @@
                     </ScrollViewer>
                 </Border>
             </Grid>
+            </ScrollViewer>
 
             <Border x:Name="ClientBlockOverlay" Background="#F8FAFC" Visibility="Collapsed">
                 <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" MaxWidth="520" Margin="24">
