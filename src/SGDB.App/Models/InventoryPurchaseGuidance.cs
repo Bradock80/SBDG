@@ -99,3 +99,16 @@ public sealed class InventoryPurchaseGuidanceResult
     public InventoryPurchaseGuidanceReason PrimaryReason { get; init; }
     public IReadOnlyList<InventoryPurchaseGuidanceReason> SecondaryReasons { get; init; } = [];
 }
+
+/// <summary>
+/// Snapshot em lote 70G-B2. Rows na ordem de Intelligence.Rows (70C).
+/// Composer não executa query. Lookup O(1) por ProductId.
+/// Sem quantidade, fornecedor, preço, margem, pedido, score, PT-BR ou cards.
+/// </summary>
+public sealed class InventoryPurchaseGuidanceSnapshot
+{
+    public int QueryCount { get; init; }
+    public IReadOnlyList<InventoryPurchaseGuidanceResult> Results { get; init; } = [];
+    public IReadOnlyDictionary<int, InventoryPurchaseGuidanceResult> ByProductId { get; init; } =
+        new Dictionary<int, InventoryPurchaseGuidanceResult>();
+}
