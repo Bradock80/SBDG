@@ -50,6 +50,8 @@ public enum InventoryPromotionSuggestionReason
 {
     None = 0,
     InvalidInput,
+    ScenarioMissing,
+    DuplicateScenario,
     Expired,
     LocationLimitation,
     ReviewData,
@@ -114,4 +116,34 @@ public sealed class InventoryPromotionSuggestionResult
     public double? AttentionQuantity { get; init; }
     public InventoryCommercialAttentionQuantitySource AttentionQuantitySource { get; init; }
     public IReadOnlyList<InventoryCommercialScenario> Scenarios { get; init; } = [];
+}
+
+/// <summary>
+/// Entrada 70F-B5C. População = Intelligence.Rows. Sem I/O.
+/// </summary>
+public sealed class InventoryPromotionSuggestionComposeInput
+{
+    public InventoryIntelligenceSnapshot? Intelligence { get; init; }
+    public InventoryCommercialScenarioSnapshot? Scenarios { get; init; }
+}
+
+/// <summary>
+/// Linha composta 70F-B5C. ProductId é o da autoridade 70C.
+/// </summary>
+public sealed class InventoryPromotionSuggestionRow
+{
+    public int ProductId { get; init; }
+    public InventoryPromotionSuggestionResult Suggestion { get; init; } = new();
+}
+
+/// <summary>
+/// Snapshot em lote 70F-B5C. Rows na ordem de Intelligence.Rows.
+/// QueryCount documenta o pipeline (9); o composer não executa query.
+/// </summary>
+public sealed class InventoryPromotionSuggestionSnapshot
+{
+    public int QueryCount { get; init; }
+    public IReadOnlyList<InventoryPromotionSuggestionRow> Rows { get; init; } = [];
+    public IReadOnlyDictionary<int, InventoryPromotionSuggestionRow> ByProductId { get; init; } =
+        new Dictionary<int, InventoryPromotionSuggestionRow>();
 }

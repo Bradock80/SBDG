@@ -14,6 +14,8 @@ public static class InventoryPromotionSuggestionEngine
     public static readonly InventoryPromotionSuggestionReason[] ReasonPrecedence =
     [
         InventoryPromotionSuggestionReason.InvalidInput,
+        InventoryPromotionSuggestionReason.ScenarioMissing,
+        InventoryPromotionSuggestionReason.DuplicateScenario,
         InventoryPromotionSuggestionReason.Expired,
         InventoryPromotionSuggestionReason.LocationLimitation,
         InventoryPromotionSuggestionReason.ReviewData,
