@@ -245,7 +245,7 @@
                                TextWrapping="Wrap"/>
                 </Border>
 
-                <Border x:Name="ObservationsSection" Padding="12,10" Margin="0,0,0,4" Background="White"
+                <Border x:Name="ObservationsSection" Padding="12,10" Margin="0,0,0,10" Background="White"
                         BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="4"
                         Visibility="Collapsed">
                     <StackPanel>
@@ -258,6 +258,152 @@
                                 </DataTemplate>
                             </ItemsControl.ItemTemplate>
                         </ItemsControl>
+                    </StackPanel>
+                </Border>
+
+                <Border x:Name="CommercialSection" Padding="12,10" Margin="0,0,0,4" Background="#F8FAFC"
+                        BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="4">
+                    <StackPanel>
+                        <TextBlock Text="CENÁRIOS COMERCIAIS" FontSize="12" FontWeight="SemiBold" Foreground="#64748B"/>
+
+                        <WrapPanel Margin="0,8,0,0">
+                            <StackPanel Width="220" Margin="0,0,16,8">
+                                <TextBlock Text="Situação" FontSize="11" Foreground="#64748B"/>
+                                <TextBlock x:Name="CommercialStatusText"
+                                           FontSize="14" FontWeight="SemiBold" Foreground="#0F172A"
+                                           TextWrapping="Wrap"/>
+                            </StackPanel>
+                            <StackPanel Width="260" Margin="0,0,16,8">
+                                <TextBlock Text="Tese" FontSize="11" Foreground="#64748B"/>
+                                <TextBlock x:Name="CommercialThesisText"
+                                           FontSize="14" FontWeight="SemiBold" Foreground="#0F172A"
+                                           TextWrapping="Wrap"/>
+                            </StackPanel>
+                            <StackPanel Width="280" Margin="0,0,16,8">
+                                <TextBlock Text="Motivo principal" FontSize="11" Foreground="#64748B"/>
+                                <TextBlock x:Name="CommercialReasonText"
+                                           FontSize="14" FontWeight="SemiBold" Foreground="#0F172A"
+                                           TextWrapping="Wrap"/>
+                            </StackPanel>
+                        </WrapPanel>
+                        <TextBlock x:Name="CommercialExplanationText"
+                                   FontSize="13" Foreground="#0F172A"
+                                   TextWrapping="Wrap" Margin="0,4,0,0"/>
+                        <TextBlock x:Name="CommercialGuidanceText"
+                                   FontSize="13" Foreground="#334155"
+                                   TextWrapping="Wrap" Margin="0,6,0,0"/>
+
+                        <StackPanel x:Name="CommercialFinancePanel" Margin="0,12,0,0">
+                            <WrapPanel>
+                                <StackPanel Width="200" Margin="0,0,16,8">
+                                    <TextBlock Text="{x:Static models:InventoryCommercialScenarioPresentation.CatalogPriceCaption}"
+                                               FontSize="11" Foreground="#64748B" TextWrapping="Wrap"/>
+                                    <TextBlock x:Name="CommercialCatalogPriceText"
+                                               FontSize="14" FontWeight="SemiBold" Foreground="#0F172A"/>
+                                </StackPanel>
+                                <StackPanel Width="140" Margin="0,0,16,8">
+                                    <TextBlock Text="{x:Static models:InventoryCommercialScenarioPresentation.CurrentMarginCaption}"
+                                               FontSize="11" Foreground="#64748B"/>
+                                    <TextBlock x:Name="CommercialCurrentMarginText"
+                                               FontSize="14" FontWeight="SemiBold" Foreground="#0F172A"/>
+                                </StackPanel>
+                                <StackPanel Width="140" Margin="0,0,16,8">
+                                    <TextBlock Text="{x:Static models:InventoryCommercialScenarioPresentation.MinimumMarginCaption}"
+                                               FontSize="11" Foreground="#64748B"/>
+                                    <TextBlock x:Name="CommercialMinMarginText"
+                                               FontSize="14" FontWeight="SemiBold" Foreground="#0F172A"/>
+                                </StackPanel>
+                                <StackPanel Width="180" Margin="0,0,16,8">
+                                    <TextBlock Text="{x:Static models:InventoryCommercialScenarioPresentation.FloorCaption}"
+                                               FontSize="11" Foreground="#64748B"/>
+                                    <TextBlock x:Name="CommercialFloorText"
+                                               FontSize="14" FontWeight="SemiBold" Foreground="#0F172A"/>
+                                </StackPanel>
+                                <StackPanel Width="180" Margin="0,0,16,8">
+                                    <TextBlock Text="{x:Static models:InventoryCommercialScenarioPresentation.RoomCaption}"
+                                               FontSize="11" Foreground="#64748B" TextWrapping="Wrap"/>
+                                    <TextBlock x:Name="CommercialRoomText"
+                                               FontSize="14" FontWeight="SemiBold" Foreground="#0F172A"/>
+                                </StackPanel>
+                            </WrapPanel>
+                            <TextBlock x:Name="CommercialFloorHintText"
+                                       FontSize="11" Foreground="#64748B"
+                                       TextWrapping="Wrap" Margin="0,2,0,0"
+                                       Text="{x:Static models:InventoryCommercialScenarioPresentation.FloorLimitHint}"/>
+                        </StackPanel>
+
+                        <StackPanel x:Name="CommercialQuantityPanel" Margin="0,10,0,0" Visibility="Collapsed">
+                            <TextBlock x:Name="CommercialQuantityLabelText"
+                                       FontSize="11" Foreground="#64748B" TextWrapping="Wrap"/>
+                            <TextBlock x:Name="CommercialQuantityText"
+                                       FontSize="14" FontWeight="SemiBold" Foreground="#0F172A"
+                                       Margin="0,2,0,0"/>
+                        </StackPanel>
+
+                        <ItemsControl x:Name="CommercialScenariosList" Margin="0,12,0,0">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <Border Padding="10,8" Margin="0,0,0,8" Background="White"
+                                            BorderBrush="#CBD5E1" BorderThickness="1" CornerRadius="4">
+                                        <StackPanel>
+                                            <TextBlock Text="{Binding KindLabel}"
+                                                       FontSize="13" FontWeight="SemiBold" Foreground="#1E293B"/>
+                                            <WrapPanel Margin="0,8,0,0">
+                                                <StackPanel Width="180" Margin="0,0,16,4">
+                                                    <TextBlock Text="{x:Static models:InventoryCommercialScenarioPresentation.SimulatedPriceCaption}"
+                                                               FontSize="11" Foreground="#64748B"/>
+                                                    <TextBlock Text="{Binding SimulatedPriceText}"
+                                                               FontSize="14" FontWeight="SemiBold" Foreground="#0F172A"/>
+                                                </StackPanel>
+                                                <StackPanel Width="220" Margin="0,0,16,4">
+                                                    <TextBlock Text="{x:Static models:InventoryCommercialScenarioPresentation.ReductionCaption}"
+                                                               FontSize="11" Foreground="#64748B" TextWrapping="Wrap"/>
+                                                    <TextBlock Text="{Binding ReductionSummaryText}"
+                                                               FontSize="14" FontWeight="SemiBold" Foreground="#0F172A"/>
+                                                </StackPanel>
+                                                <StackPanel Width="200" Margin="0,0,16,4">
+                                                    <TextBlock Text="{x:Static models:InventoryCommercialScenarioPresentation.ScenarioMarginCaption}"
+                                                               FontSize="11" Foreground="#64748B" TextWrapping="Wrap"/>
+                                                    <TextBlock Text="{Binding GrossMarginText}"
+                                                               FontSize="14" FontWeight="SemiBold" Foreground="#0F172A"/>
+                                                </StackPanel>
+                                            </WrapPanel>
+                                        </StackPanel>
+                                    </Border>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+
+                        <StackPanel x:Name="CommercialWarningsPanel" Margin="0,8,0,0" Visibility="Collapsed">
+                            <TextBlock Text="ATENÇÃO" FontSize="11" FontWeight="SemiBold" Foreground="#92400E"/>
+                            <ItemsControl x:Name="CommercialWarningsList" Margin="0,4,0,0">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <TextBlock Text="{Binding}" FontSize="12" Foreground="#78350F"
+                                                   TextWrapping="Wrap" Margin="0,0,0,4"/>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </StackPanel>
+
+                        <StackPanel x:Name="CommercialSecondaryPanel" Margin="0,8,0,0" Visibility="Collapsed">
+                            <TextBlock Text="Outras observações" FontSize="11" Foreground="#64748B"/>
+                            <ItemsControl x:Name="CommercialSecondaryList" Margin="0,4,0,0">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <TextBlock Text="{Binding}" FontSize="12" Foreground="#475569"
+                                                   TextWrapping="Wrap" Margin="0,0,0,4"/>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </StackPanel>
+
+                        <TextBlock x:Name="CommercialDisclaimerText"
+                                   FontSize="11" Foreground="#64748B"
+                                   TextWrapping="Wrap" Margin="0,10,0,0"/>
+                        <TextBlock x:Name="CommercialFooterText"
+                                   FontSize="12" FontWeight="SemiBold" Foreground="#334155"
+                                   TextWrapping="Wrap" Margin="0,6,0,0"/>
                     </StackPanel>
                 </Border>
             </StackPanel>

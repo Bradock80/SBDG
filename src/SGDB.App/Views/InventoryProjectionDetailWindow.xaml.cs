@@ -81,6 +81,58 @@ public partial class InventoryProjectionDetailWindow : Window
             ObservationsSection.Visibility = Visibility.Visible;
             ObservationsList.ItemsSource = observations;
         }
+
+        BindCommercial(detail.Commercial);
+    }
+
+    private void BindCommercial(InventoryCommercialScenarioPresentationRow commercial)
+    {
+        commercial ??= InventoryCommercialScenarioPresentation.MissingRow();
+        CommercialStatusText.Text = commercial.StatusLabel;
+        CommercialThesisText.Text = commercial.ThesisLabel;
+        CommercialReasonText.Text = commercial.PrimaryReasonLabel;
+        CommercialExplanationText.Text = commercial.Explanation;
+        CommercialGuidanceText.Text = commercial.ActionGuidance;
+
+        CommercialFinancePanel.Visibility = commercial.ShowFinancialAnalysis
+            ? Visibility.Visible
+            : Visibility.Collapsed;
+        CommercialCatalogPriceText.Text = commercial.CurrentCatalogPriceText;
+        CommercialCurrentMarginText.Text = commercial.CurrentGrossMarginText;
+        CommercialMinMarginText.Text = commercial.MinimumGrossMarginText;
+        CommercialFloorText.Text = commercial.FloorPriceText;
+        CommercialRoomText.Text = commercial.FinancialRoomText;
+
+        var showQuantity = commercial.AttentionQuantityText != InventoryCommercialScenarioPresentation.EmDash;
+        CommercialQuantityPanel.Visibility = showQuantity ? Visibility.Visible : Visibility.Collapsed;
+        CommercialQuantityLabelText.Text = commercial.AttentionQuantityLabel;
+        CommercialQuantityText.Text = commercial.AttentionQuantityText;
+
+        var showScenarios = commercial.ShowScenarioOptions;
+        CommercialScenariosList.ItemsSource = showScenarios
+            ? commercial.Scenarios
+            : [];
+        CommercialScenariosList.Visibility = showScenarios
+            ? Visibility.Visible
+            : Visibility.Collapsed;
+
+        if (commercial.Warnings.Count > 0)
+        {
+            CommercialWarningsPanel.Visibility = Visibility.Visible;
+            CommercialWarningsList.ItemsSource = commercial.Warnings;
+        }
+
+        if (commercial.SecondaryReasonLabels.Count > 0)
+        {
+            CommercialSecondaryPanel.Visibility = Visibility.Visible;
+            CommercialSecondaryList.ItemsSource = commercial.SecondaryReasonLabels;
+        }
+
+        var showDisclaimer = commercial.ShowFinancialAnalysis || commercial.IsScenarioAvailable;
+        CommercialDisclaimerText.Text = showDisclaimer ? commercial.SimulationDisclaimer : "";
+        CommercialDisclaimerText.Visibility = showDisclaimer ? Visibility.Visible : Visibility.Collapsed;
+        CommercialFooterText.Text = showDisclaimer ? commercial.OperatorFooter : "";
+        CommercialFooterText.Visibility = showDisclaimer ? Visibility.Visible : Visibility.Collapsed;
     }
 
     private void Close_Click(object sender, RoutedEventArgs e) => Close();

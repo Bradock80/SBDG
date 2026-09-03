@@ -58,6 +58,7 @@ public sealed class InventoryCommercialScenarioPresentationRow
     public bool IsScenarioAvailable { get; init; }
     public bool ShowFinancialAnalysis { get; init; }
     public bool ShowScenarioOptions { get; init; }
+    public bool IsJoinMissing { get; init; }
 }
 
 /// <summary>Presentation em lote. Ordem = snapshot B4C (Intelligence.Rows).</summary>
@@ -102,6 +103,9 @@ public static class InventoryCommercialScenarioPresentation
     public const string FloorCaption = "Piso financeiro";
     public const string FloorExplanationText =
         "Menor preço de catálogo calculado para respeitar a margem mínima configurada.";
+    public const string FloorLimitHint = "Limite calculado para respeitar a margem mínima.";
+    public const string SimulatedPriceCaption = "Preço simulado";
+    public const string MissingAnalysis = "Análise comercial indisponível.";
     public const string RoomCaption = "Espaço até o piso";
     public const string ReductionCaption = "Redução na simulação";
     public const string ScenarioMarginCaption = "Margem bruta no cenário";
@@ -129,6 +133,48 @@ public static class InventoryCommercialScenarioPresentation
         "A configuração da margem mínima precisa ser revisada em Sistema → Política comercial.";
     public const string NoRecommendationExplanation =
         "Não há cenário comercial calculado para este produto.";
+
+    public static InventoryCommercialScenarioPresentationRow MissingRow(int productId = 0) =>
+        new()
+        {
+            ProductId = productId,
+            StatusLabel = MissingAnalysis,
+            ThesisLabel = EmDash,
+            PrimaryReasonLabel = MissingAnalysis,
+            Explanation = MissingAnalysis,
+            ActionGuidance = MissingAnalysis,
+            CurrentCatalogPriceLabel = CatalogPriceCaption,
+            CurrentCatalogPriceText = EmDash,
+            CurrentGrossMarginLabel = CurrentMarginCaption,
+            CurrentGrossMarginText = EmDash,
+            MinimumGrossMarginLabel = MinimumMarginCaption,
+            MinimumGrossMarginText = EmDash,
+            FloorPriceLabel = FloorCaption,
+            FloorPriceText = EmDash,
+            FloorExplanation = FloorLimitHint,
+            FinancialRoomLabel = RoomCaption,
+            FinancialRoomText = EmDash,
+            AttentionQuantityLabel = EmDash,
+            AttentionQuantityText = EmDash,
+            ConfidenceDisplay = InventoryAttentionPresentation.ConfidenceUnavailable,
+            SecondaryReasonLabels = [],
+            SecondaryReasons = [],
+            Warnings = [],
+            Scenarios = [],
+            IsJoinMissing = true,
+        };
+
+    public static InventoryCommercialScenarioPresentationRow ResolveForDetail(
+        InventoryCommercialScenarioPresentationSnapshot? snapshot,
+        int productId)
+    {
+        if (snapshot?.ByProductId is { Count: > 0 } map
+            && map.TryGetValue(productId, out var row)
+            && row is not null)
+            return row;
+
+        return MissingRow(productId);
+    }
 
     public static InventoryCommercialScenarioPresentationRow FromRow(
         InventoryCommercialScenarioRow? row)
@@ -594,5 +640,6 @@ public static class InventoryCommercialScenarioPresentation
             IsScenarioAvailable = source.IsScenarioAvailable,
             ShowFinancialAnalysis = source.ShowFinancialAnalysis,
             ShowScenarioOptions = source.ShowScenarioOptions,
+            IsJoinMissing = source.IsJoinMissing,
         };
 }
