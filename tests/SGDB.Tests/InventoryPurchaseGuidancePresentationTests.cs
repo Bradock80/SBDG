@@ -380,6 +380,7 @@ public class InventoryPurchaseGuidancePresentationTests
             Monitor(InventoryPurchaseGuidanceReason.None),
             Turnover(stock: 10, vmv: 0, coverage: null));
         Assert.Equal("Não calculável", row.CoverageDisplay);
+        Assert.DoesNotContain("—", row.CoverageDisplay, StringComparison.Ordinal);
         Assert.DoesNotContain("Infinity", row.CoverageDisplay, StringComparison.OrdinalIgnoreCase);
     }
 

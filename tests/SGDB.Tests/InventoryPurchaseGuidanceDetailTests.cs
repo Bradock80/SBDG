@@ -48,8 +48,11 @@ public class InventoryPurchaseGuidanceDetailTests
         var section = xaml.IndexOf("x:Name=\"ReplenishmentSection\"", StringComparison.Ordinal);
         var scroll = xaml.IndexOf("<ScrollViewer", StringComparison.Ordinal);
         var scrollEnd = xaml.IndexOf("</ScrollViewer>", StringComparison.Ordinal);
-        Assert.True(commercial > 0 && section > commercial);
+        var stock = xaml.IndexOf("Text=\"Estoque e giro\"", StringComparison.Ordinal);
+        var horizon = xaml.IndexOf("Text=\"Projeção em 30 dias\"", StringComparison.Ordinal);
+        Assert.True(stock > 0 && section > stock && horizon > section);
         Assert.True(scroll > 0 && section > scroll && section < scrollEnd);
+        Assert.True(commercial > 0 && commercial > horizon);
         Assert.Contains("InventoryPurchaseGuidanceDetailUi.Heading", xaml, StringComparison.Ordinal);
         Assert.Equal("ORIENTAÇÃO DE REPOSIÇÃO", InventoryPurchaseGuidanceDetailUi.Heading);
         Assert.Contains("MinWidth=\"820\"", xaml, StringComparison.Ordinal);
