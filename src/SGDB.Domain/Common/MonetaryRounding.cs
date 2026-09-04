@@ -14,6 +14,12 @@ public static class MonetaryRounding
         Math.Round(value, 2, MidpointRounding.AwayFromZero);
 
     /// <summary>
+    /// Mesma política de <see cref="Round"/> para <see cref="decimal"/> (meta comercial, etc.).
+    /// </summary>
+    public static decimal RoundDecimal(decimal value) =>
+        decimal.Round(value, 2, MidpointRounding.AwayFromZero);
+
+    /// <summary>
     /// Teto em centavos para piso financeiro 70F-B3.
     /// Não substitui <see cref="Round"/> (AwayFromZero), que pode ficar abaixo da margem mínima.
     /// </summary>
