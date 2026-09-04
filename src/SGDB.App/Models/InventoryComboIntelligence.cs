@@ -15,6 +15,16 @@ public sealed class InventoryComboIntelligenceComposeInput
 }
 
 /// <summary>
+/// Identidade 70C para Presentation. Sem formatação PT-BR.
+/// </summary>
+public sealed class InventoryComboProductTitle
+{
+    public int ProductId { get; init; }
+    public string Code { get; init; } = "";
+    public string Name { get; init; } = "";
+}
+
+/// <summary>
 /// Alvo elegível B1 com até Top 3 sugestões B4. Lista vazia é resultado válido.
 /// Code/Name vêm de 70C para Presentation futura; B5 não formata texto.
 /// </summary>
@@ -43,6 +53,8 @@ public sealed class InventoryComboIntelligenceSnapshot
     public int PairFinancialEvaluations { get; init; }
     public IReadOnlyList<int> RequestedTargetIds { get; init; } = [];
     public IReadOnlyList<int> RequestedAnchorIds { get; init; } = [];
+    public IReadOnlyDictionary<int, InventoryComboProductTitle> ProductTitles { get; init; } =
+        new Dictionary<int, InventoryComboProductTitle>();
     public IReadOnlyList<InventoryComboTargetSuggestionGroup> Targets { get; init; } = [];
     public IReadOnlyDictionary<int, InventoryComboTargetSuggestionGroup> ByProductId { get; init; } =
         new Dictionary<int, InventoryComboTargetSuggestionGroup>();

@@ -223,6 +223,17 @@ public static class InventoryComboIntelligenceComposer
         }
 
         var coOccurrenceQueryCount = coOccurrence?.QueryCount ?? 0;
+        var titles = new Dictionary<int, InventoryComboProductTitle>(turnovers.Count);
+        foreach (var pair in turnovers)
+        {
+            titles.TryAdd(pair.Key, new InventoryComboProductTitle
+            {
+                ProductId = pair.Key,
+                Code = pair.Value.Code ?? "",
+                Name = pair.Value.Name ?? "",
+            });
+        }
+
         return new InventoryComboIntelligenceSnapshot
         {
             QueryCount = ExpectedBasePipelineQueryCount + coOccurrenceQueryCount,
@@ -235,6 +246,7 @@ public static class InventoryComboIntelligenceComposer
             PairFinancialEvaluations = financialEvals,
             RequestedTargetIds = coOccurrence?.RequestedTargetIds ?? [],
             RequestedAnchorIds = coOccurrence?.RequestedAnchorIds ?? [],
+            ProductTitles = titles,
             Targets = groups,
             ByProductId = map,
         };
