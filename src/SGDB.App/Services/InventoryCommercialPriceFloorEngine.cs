@@ -130,7 +130,11 @@ public static class InventoryCommercialPriceFloorEngine
         return ProductPriceCalculator.MarginOnSale(cost, sale);
     }
 
-    static decimal ComputeFloor(decimal cost, decimal minPercent)
+    /// <summary>
+    /// Única fórmula de piso 70F. Exposta internamente para o par 71A-B3
+    /// (custo conjunto) sem duplicar custo/(1 − margem).
+    /// </summary>
+    internal static decimal ComputeFloor(decimal cost, decimal minPercent)
     {
         var exact = cost / (1m - minPercent / 100m);
         var floor = MonetaryRounding.CeilingToCents(exact);
@@ -159,7 +163,7 @@ public static class InventoryCommercialPriceFloorEngine
             _ => InventoryCommercialPriceFloorReason.CommercialFactsUnavailable,
         };
 
-    static bool TryToDecimal(double? value, out decimal result)
+    internal static bool TryToDecimal(double? value, out decimal result)
     {
         result = 0m;
         if (value is not double number || !InventoryIntelligenceEngine.IsFinite(number))
@@ -175,6 +179,6 @@ public static class InventoryCommercialPriceFloorEngine
         }
     }
 
-    static long ToCents(double value) =>
+    internal static long ToCents(double value) =>
         (long)Math.Round(value * 100.0, MidpointRounding.AwayFromZero);
 }
