@@ -160,7 +160,10 @@
                         </Grid>
 
                         <Border Grid.Column="2" BorderBrush="#C8C4BC" BorderThickness="1" Background="#F8FAFC">
-                            <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="12,10">
+                            <ScrollViewer x:Name="DetailScroll"
+                                          VerticalScrollBarVisibility="Auto"
+                                          Padding="12,10"
+                                          PreviewMouseWheel="DetailScroll_PreviewMouseWheel">
                                 <StackPanel>
                                     <TextBlock x:Name="DetailTitle" FontSize="13" FontWeight="SemiBold"
                                                Foreground="#1E293B" TextWrapping="Wrap"

@@ -119,6 +119,33 @@ public partial class InventoryComboIntelligenceModuleView : UserControl
 
     private void Grid_MouseDoubleClick(object sender, MouseButtonEventArgs e) => UpdateDetail();
 
+    /// <summary>
+    /// Roda sobre o painel direito: o ScrollViewer interno costuma marcar Handled
+    /// sem mover (aninhado em ModuleScroll). Encaminha o delta ao viewer com espaço.
+    /// O DataGrid esquerdo não entra nesta rota — o Preview é só do DetailScroll.
+    /// </summary>
+    private void DetailScroll_PreviewMouseWheel(object sender, MouseWheelEventArgs e)
+    {
+        if (e.Handled || Keyboard.Modifiers == ModifierKeys.Shift)
+            return;
+
+        var route = InventoryComboWheelScroll.Route(
+            DetailScroll.VerticalOffset,
+            DetailScroll.ScrollableHeight,
+            ModuleScroll.VerticalOffset,
+            ModuleScroll.ScrollableHeight,
+            e.Delta);
+        if (!route.Handled)
+            return;
+
+        if (route.MoveInner)
+            DetailScroll.ScrollToVerticalOffset(route.InnerOffset);
+        else if (route.MoveOuter)
+            ModuleScroll.ScrollToVerticalOffset(route.OuterOffset);
+
+        e.Handled = true;
+    }
+
     private void Load()
     {
         if (_loading)
@@ -334,4 +361,73 @@ public partial class InventoryComboIntelligenceModuleView : UserControl
             }
         }
     }
+}
+
+/// <summary>
+/// Roteamento puro da roda no painel de sugestões. Delta WPF: positivo = para cima.
+/// Sem query, ranking ou regra B1–B6.
+/// </summary>
+public static class InventoryComboWheelScroll
+{
+    public static InventoryComboWheelRoute Route(
+        double innerOffset,
+        double innerScrollable,
+        double outerOffset,
+        double outerScrollable,
+        int delta)
+    {
+        if (TryApplyVertical(innerOffset, innerScrollable, delta, out var innerNext))
+            return new InventoryComboWheelRoute(true, true, false, innerNext, outerOffset);
+        if (TryApplyVertical(outerOffset, outerScrollable, delta, out var outerNext))
+            return new InventoryComboWheelRoute(true, false, true, innerOffset, outerNext);
+        return new InventoryComboWheelRoute(false, false, false, innerOffset, outerOffset);
+    }
+
+    public static bool TryApplyVertical(
+        double verticalOffset,
+        double scrollableHeight,
+        int delta,
+        out double nextOffset)
+    {
+        nextOffset = verticalOffset;
+        if (delta == 0 || scrollableHeight <= 0 || !IsFinite(verticalOffset) || !IsFinite(scrollableHeight))
+            return false;
+
+        var candidate = verticalOffset - delta;
+        if (candidate < 0)
+            candidate = 0;
+        else if (candidate > scrollableHeight)
+            candidate = scrollableHeight;
+
+        if (candidate == verticalOffset)
+            return false;
+
+        nextOffset = candidate;
+        return true;
+    }
+
+    static bool IsFinite(double value) => !double.IsNaN(value) && !double.IsInfinity(value);
+}
+
+public readonly struct InventoryComboWheelRoute
+{
+    public InventoryComboWheelRoute(
+        bool handled,
+        bool moveInner,
+        bool moveOuter,
+        double innerOffset,
+        double outerOffset)
+    {
+        Handled = handled;
+        MoveInner = moveInner;
+        MoveOuter = moveOuter;
+        InnerOffset = innerOffset;
+        OuterOffset = outerOffset;
+    }
+
+    public bool Handled { get; }
+    public bool MoveInner { get; }
+    public bool MoveOuter { get; }
+    public double InnerOffset { get; }
+    public double OuterOffset { get; }
 }
