@@ -1,0 +1,344 @@
+<UserControl x:Class="SGDB.Views.InventoryComboIntelligenceModuleView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:models="clr-namespace:SGDB.Models"
+             Background="{StaticResource SgdbBgBrush}"
+             Focusable="True"
+             PreviewKeyDown="Root_PreviewKeyDown">
+    <UserControl.Resources>
+        <BooleanToVisibilityConverter x:Key="BoolToVis"/>
+    </UserControl.Resources>
+    <Border BorderBrush="#C8C4BC" BorderThickness="1" Background="White">
+        <Grid>
+            <ScrollViewer x:Name="ModuleScroll"
+                          VerticalScrollBarVisibility="Auto"
+                          HorizontalScrollBarVisibility="Disabled"
+                          CanContentScroll="False">
+                <Grid x:Name="ContentRoot"
+                      MinHeight="{Binding ActualHeight, ElementName=ModuleScroll}"
+                      MinWidth="640">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*" MinHeight="220"/>
+                        <RowDefinition Height="Auto"/>
+                    </Grid.RowDefinitions>
+
+                    <Border Grid.Row="0" Padding="10,6" Background="#F0F0F0"
+                            BorderBrush="#C8C4BC" BorderThickness="0,0,0,1">
+                        <Grid>
+                            <StackPanel VerticalAlignment="Center" Margin="0,0,36,0">
+                                <TextBlock Text="{x:Static models:InventoryComboIntelligenceUi.ModuleTitle}"
+                                           FontWeight="SemiBold" FontSize="13" Foreground="#1E293B"/>
+                                <TextBlock Text="{x:Static models:InventoryComboIntelligenceUi.Subtitle}"
+                                           FontSize="11" Foreground="#64748B" Margin="0,1,0,0"
+                                           TextWrapping="Wrap"/>
+                            </StackPanel>
+                            <Button Style="{StaticResource ModuleTabCloseStyle}"
+                                    HorizontalAlignment="Right" VerticalAlignment="Center"
+                                    Click="Close_Click"/>
+                        </Grid>
+                    </Border>
+
+                    <WrapPanel x:Name="CardsPanel" Grid.Row="1" Margin="10,8,10,4"/>
+
+                    <Border Grid.Row="2" Padding="12,8" Background="#F8FAFC" BorderBrush="#E2E8F0"
+                            BorderThickness="0,1,0,1">
+                        <WrapPanel VerticalAlignment="Center">
+                            <TextBlock Text="Buscar produto ou código" VerticalAlignment="Center"
+                                       Margin="0,0,8,4" FontSize="12" Foreground="#64748B"/>
+                            <TextBox x:Name="SearchBox" Width="220" Height="32" Padding="8,0"
+                                     VerticalContentAlignment="Center" Margin="0,0,12,4"
+                                     TextChanged="SearchBox_TextChanged"/>
+                            <TextBlock Text="Situação" VerticalAlignment="Center" Margin="0,0,8,4"
+                                       FontSize="12" Foreground="#64748B"/>
+                            <ComboBox x:Name="StatusBox" Width="180" Height="32" Margin="0,0,12,4"
+                                      SelectionChanged="Filter_Changed"/>
+                            <TextBlock Text="Motivo" VerticalAlignment="Center" Margin="0,0,8,4"
+                                       FontSize="12" Foreground="#64748B"/>
+                            <ComboBox x:Name="ReasonBox" Width="200" Height="32" Margin="0,0,12,4"
+                                      SelectionChanged="Filter_Changed"/>
+                            <Button x:Name="BtnRefresh" Content="Atualizar (F5)"
+                                    Style="{StaticResource SgdbPrimaryButtonStyle}"
+                                    Height="32" Padding="12,6" Margin="0,0,8,4" Click="Refresh_Click"/>
+                            <Button Content="Limpar filtros" Height="32" Padding="12,6" Margin="0,0,8,4"
+                                    Click="ClearFilters_Click"/>
+                        </WrapPanel>
+                    </Border>
+
+                    <Grid Grid.Row="3" Margin="10">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" MinWidth="320"/>
+                            <ColumnDefinition Width="12"/>
+                            <ColumnDefinition Width="1.05*" MinWidth="280"/>
+                        </Grid.ColumnDefinitions>
+
+                        <Grid Grid.Column="0">
+                            <DataGrid x:Name="Grid"
+                                      AutoGenerateColumns="False" IsReadOnly="True"
+                                      CanUserAddRows="False" CanUserSortColumns="False"
+                                      HeadersVisibility="Column"
+                                      GridLinesVisibility="Horizontal" HorizontalGridLinesBrush="#E2E8F0"
+                                      BorderBrush="#C8C4BC" BorderThickness="1" Background="White"
+                                      RowHeaderWidth="0" RowHeight="34" FontSize="12.5"
+                                      AlternatingRowBackground="#F8FAFC"
+                                      EnableRowVirtualization="True"
+                                      EnableColumnVirtualization="False"
+                                      VirtualizingPanel.IsVirtualizing="True"
+                                      VirtualizingPanel.VirtualizationMode="Recycling"
+                                      VirtualizingPanel.ScrollUnit="Pixel"
+                                      MouseDoubleClick="Grid_MouseDoubleClick"
+                                      SelectionChanged="Grid_SelectionChanged">
+                                <DataGrid.Columns>
+                                    <DataGridTextColumn Header="Produto" Binding="{Binding Name}" Width="*" MinWidth="140">
+                                        <DataGridTextColumn.ElementStyle>
+                                            <Style TargetType="TextBlock">
+                                                <Setter Property="VerticalAlignment" Value="Center"/>
+                                                <Setter Property="TextTrimming" Value="CharacterEllipsis"/>
+                                                <Setter Property="ToolTip" Value="{Binding Name}"/>
+                                                <Setter Property="Margin" Value="6,0,8,0"/>
+                                            </Style>
+                                        </DataGridTextColumn.ElementStyle>
+                                    </DataGridTextColumn>
+                                    <DataGridTextColumn Header="Código" Binding="{Binding Code}" Width="88">
+                                        <DataGridTextColumn.ElementStyle>
+                                            <Style TargetType="TextBlock">
+                                                <Setter Property="VerticalAlignment" Value="Center"/>
+                                                <Setter Property="TextTrimming" Value="CharacterEllipsis"/>
+                                                <Setter Property="ToolTip" Value="{Binding Code}"/>
+                                            </Style>
+                                        </DataGridTextColumn.ElementStyle>
+                                    </DataGridTextColumn>
+                                    <DataGridTextColumn Header="Motivo" Binding="{Binding ReasonText}" Width="170">
+                                        <DataGridTextColumn.ElementStyle>
+                                            <Style TargetType="TextBlock">
+                                                <Setter Property="VerticalAlignment" Value="Center"/>
+                                                <Setter Property="TextTrimming" Value="CharacterEllipsis"/>
+                                                <Setter Property="ToolTip" Value="{Binding ReasonText}"/>
+                                            </Style>
+                                        </DataGridTextColumn.ElementStyle>
+                                    </DataGridTextColumn>
+                                    <DataGridTextColumn Header="Estoque" Binding="{Binding StockText}" Width="80">
+                                        <DataGridTextColumn.ElementStyle>
+                                            <Style TargetType="TextBlock">
+                                                <Setter Property="TextAlignment" Value="Right"/>
+                                                <Setter Property="VerticalAlignment" Value="Center"/>
+                                                <Setter Property="Margin" Value="4,0,10,0"/>
+                                            </Style>
+                                        </DataGridTextColumn.ElementStyle>
+                                    </DataGridTextColumn>
+                                    <DataGridTextColumn Header="Combinações" Binding="{Binding CombinationsText}" Width="108">
+                                        <DataGridTextColumn.ElementStyle>
+                                            <Style TargetType="TextBlock">
+                                                <Setter Property="TextAlignment" Value="Right"/>
+                                                <Setter Property="VerticalAlignment" Value="Center"/>
+                                                <Setter Property="Margin" Value="4,0,10,0"/>
+                                                <Setter Property="ToolTip" Value="{Binding CombinationsStatusText}"/>
+                                            </Style>
+                                        </DataGridTextColumn.ElementStyle>
+                                    </DataGridTextColumn>
+                                    <DataGridTextColumn Header="Confiança" Binding="{Binding ConfidenceText}" Width="150">
+                                        <DataGridTextColumn.ElementStyle>
+                                            <Style TargetType="TextBlock">
+                                                <Setter Property="VerticalAlignment" Value="Center"/>
+                                                <Setter Property="TextTrimming" Value="CharacterEllipsis"/>
+                                                <Setter Property="ToolTip" Value="{Binding ConfidenceText}"/>
+                                            </Style>
+                                        </DataGridTextColumn.ElementStyle>
+                                    </DataGridTextColumn>
+                                </DataGrid.Columns>
+                            </DataGrid>
+                            <Border x:Name="EmptyOverlay" Background="#CCFFFFFF" Visibility="Collapsed"
+                                    IsHitTestVisible="False">
+                                <TextBlock x:Name="EmptyText"
+                                           Text="{x:Static models:InventoryComboPresentation.EmptySnapshotMessage}"
+                                           HorizontalAlignment="Center" VerticalAlignment="Center"
+                                           FontSize="13" Foreground="#64748B" TextWrapping="Wrap"
+                                           TextAlignment="Center" Margin="24"/>
+                            </Border>
+                        </Grid>
+
+                        <Border Grid.Column="2" BorderBrush="#C8C4BC" BorderThickness="1" Background="#F8FAFC">
+                            <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="12,10">
+                                <StackPanel>
+                                    <TextBlock x:Name="DetailTitle" FontSize="13" FontWeight="SemiBold"
+                                               Foreground="#1E293B" TextWrapping="Wrap"
+                                               Text="{x:Static models:InventoryComboIntelligenceUi.SelectRowHint}"/>
+                                    <TextBlock x:Name="DetailContext" FontSize="12" Foreground="#475569"
+                                               TextWrapping="Wrap" Margin="0,4,0,0"/>
+                                    <TextBlock x:Name="TargetEmptyText" FontSize="12" Foreground="#64748B"
+                                               TextWrapping="Wrap" Margin="0,10,0,0" Visibility="Collapsed"/>
+                                    <ItemsControl x:Name="SuggestionList" Margin="0,10,0,0">
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate>
+                                                <Border Margin="0,0,0,10" Padding="12,10" CornerRadius="8"
+                                                        BorderThickness="1" Background="White">
+                                                    <Border.Style>
+                                                        <Style TargetType="Border">
+                                                            <Setter Property="BorderBrush" Value="#E2E8F0"/>
+                                                            <Style.Triggers>
+                                                                <DataTrigger Binding="{Binding EvidenceTone}" Value="insufficient">
+                                                                    <Setter Property="BorderBrush" Value="#CBD5E1"/>
+                                                                    <Setter Property="Background" Value="#F8FAFC"/>
+                                                                </DataTrigger>
+                                                                <DataTrigger Binding="{Binding EvidenceTone}" Value="weak">
+                                                                    <Setter Property="BorderBrush" Value="#E2E8F0"/>
+                                                                    <Setter Property="Background" Value="White"/>
+                                                                </DataTrigger>
+                                                            </Style.Triggers>
+                                                        </Style>
+                                                    </Border.Style>
+                                                    <StackPanel>
+                                                        <TextBlock Text="{Binding AnchorTitle}"
+                                                                   FontSize="13" FontWeight="SemiBold"
+                                                                   Foreground="#1E293B" TextWrapping="Wrap"
+                                                                   ToolTip="{Binding AnchorTitle}"/>
+                                                        <TextBlock Text="{Binding AnchorReasonText}"
+                                                                   FontSize="11" Foreground="#64748B"
+                                                                   Margin="0,2,0,0" TextWrapping="Wrap"/>
+                                                        <TextBlock Text="{Binding EvidenceText}"
+                                                                   FontSize="12" FontWeight="SemiBold"
+                                                                   Foreground="#334155" Margin="0,8,0,0"
+                                                                   TextWrapping="Wrap"
+                                                                   ToolTip="{Binding EvidenceDetailText}"/>
+                                                        <TextBlock Text="{Binding EvidenceDetailText}"
+                                                                   FontSize="11" Foreground="#64748B"
+                                                                   Margin="0,2,0,0" TextWrapping="Wrap"
+                                                                   ToolTip="{Binding EvidenceDetailText}"/>
+                                                        <TextBlock Text="{Binding ConfidenceText}"
+                                                                   FontSize="11" Foreground="#475569"
+                                                                   Margin="0,6,0,0"/>
+
+                                                        <Border Margin="0,10,0,0" Padding="10,8" Background="#F8FAFC"
+                                                                CornerRadius="6">
+                                                            <StackPanel>
+                                                                <TextBlock Text="{Binding CurrentPriceLabel}"
+                                                                           FontSize="11" Foreground="#64748B"/>
+                                                                <TextBlock Text="{Binding CurrentPriceText}"
+                                                                           FontSize="16" FontWeight="SemiBold"
+                                                                           Foreground="#1E293B" Margin="0,2,0,0"/>
+                                                                <TextBlock Text="{Binding GrossProfitLabel}"
+                                                                           FontSize="11" Foreground="#64748B"
+                                                                           Margin="0,8,0,0" TextWrapping="Wrap"/>
+                                                                <TextBlock Text="{Binding GrossProfitText}"
+                                                                           FontSize="13" FontWeight="SemiBold"
+                                                                           Foreground="#1E293B" Margin="0,2,0,0"/>
+                                                                <TextBlock Text="{Binding GrossMarginLabel}"
+                                                                           FontSize="11" Foreground="#64748B"
+                                                                           Margin="0,8,0,0"/>
+                                                                <TextBlock Text="{Binding GrossMarginText}"
+                                                                           FontSize="13" FontWeight="SemiBold"
+                                                                           Foreground="#1E293B" Margin="0,2,0,0"/>
+                                                            </StackPanel>
+                                                        </Border>
+
+                                                        <Border Margin="0,8,0,0" Padding="10,8" Background="#EEF2FF"
+                                                                CornerRadius="6"
+                                                                Visibility="{Binding HasReferenceScenario, Converter={StaticResource BoolToVis}}">
+                                                            <StackPanel>
+                                                                <TextBlock Text="{Binding ReferencePriceLabel}"
+                                                                           FontSize="11" Foreground="#64748B"
+                                                                           TextWrapping="Wrap"/>
+                                                                <TextBlock Text="{Binding ReferencePriceText}"
+                                                                           FontSize="16" FontWeight="SemiBold"
+                                                                           Foreground="#1E293B" Margin="0,2,0,0"/>
+                                                                <TextBlock Text="{Binding ReferenceSubtitle}"
+                                                                           FontSize="11" Foreground="#475569"
+                                                                           Margin="0,6,0,0" TextWrapping="Wrap"/>
+                                                                <TextBlock Text="{Binding ReductionLabel}"
+                                                                           FontSize="11" Foreground="#64748B"
+                                                                           Margin="0,8,0,0"/>
+                                                                <TextBlock Text="{Binding ReductionText}"
+                                                                           FontSize="13" FontWeight="SemiBold"
+                                                                           Foreground="#1E293B" Margin="0,2,0,0"/>
+                                                                <TextBlock Text="{Binding GrossProfitLabel}"
+                                                                           FontSize="11" Foreground="#64748B"
+                                                                           Margin="0,8,0,0" TextWrapping="Wrap"/>
+                                                                <TextBlock Text="{Binding ReferenceGrossProfitText}"
+                                                                           FontSize="13" FontWeight="SemiBold"
+                                                                           Foreground="#1E293B" Margin="0,2,0,0"/>
+                                                                <TextBlock Text="{Binding GrossMarginLabel}"
+                                                                           FontSize="11" Foreground="#64748B"
+                                                                           Margin="0,8,0,0"/>
+                                                                <TextBlock Text="{Binding ReferenceGrossMarginText}"
+                                                                           FontSize="13" FontWeight="SemiBold"
+                                                                           Foreground="#1E293B" Margin="0,2,0,0"/>
+                                                            </StackPanel>
+                                                        </Border>
+
+                                                        <TextBlock FontSize="11" Foreground="#64748B" Margin="0,10,0,0"
+                                                                   TextWrapping="Wrap">
+                                                            <Run Text="{Binding AnchorCoverageLabel, Mode=OneWay}"/>
+                                                            <Run Text=" "/>
+                                                            <Run Text="{Binding AnchorCoverageText, Mode=OneWay}"/>
+                                                        </TextBlock>
+                                                        <Expander Header="Detalhes financeiros" Margin="0,8,0,0"
+                                                                  FontSize="12" Foreground="#334155">
+                                                            <StackPanel Margin="0,8,0,0">
+                                                                <TextBlock FontSize="11" Foreground="#475569"
+                                                                           TextWrapping="Wrap">
+                                                                    <Run Text="{Binding FloorPriceLabel, Mode=OneWay}"/>
+                                                                    <Run Text=" "/>
+                                                                    <Run Text="{Binding FloorPriceText, Mode=OneWay}"/>
+                                                                </TextBlock>
+                                                                <TextBlock Text="{Binding FloorExplanation}"
+                                                                           FontSize="11" Foreground="#64748B"
+                                                                           Margin="0,4,0,0" TextWrapping="Wrap"
+                                                                           ToolTip="{Binding FloorExplanation}"/>
+                                                                <TextBlock Text="{Binding TargetStockLabel}"
+                                                                           FontSize="11" Foreground="#64748B"
+                                                                           Margin="0,8,0,0"/>
+                                                                <TextBlock Text="{Binding TargetStockText}" FontSize="12"/>
+                                                                <TextBlock Text="{Binding AnchorStockLabel}"
+                                                                           FontSize="11" Foreground="#64748B"
+                                                                           Margin="0,6,0,0"/>
+                                                                <TextBlock Text="{Binding AnchorStockText}" FontSize="12"/>
+                                                                <ItemsControl ItemsSource="{Binding LimitationsText}"
+                                                                              Margin="0,8,0,0">
+                                                                    <ItemsControl.ItemTemplate>
+                                                                        <DataTemplate>
+                                                                            <TextBlock Text="{Binding}"
+                                                                                       FontSize="11"
+                                                                                       Foreground="#64748B"
+                                                                                       TextWrapping="Wrap"
+                                                                                       Margin="0,0,0,4"
+                                                                                       ToolTip="{Binding}"/>
+                                                                        </DataTemplate>
+                                                                    </ItemsControl.ItemTemplate>
+                                                                </ItemsControl>
+                                                            </StackPanel>
+                                                        </Expander>
+                                                    </StackPanel>
+                                                </Border>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+                                </StackPanel>
+                            </ScrollViewer>
+                        </Border>
+                    </Grid>
+
+                    <Border Grid.Row="4" Padding="12,8" Background="#F8FAFC" BorderBrush="#C8C4BC"
+                            BorderThickness="0,1,0,0">
+                        <StackPanel>
+                            <TextBlock x:Name="MetaText" FontSize="12" Foreground="#334155" TextWrapping="Wrap"/>
+                            <TextBlock FontSize="11" Foreground="#64748B" TextWrapping="Wrap" Margin="0,6,0,0"
+                                       Text="{x:Static models:InventoryComboPresentation.DisclaimerText}"/>
+                        </StackPanel>
+                    </Border>
+                </Grid>
+            </ScrollViewer>
+
+            <Border x:Name="ClientBlockOverlay" Background="#F8FAFC" Visibility="Collapsed">
+                <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" MaxWidth="520" Margin="24">
+                    <TextBlock Text="{x:Static models:InventoryComboIntelligenceUi.ModuleTitle}"
+                               FontWeight="SemiBold" FontSize="14"
+                               Foreground="#1E293B" TextAlignment="Center"/>
+                    <TextBlock x:Name="ClientBlockText" Margin="0,12,0,0" FontSize="13"
+                               Foreground="#475569" TextWrapping="Wrap" TextAlignment="Center"/>
+                </StackPanel>
+            </Border>
+        </Grid>
+    </Border>
+</UserControl>

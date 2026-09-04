@@ -24,6 +24,7 @@ public sealed class InventoryComboSuggestionPresentationRow
 {
     public int TargetProductId { get; init; }
     public int AnchorProductId { get; init; }
+    public InventoryComboPairEvidence PairEvidence { get; init; }
 
     public string TargetTitle { get; init; } = "";
     public string TargetReasonText { get; init; } = "";
@@ -32,6 +33,7 @@ public sealed class InventoryComboSuggestionPresentationRow
 
     public string EvidenceText { get; init; } = "";
     public string EvidenceDetailText { get; init; } = "";
+    public string EvidenceTone { get; init; } = "";
 
     public string CurrentPriceLabel { get; init; } = "";
     public string CurrentPriceText { get; init; } = InventoryProjectionPresentation.EmDash;
@@ -49,6 +51,8 @@ public sealed class InventoryComboSuggestionPresentationRow
     public string GrossProfitText { get; init; } = InventoryProjectionPresentation.EmDash;
     public string GrossMarginLabel { get; init; } = "";
     public string GrossMarginText { get; init; } = InventoryProjectionPresentation.EmDash;
+    public string ReferenceGrossProfitText { get; init; } = InventoryProjectionPresentation.EmDash;
+    public string ReferenceGrossMarginText { get; init; } = InventoryProjectionPresentation.EmDash;
 
     public string TargetStockLabel { get; init; } = "";
     public string TargetStockText { get; init; } = InventoryProjectionPresentation.EmDash;
@@ -69,8 +73,14 @@ public sealed class InventoryComboSuggestionPresentationRow
 public sealed class InventoryComboTargetPresentationGroup
 {
     public int ProductId { get; init; }
+    public string Code { get; init; } = "";
+    public string Name { get; init; } = "";
     public string TargetTitle { get; init; } = "";
+    public ComboTargetEligibilityReason Reason { get; init; }
     public string TargetReasonText { get; init; } = "";
+    public string ConfidenceText { get; init; } = "";
+    public string TargetStockText { get; init; } = InventoryProjectionPresentation.EmDash;
+    public int SuggestionCount { get; init; }
     public string SuggestionCountText { get; init; } = "";
     public string EmptyMessage { get; init; } = "";
     public IReadOnlyList<InventoryComboSuggestionPresentationRow> Suggestions { get; init; } = [];
@@ -200,11 +210,20 @@ public static class InventoryComboPresentation
         }
 
         var count = rows.Count;
+        var reason = target.Eligibility?.Reason ?? ComboTargetEligibilityReason.None;
+        var confidence = target.Eligibility?.Confidence ?? InventoryAttentionConfidence.Unavailable;
+        ResolveIdentity(target.ProductId, target.Code, target.Name, titles, out var code, out var name);
         return new InventoryComboTargetPresentationGroup
         {
             ProductId = target.ProductId,
+            Code = code,
+            Name = name,
             TargetTitle = ProductTitle(target.ProductId, target.Code, target.Name, titles),
-            TargetReasonText = TargetReasonText(target.Eligibility?.Reason ?? ComboTargetEligibilityReason.None),
+            Reason = reason,
+            TargetReasonText = TargetReasonText(reason),
+            ConfidenceText = InventoryAttentionPresentation.ConfidenceLabel(confidence),
+            TargetStockText = count > 0 ? rows[0].TargetStockText : EmDash,
+            SuggestionCount = count,
             SuggestionCountText = SuggestionCountText(count),
             EmptyMessage = count == 0 ? EmptyTargetMessage : "",
             Suggestions = rows,
@@ -227,6 +246,7 @@ public static class InventoryComboPresentation
         {
             TargetProductId = suggestion.TargetProductId,
             AnchorProductId = suggestion.AnchorProductId,
+            PairEvidence = suggestion.PairEvidence,
             TargetTitle = ProductTitle(
                 suggestion.TargetProductId, target?.Code, target?.Name, titles),
             TargetReasonText = TargetReasonText(suggestion.TargetReason),
@@ -234,6 +254,7 @@ public static class InventoryComboPresentation
             AnchorReasonText = AnchorReasonText(suggestion.AnchorReason),
             EvidenceText = EvidenceText(suggestion.PairEvidence),
             EvidenceDetailText = EvidenceDetailText(suggestion),
+            EvidenceTone = EvidenceTone(suggestion.PairEvidence),
             CurrentPriceLabel = CurrentPriceLabel,
             CurrentPriceText = FormatMoney(current?.PairPrice ?? suggestion.NormalPairPrice),
             FloorPriceLabel = FloorPriceLabel,
@@ -248,6 +269,8 @@ public static class InventoryComboPresentation
             GrossProfitText = FormatMoney(current?.GrossProfit),
             GrossMarginLabel = GrossMarginLabel,
             GrossMarginText = FormatPercentFromFraction(current?.GrossMargin),
+            ReferenceGrossProfitText = FormatMoney(reference?.GrossProfit),
+            ReferenceGrossMarginText = FormatPercentFromFraction(reference?.GrossMargin),
             TargetStockLabel = TargetStockLabel,
             TargetStockText = FormatStock(suggestion.TargetStock),
             AnchorStockLabel = AnchorStockLabel,
@@ -284,6 +307,15 @@ public static class InventoryComboPresentation
             InventoryComboPairEvidence.Weak => EvidenceWeak,
             InventoryComboPairEvidence.InsufficientHistory => EvidenceInsufficient,
             _ => EvidenceUnavailable,
+        };
+
+    public static string EvidenceTone(InventoryComboPairEvidence evidence) =>
+        evidence switch
+        {
+            InventoryComboPairEvidence.Observed => "observed",
+            InventoryComboPairEvidence.Weak => "weak",
+            InventoryComboPairEvidence.InsufficientHistory => "insufficient",
+            _ => "unavailable",
         };
 
     public static string LimitationText(InventoryComboSuggestionLimitation limitation) =>
@@ -399,11 +431,13 @@ public static class InventoryComboPresentation
         return texts;
     }
 
-    static string ProductTitle(
+    static void ResolveIdentity(
         int productId,
         string? code,
         string? name,
-        IReadOnlyDictionary<int, InventoryComboProductTitle> titles)
+        IReadOnlyDictionary<int, InventoryComboProductTitle> titles,
+        out string resolvedCode,
+        out string resolvedName)
     {
         if (titles.TryGetValue(productId, out var title) && title is not null)
         {
@@ -413,15 +447,24 @@ public static class InventoryComboPresentation
                 name = title.Name;
         }
 
-        code = (code ?? "").Trim();
-        name = (name ?? "").Trim();
-        if (code.Length == 0 && name.Length == 0)
+        resolvedCode = (code ?? "").Trim();
+        resolvedName = (name ?? "").Trim();
+    }
+
+    static string ProductTitle(
+        int productId,
+        string? code,
+        string? name,
+        IReadOnlyDictionary<int, InventoryComboProductTitle> titles)
+    {
+        ResolveIdentity(productId, code, name, titles, out var resolvedCode, out var resolvedName);
+        if (resolvedCode.Length == 0 && resolvedName.Length == 0)
             return EmDash;
-        if (code.Length == 0)
-            return name;
-        if (name.Length == 0)
-            return code;
-        return $"{code} — {name}";
+        if (resolvedCode.Length == 0)
+            return resolvedName;
+        if (resolvedName.Length == 0)
+            return resolvedCode;
+        return $"{resolvedCode} — {resolvedName}";
     }
 
     static string FormatMoney(double? value) =>

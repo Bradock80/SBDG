@@ -99,6 +99,7 @@ public static class AccessControl
                 or "estoque_negativo" or "estoque_minimo" or "estoque_validade"
                 or "estoque_validade_lotes" or "estoque_controle_validades"
                 or "estoque_consistencia_lotes" or "estoque_inteligente" or "reposicao_inteligente"
+                or "combos_inteligentes"
                 => p.RelatoriosAcesso,
 
             "usuarios" or "auditoria" => p.SistemaUsuarios,
