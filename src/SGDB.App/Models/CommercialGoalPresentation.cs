@@ -44,6 +44,7 @@ public sealed class CommercialGoalPresentationSnapshot
     public string CompetenceText { get; init; } = "";
 
     public string GoalOriginText { get; init; } = "";
+    public CommercialGoalSettingSource GoalSource { get; init; }
     public string Headline { get; init; } = "";
     public string SupportingText { get; init; } = "";
     public string StatusText { get; init; } = "";
@@ -168,6 +169,7 @@ public static class CommercialGoalPresentation
             ModuleTitle = ModuleTitle,
             CompetenceText = FormatCompetence(snapshot.Competence),
             GoalOriginText = GoalOriginText(snapshot.GoalSource),
+            GoalSource = snapshot.GoalSource,
             Headline = headline,
             SupportingText = supporting,
             StatusText = status.ValueText,
@@ -249,6 +251,44 @@ public static class CommercialGoalPresentation
     {
         var money = FormatMoney(perDay);
         return money == EmDash ? EmDash : money + "/dia";
+    }
+
+    public static CommercialGoalPresentationSnapshot Empty(
+        CommercialCompetence competence,
+        DateOnly referenceDate,
+        string headline = "",
+        string supporting = "")
+    {
+        var goal = Metric("goal", CardGoal, EmDash, available: false,
+            tone: CommercialGoalPresentationTone.Unavailable);
+        var realized = Metric("realized", CardRealized, EmDash, available: false,
+            tone: CommercialGoalPresentationTone.Unavailable);
+        var remaining = Metric("remaining", CardRemaining, EmDash, available: false);
+        var achievement = Metric("achievement", CardAchievement, EmDash, available: false);
+        var pace = Metric("pace", CardPace, EmDash, available: false);
+        var projection = Metric("projection", CardProjection, EmDash, available: false);
+        var status = Metric("status", CardStatus, EmDash, available: false,
+            tone: CommercialGoalPresentationTone.Unavailable);
+        return new CommercialGoalPresentationSnapshot
+        {
+            Competence = competence,
+            ReferenceDate = referenceDate,
+            Goal = goal,
+            Realized = realized,
+            Remaining = remaining,
+            Achievement = achievement,
+            RequiredPace = pace,
+            LinearProjection = projection,
+            Status = status,
+            Headline = headline,
+            SupportingText = supporting,
+            StatusText = EmDash,
+            StatusTone = CommercialGoalPresentationTone.Unavailable,
+            GoalOriginText = OriginNone,
+            GoalSource = CommercialGoalSettingSource.None,
+            CompetenceText = FormatCompetence(competence),
+            Cards = [goal, realized, remaining, achievement, pace, projection, status],
+        };
     }
 
     static CommercialGoalMetricPresentation PresentGoal(CommercialGoalSnapshot snapshot)

@@ -834,6 +834,14 @@ public partial class MainWindow : Window
             UpdateToolbarHighlight();
             return;
         }
+        if (moduleId == CommercialGoalUi.ModuleId)
+        {
+            var view = new CommercialGoalModuleView();
+            view.CloseRequested += (_, _) => ShowHome();
+            MainContent.Content = view;
+            UpdateToolbarHighlight();
+            return;
+        }
 
         if (moduleId == "pdv")
         {

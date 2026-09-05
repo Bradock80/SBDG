@@ -255,6 +255,7 @@ public class StoreNetworkClientGuardTests
         Assert.True(StoreNetworkMode.IsModuleBlockedOnClient("estoque_inteligente"));
         Assert.True(StoreNetworkMode.IsModuleBlockedOnClient("reposicao_inteligente"));
         Assert.True(StoreNetworkMode.IsModuleBlockedOnClient("combos_inteligentes"));
+        Assert.True(StoreNetworkMode.IsModuleBlockedOnClient("meta_comercial"));
         Assert.True(StoreNetworkMode.IsModuleBlockedOnClient("usuarios"));
         Assert.True(StoreNetworkMode.IsModuleBlockedOnClient("politica_comercial"));
         Assert.Equal(

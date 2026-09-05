@@ -1,0 +1,325 @@
+<UserControl x:Class="SGDB.Views.CommercialGoalModuleView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:models="clr-namespace:SGDB.Models"
+             Background="{StaticResource SgdbBgBrush}"
+             Focusable="True"
+             PreviewKeyDown="Root_PreviewKeyDown">
+    <UserControl.Resources>
+        <BooleanToVisibilityConverter x:Key="BoolToVis"/>
+    </UserControl.Resources>
+    <Border BorderBrush="#C8C4BC" BorderThickness="1" Background="White">
+        <Grid>
+            <ScrollViewer x:Name="ModuleScroll"
+                          VerticalScrollBarVisibility="Auto"
+                          HorizontalScrollBarVisibility="Disabled"
+                          CanContentScroll="False">
+                <Grid x:Name="ContentRoot"
+                      MinHeight="{Binding ActualHeight, ElementName=ModuleScroll}"
+                      MinWidth="640">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                    </Grid.RowDefinitions>
+
+                    <Border Grid.Row="0" Padding="10,6" Background="#F0F0F0"
+                            BorderBrush="#C8C4BC" BorderThickness="0,0,0,1">
+                        <Grid>
+                            <StackPanel VerticalAlignment="Center" Margin="0,0,36,0">
+                                <TextBlock Text="{x:Static models:CommercialGoalUi.ModuleTitle}"
+                                           FontWeight="SemiBold" FontSize="13" Foreground="#1E293B"/>
+                                <TextBlock Text="{x:Static models:CommercialGoalUi.Subtitle}"
+                                           FontSize="11" Foreground="#64748B" Margin="0,1,0,0"
+                                           TextWrapping="Wrap"/>
+                            </StackPanel>
+                            <Button Style="{StaticResource ModuleTabCloseStyle}"
+                                    HorizontalAlignment="Right" VerticalAlignment="Center"
+                                    Click="Close_Click"/>
+                        </Grid>
+                    </Border>
+
+                    <Border Grid.Row="1" Padding="12,8" Background="#F8FAFC" BorderBrush="#E2E8F0"
+                            BorderThickness="0,0,0,1">
+                        <WrapPanel VerticalAlignment="Center">
+                            <Button Content="←" Width="36" Height="32" Margin="0,0,8,4"
+                                    Click="PreviousMonth_Click"
+                                    ToolTip="{x:Static models:CommercialGoalUi.PreviousMonthAction}"/>
+                            <TextBlock x:Name="CompetenceText" FontSize="14" FontWeight="SemiBold"
+                                       Foreground="#1E293B" VerticalAlignment="Center"
+                                       Margin="0,0,8,4" MinWidth="160"/>
+                            <Button Content="→" Width="36" Height="32" Margin="0,0,12,4"
+                                    Click="NextMonth_Click"
+                                    ToolTip="{x:Static models:CommercialGoalUi.NextMonthAction}"/>
+                            <Button Content="{x:Static models:CommercialGoalUi.CurrentMonthAction}"
+                                    Height="32" Padding="12,6" Margin="0,0,8,4"
+                                    Click="CurrentMonth_Click"/>
+                            <Button x:Name="BtnRefresh" Content="Atualizar (F5)"
+                                    Style="{StaticResource SgdbPrimaryButtonStyle}"
+                                    Height="32" Padding="12,6" Margin="0,0,8,4"
+                                    Click="Refresh_Click"/>
+                            <Button x:Name="BtnConfigure"
+                                    Content="{x:Static models:CommercialGoalUi.ConfigureAction}"
+                                    Height="32" Padding="12,6" Margin="0,0,8,4"
+                                    Click="Configure_Click"/>
+                        </WrapPanel>
+                    </Border>
+
+                    <Border x:Name="CalloutBanner" Grid.Row="2" Margin="10,8,10,0" Padding="14,12"
+                            CornerRadius="8" Background="#F8FAFC" BorderBrush="#E2E8F0"
+                            BorderThickness="1" Visibility="Collapsed">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <StackPanel>
+                                <TextBlock x:Name="CalloutHeadline" FontSize="14" FontWeight="SemiBold"
+                                           Foreground="#1E293B" TextWrapping="Wrap"/>
+                                <TextBlock x:Name="CalloutSupport" FontSize="12" Foreground="#475569"
+                                           Margin="0,4,0,0" TextWrapping="Wrap"/>
+                            </StackPanel>
+                            <Button x:Name="BtnCalloutConfigure" Grid.Column="1" Margin="12,0,0,0"
+                                    VerticalAlignment="Center"
+                                    Content="{x:Static models:CommercialGoalUi.ConfigureAction}"
+                                    Height="32" Padding="12,6" Click="Configure_Click"/>
+                        </Grid>
+                    </Border>
+
+                    <Border x:Name="EstimatedBanner" Grid.Row="3" Margin="10,8,10,0" Padding="12,10"
+                            CornerRadius="8" Background="#FFFBEB" BorderBrush="#F59E0B"
+                            BorderThickness="1" Visibility="Collapsed">
+                        <StackPanel>
+                            <TextBlock x:Name="EstimatedTitle" FontSize="13" FontWeight="SemiBold"
+                                       Foreground="#92400E" TextWrapping="Wrap"/>
+                            <TextBlock x:Name="EstimatedBody" FontSize="12" Foreground="#B45309"
+                                       Margin="0,4,0,0" TextWrapping="Wrap"/>
+                        </StackPanel>
+                    </Border>
+
+                    <Border x:Name="HeroCard" Grid.Row="4" Margin="10,10,10,4" Padding="18,16"
+                            CornerRadius="10" Background="#F8FAFC" BorderBrush="#E2E8F0"
+                            BorderThickness="1">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <StackPanel>
+                                <TextBlock x:Name="HeroTitle" FontSize="12" Foreground="#64748B"/>
+                                <TextBlock x:Name="HeroValue" FontSize="28" FontWeight="SemiBold"
+                                           Foreground="#1E293B" Margin="0,4,0,0"
+                                           TextWrapping="Wrap"/>
+                                <TextBlock x:Name="HeroSupport" FontSize="12" Foreground="#64748B"
+                                           Margin="0,4,0,0" TextWrapping="Wrap"/>
+                            </StackPanel>
+                            <Border x:Name="HeroBadge" Grid.Column="1" Margin="12,0,0,0"
+                                    Padding="8,4" CornerRadius="6" Background="#FEF3C7"
+                                    VerticalAlignment="Top" Visibility="Collapsed">
+                                <TextBlock x:Name="HeroBadgeText" FontSize="11" FontWeight="SemiBold"
+                                           Foreground="#92400E"/>
+                            </Border>
+                        </Grid>
+                    </Border>
+
+                    <Grid Grid.Row="5" Margin="10,4">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" MinWidth="180"/>
+                            <ColumnDefinition Width="8"/>
+                            <ColumnDefinition Width="*" MinWidth="180"/>
+                            <ColumnDefinition Width="8"/>
+                            <ColumnDefinition Width="*" MinWidth="180"/>
+                        </Grid.ColumnDefinitions>
+                        <Border x:Name="Decision0" Grid.Column="0" Padding="14,12" CornerRadius="8"
+                                Background="#F8FAFC" BorderBrush="#E2E8F0" BorderThickness="1">
+                            <StackPanel>
+                                <TextBlock x:Name="Decision0Title" FontSize="11" Foreground="#64748B"
+                                           TextWrapping="Wrap"/>
+                                <TextBlock x:Name="Decision0Value" FontSize="20" FontWeight="SemiBold"
+                                           Foreground="#1E293B" Margin="0,6,0,0" TextWrapping="Wrap"/>
+                                <TextBlock x:Name="Decision0Support" FontSize="11" Foreground="#64748B"
+                                           Margin="0,4,0,0" TextWrapping="Wrap"/>
+                            </StackPanel>
+                        </Border>
+                        <Border x:Name="Decision1" Grid.Column="2" Padding="14,12" CornerRadius="8"
+                                Background="#F8FAFC" BorderBrush="#E2E8F0" BorderThickness="1">
+                            <StackPanel>
+                                <TextBlock x:Name="Decision1Title" FontSize="11" Foreground="#64748B"
+                                           TextWrapping="Wrap"/>
+                                <TextBlock x:Name="Decision1Value" FontSize="20" FontWeight="SemiBold"
+                                           Foreground="#1E293B" Margin="0,6,0,0" TextWrapping="Wrap"/>
+                                <TextBlock x:Name="Decision1Support" FontSize="11" Foreground="#64748B"
+                                           Margin="0,4,0,0" TextWrapping="Wrap"/>
+                            </StackPanel>
+                        </Border>
+                        <Border x:Name="Decision2" Grid.Column="4" Padding="14,12" CornerRadius="8"
+                                Background="#F8FAFC" BorderBrush="#E2E8F0" BorderThickness="1">
+                            <StackPanel>
+                                <TextBlock x:Name="Decision2Title" FontSize="11" Foreground="#64748B"
+                                           TextWrapping="Wrap"/>
+                                <TextBlock x:Name="Decision2Value" FontSize="20" FontWeight="SemiBold"
+                                           Foreground="#1E293B" Margin="0,6,0,0" TextWrapping="Wrap"/>
+                                <TextBlock x:Name="Decision2Support" FontSize="11" Foreground="#64748B"
+                                           Margin="0,4,0,0" TextWrapping="Wrap"/>
+                            </StackPanel>
+                        </Border>
+                    </Grid>
+
+                    <Grid Grid.Row="6" Margin="10,4,10,8">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" MinWidth="160"/>
+                            <ColumnDefinition Width="8"/>
+                            <ColumnDefinition Width="*" MinWidth="160"/>
+                            <ColumnDefinition Width="8"/>
+                            <ColumnDefinition Width="*" MinWidth="160"/>
+                        </Grid.ColumnDefinitions>
+                        <Border x:Name="Context0" Grid.Column="0" Padding="12,10" CornerRadius="8"
+                                Background="White" BorderBrush="#E2E8F0" BorderThickness="1">
+                            <StackPanel>
+                                <TextBlock x:Name="Context0Title" FontSize="11" Foreground="#64748B"
+                                           TextWrapping="Wrap"/>
+                                <TextBlock x:Name="Context0Value" FontSize="16" FontWeight="SemiBold"
+                                           Foreground="#334155" Margin="0,6,0,0" TextWrapping="Wrap"/>
+                            </StackPanel>
+                        </Border>
+                        <Border x:Name="Context1" Grid.Column="2" Padding="12,10" CornerRadius="8"
+                                Background="White" BorderBrush="#E2E8F0" BorderThickness="1"
+                                ToolTip="{x:Static models:CommercialGoalPresentation.ProjectionTooltip}">
+                            <StackPanel>
+                                <TextBlock x:Name="Context1Title" FontSize="11" Foreground="#64748B"
+                                           TextWrapping="Wrap"/>
+                                <TextBlock x:Name="Context1Value" FontSize="16" FontWeight="SemiBold"
+                                           Foreground="#334155" Margin="0,6,0,0" TextWrapping="Wrap"/>
+                                <TextBlock x:Name="Context1Support" FontSize="11" Foreground="#64748B"
+                                           Margin="0,4,0,0" TextWrapping="Wrap"/>
+                            </StackPanel>
+                        </Border>
+                        <Border x:Name="Context2" Grid.Column="4" Padding="12,10" CornerRadius="8"
+                                Background="White" BorderBrush="#E2E8F0" BorderThickness="1">
+                            <StackPanel>
+                                <TextBlock x:Name="Context2Title" FontSize="11" Foreground="#64748B"
+                                           TextWrapping="Wrap"/>
+                                <Border x:Name="StatusBadge" Margin="0,8,0,0" Padding="8,4"
+                                        CornerRadius="6" HorizontalAlignment="Left" Background="#F1F5F9">
+                                    <TextBlock x:Name="Context2Value" FontSize="13" FontWeight="SemiBold"
+                                               Foreground="#334155" TextWrapping="Wrap"/>
+                                </Border>
+                            </StackPanel>
+                        </Border>
+                    </Grid>
+
+                    <Expander Grid.Row="7" Margin="10,0,10,8"
+                              Header="{x:Static models:CommercialGoalUi.AboutNumbersTitle}"
+                              FontSize="12" Foreground="#334155">
+                        <ItemsControl x:Name="LimitationsList" Margin="0,8,0,0">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <StackPanel Margin="0,0,0,10">
+                                        <TextBlock Text="{Binding Title}" FontSize="12"
+                                                   FontWeight="SemiBold" Foreground="#334155"
+                                                   TextWrapping="Wrap"/>
+                                        <TextBlock Text="{Binding Body}" FontSize="12"
+                                                   Foreground="#64748B" Margin="0,2,0,0"
+                                                   TextWrapping="Wrap"/>
+                                    </StackPanel>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </Expander>
+
+                    <Border Grid.Row="8" Padding="12,8" Background="#F8FAFC" BorderBrush="#C8C4BC"
+                            BorderThickness="0,1,0,0" VerticalAlignment="Bottom">
+                        <TextBlock x:Name="OriginFooter" FontSize="12" Foreground="#475569"
+                                   TextWrapping="Wrap"/>
+                    </Border>
+                </Grid>
+            </ScrollViewer>
+
+            <Border x:Name="SettingsOverlay" Background="#F8FAFC" Visibility="Collapsed">
+                <Border MaxWidth="560" Margin="16" Padding="0" Background="White"
+                        BorderBrush="#C8C4BC" BorderThickness="1" VerticalAlignment="Center">
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="*"/>
+                            <RowDefinition Height="Auto"/>
+                        </Grid.RowDefinitions>
+                        <Border Padding="12,8" Background="#F0F0F0" BorderBrush="#C8C4BC"
+                                BorderThickness="0,0,0,1">
+                            <TextBlock Text="Configurar meta" FontWeight="SemiBold" FontSize="13"/>
+                        </Border>
+                        <ScrollViewer Grid.Row="1" Padding="16" VerticalScrollBarVisibility="Auto"
+                                      HorizontalScrollBarVisibility="Disabled"
+                                      MaxHeight="360">
+                            <StackPanel>
+                                <TextBlock x:Name="SettingsOrigin" FontSize="13" FontWeight="SemiBold"
+                                           Foreground="#0F172A" TextWrapping="Wrap"/>
+                                <TextBlock FontSize="12" Foreground="#475569" TextWrapping="Wrap"
+                                           Margin="0,8,0,16"
+                                           Text="{x:Static models:CommercialGoalUi.DefaultExplanation}"/>
+
+                                <TextBlock Text="{x:Static models:CommercialGoalUi.DefaultCaption}"
+                                           FontSize="12" FontWeight="SemiBold" Foreground="#334155"/>
+                                <TextBlock x:Name="DefaultStatus" FontSize="12" Foreground="#64748B"
+                                           Margin="0,4,0,6" TextWrapping="Wrap"/>
+                                <TextBox x:Name="DefaultBox" Height="32" MaxLength="20"/>
+                                <StackPanel Orientation="Horizontal" Margin="0,8,0,16">
+                                    <Button x:Name="SaveDefaultBtn" Content="Salvar padrão"
+                                            Style="{StaticResource SgdbPrimaryButtonStyle}"
+                                            Height="32" Padding="12,6" Click="SaveDefault_Click"/>
+                                    <Button x:Name="ClearDefaultBtn" Content="Remover padrão"
+                                            Height="32" Padding="12,6" Margin="8,0,0,0"
+                                            Click="ClearDefault_Click"/>
+                                </StackPanel>
+
+                                <TextBlock x:Name="MonthlyCaption" FontSize="12" FontWeight="SemiBold"
+                                           Foreground="#334155"/>
+                                <TextBlock Text="{x:Static models:CommercialGoalUi.MonthlyExplanation}"
+                                           FontSize="12" Foreground="#64748B" Margin="0,4,0,4"
+                                           TextWrapping="Wrap"/>
+                                <TextBlock x:Name="MonthlyStatus" FontSize="12" Foreground="#64748B"
+                                           Margin="0,0,0,6" TextWrapping="Wrap"/>
+                                <TextBox x:Name="MonthlyBox" Height="32" MaxLength="20"/>
+                                <StackPanel Orientation="Horizontal" Margin="0,8,0,16">
+                                    <Button x:Name="SaveMonthlyBtn" Content="Salvar específica"
+                                            Style="{StaticResource SgdbPrimaryButtonStyle}"
+                                            Height="32" Padding="12,6" Click="SaveMonthly_Click"/>
+                                    <Button x:Name="ClearMonthlyBtn" Content="Remover específica"
+                                            Height="32" Padding="12,6" Margin="8,0,0,0"
+                                            Click="ClearMonthly_Click"/>
+                                </StackPanel>
+
+                                <TextBlock x:Name="HistoricalNote" FontSize="12" Foreground="#64748B"
+                                           TextWrapping="Wrap"/>
+                                <TextBlock x:Name="SettingsFeedback" FontSize="12" Margin="0,12,0,0"
+                                           TextWrapping="Wrap" Foreground="#64748B"/>
+                            </StackPanel>
+                        </ScrollViewer>
+                        <Border Grid.Row="2" Padding="12,10" Background="#F5F3EE"
+                                BorderBrush="#E2E8F0" BorderThickness="0,1,0,0">
+                            <Button Content="Fechar" HorizontalAlignment="Right"
+                                    Style="{StaticResource SgdbOutlineButtonStyle}"
+                                    Padding="14,8" Click="CloseSettings_Click"/>
+                        </Border>
+                    </Grid>
+                </Border>
+            </Border>
+
+            <Border x:Name="ClientBlockOverlay" Background="#F8FAFC" Visibility="Collapsed">
+                <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" MaxWidth="520" Margin="24">
+                    <TextBlock Text="{x:Static models:CommercialGoalUi.ModuleTitle}"
+                               FontWeight="SemiBold" FontSize="14"
+                               Foreground="#1E293B" TextAlignment="Center"/>
+                    <TextBlock x:Name="ClientBlockText" Margin="0,12,0,0" FontSize="13"
+                               Foreground="#475569" TextWrapping="Wrap" TextAlignment="Center"/>
+                </StackPanel>
+            </Border>
+        </Grid>
+    </Border>
+</UserControl>

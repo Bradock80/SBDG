@@ -122,6 +122,8 @@
                               ToolTip="Orientações qualitativas de reposição"/>
                     <MenuItem Header="Combos Inteligentes" Tag="combos_inteligentes" Click="MenuModule_Click"
                               ToolTip="Sugestões de combinação para produtos que precisam girar"/>
+                    <MenuItem Header="Meta Comercial" Tag="meta_comercial" Click="MenuModule_Click"
+                              ToolTip="Lucro bruto realizado em relação à meta do mês"/>
                     <Separator/>
                     <MenuItem Header="Mais vendidos" Tag="estoque_mais_vendidos" Click="MenuModule_Click"/>
                     <MenuItem Header="Menos vendidos" Tag="estoque_menos_vendidos" Click="MenuModule_Click"/>
@@ -244,6 +246,11 @@
                         Click="Toolbar_Click" x:Name="BtnCombos"
                         ToolTip="Combos Inteligentes">
                     <controls:ToolbarIconContent IconKey="relatorio" Label="Combos"/>
+                </Button>
+                <Button Style="{StaticResource IconToolbarButtonStyle}" Tag="meta_comercial"
+                        Click="Toolbar_Click" x:Name="BtnMeta"
+                        ToolTip="Meta Comercial">
+                    <controls:ToolbarIconContent IconKey="relatorio" Label="Meta"/>
                 </Button>
                 <Button Style="{StaticResource IconToolbarButtonStyle}" Tag="compras"
                         Click="Toolbar_Click" x:Name="BtnCompras">

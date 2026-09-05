@@ -18,6 +18,7 @@ public class InventoryIntelligenceAccessTests
         Assert.True(AccessControl.CanAccessModule("estoque_inteligente"));
         Assert.True(AccessControl.CanAccessModule("reposicao_inteligente"));
         Assert.True(AccessControl.CanAccessModule("combos_inteligentes"));
+        Assert.True(AccessControl.CanAccessModule("meta_comercial"));
         Assert.True(AccessControl.Can("RelatoriosAcesso"));
     }
 
@@ -29,6 +30,7 @@ public class InventoryIntelligenceAccessTests
         Assert.False(AccessControl.CanAccessModule("estoque_inteligente"));
         Assert.False(AccessControl.CanAccessModule("reposicao_inteligente"));
         Assert.False(AccessControl.CanAccessModule("combos_inteligentes"));
+        Assert.False(AccessControl.CanAccessModule("meta_comercial"));
     }
 
     [Fact]
@@ -42,9 +44,11 @@ public class InventoryIntelligenceAccessTests
         Assert.True(AccessControl.CanAccessModule("estoque_inteligente"));
         Assert.True(AccessControl.CanAccessModule("reposicao_inteligente"));
         Assert.True(AccessControl.CanAccessModule("combos_inteligentes"));
+        Assert.True(AccessControl.CanAccessModule("meta_comercial"));
         Assert.True(AccessControl.Can("RelatoriosAcesso"));
         Assert.False(AccessControl.Can("ProdutosEditar"));
         Assert.False(AccessControl.Can("EstoqueAjustar"));
+        Assert.False(AccessControl.CanAccessCommercialPolicy());
     }
 
     [Fact]
@@ -59,5 +63,6 @@ public class InventoryIntelligenceAccessTests
         Assert.False(AccessControl.CanAccessModule("reposicao_inteligente"));
         Assert.False(AccessControl.CanAccessModule("estoque_inteligente"));
         Assert.False(AccessControl.CanAccessModule("combos_inteligentes"));
+        Assert.False(AccessControl.CanAccessModule("meta_comercial"));
     }
 }
