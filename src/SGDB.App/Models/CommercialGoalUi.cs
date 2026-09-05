@@ -21,6 +21,10 @@ public static class CommercialGoalUi
 
     public const string ConfigureAction = "Configurar meta";
     public const string ActionPlanSectionTitle = CommercialGoalActionPlanPresentation.SectionTitle;
+    public const string ProductContributionSectionTitle =
+        CommercialGoalProductContributionPresentation.SectionTitle;
+    public const string ProductContributionLimitationsTitle = "Limitações desta análise";
+    public const string ProductContributionShareCaption = "Participação";
     public const string AboutNumbersTitle = "Sobre estes números";
     public const string CurrentMonthAction = "Mês atual";
     public const string PreviousMonthAction = "Mês anterior";
@@ -70,6 +74,31 @@ public static class CommercialGoalUi
 
     public static bool ShowEstimatedBanner(CommercialGoalPresentationSnapshot presented) =>
         presented.ShowEstimatedBadge;
+
+    public static IReadOnlyList<CommercialGoalProductContributionItemPresentation> VisibleContributionRows(
+        CommercialGoalProductContributionPresentationSnapshot presented)
+    {
+        ArgumentNullException.ThrowIfNull(presented);
+        if (presented.TopContributors.Count > 0)
+            return presented.TopContributors;
+
+        if (presented.State == CommercialGoalProductContributionPresentationState.ProfitUnavailable
+            && presented.Rows.Count > 0)
+        {
+            var take = Math.Min(
+                CommercialGoalProductContributionPresentation.TopContributorCount,
+                presented.Rows.Count);
+            if (take == presented.Rows.Count)
+                return presented.Rows;
+
+            var slice = new CommercialGoalProductContributionItemPresentation[take];
+            for (var i = 0; i < take; i++)
+                slice[i] = presented.Rows[i];
+            return slice;
+        }
+
+        return presented.TopContributors;
+    }
 }
 
 /// <summary>Hierarquia visual B6: herói + decisão + contexto. Textos vêm da B5.</summary>

@@ -202,6 +202,7 @@ public partial class CommercialGoalModuleView : UserControl
         ApplyStatus(layout.Context[2]);
         LimitationsList.ItemsSource = _presented.Limitations;
         ApplyActionPlan();
+        ApplyContribution();
         ApplyConfigurePermission();
     }
 
@@ -233,6 +234,70 @@ public partial class CommercialGoalModuleView : UserControl
         var showEmpty = plan.IsEmpty && plan.EmptyText.Length > 0;
         ActionPlanEmpty.Text = plan.EmptyText;
         ActionPlanEmpty.Visibility = showEmpty ? Visibility.Visible : Visibility.Collapsed;
+    }
+
+    private void ApplyContribution()
+    {
+        var contribution = _presented.ProductContribution;
+        ContributionHeadline.Text = contribution.Headline;
+        ContributionSupport.Text = contribution.SupportingText;
+        ContributionQuality.Text = contribution.QualityText;
+        ContributionQuality.ToolTip = string.IsNullOrEmpty(contribution.QualityExplanation)
+            ? null
+            : contribution.QualityExplanation;
+
+        var showQuality = contribution.QualityText.Length > 0;
+        ContributionQualityBadge.Visibility = showQuality ? Visibility.Visible : Visibility.Collapsed;
+        if (showQuality)
+        {
+            var tone = contribution.ShowEstimatedBadge
+                ? CommercialGoalPresentationTone.Attention
+                : contribution.State == CommercialGoalProductContributionPresentationState.ProfitUnavailable
+                    ? CommercialGoalPresentationTone.Unavailable
+                    : CommercialGoalPresentationTone.Neutral;
+            var colors = CommercialGoalUi.ToneColors(tone);
+            ContributionQualityBadge.Background = Brush(colors.Bg);
+            ContributionQuality.Foreground = Brush(colors.Fg);
+        }
+
+        var rows = CommercialGoalUi.VisibleContributionRows(contribution);
+        ContributionItems.ItemsSource = rows;
+        ContributionItems.Visibility = rows.Count > 0 ? Visibility.Visible : Visibility.Collapsed;
+
+        var emptyText = contribution.EmptyText;
+        var showEmpty = rows.Count == 0
+            && emptyText.Length > 0
+            && emptyText != contribution.Headline;
+        ContributionEmpty.Text = emptyText;
+        ContributionEmpty.Visibility = showEmpty ? Visibility.Visible : Visibility.Collapsed;
+
+        UnattributedRevenueTitle.Text = contribution.UnattributedRevenueTitle;
+        UnattributedRevenueValue.Text = contribution.UnattributedRevenueText;
+        UnattributedRevenueValue.ToolTip = string.IsNullOrEmpty(contribution.UnattributedRevenueExplanation)
+            ? null
+            : contribution.UnattributedRevenueExplanation;
+        UnattributedRevenueBlock.Visibility = contribution.HasUnattributedRevenue
+            ? Visibility.Visible
+            : Visibility.Collapsed;
+
+        UnattributedGrossProfitTitle.Text = contribution.UnattributedGrossProfitTitle;
+        UnattributedGrossProfitValue.Text = contribution.UnattributedGrossProfitText;
+        UnattributedGrossProfitValue.ToolTip = string.IsNullOrEmpty(contribution.UnattributedGrossProfitExplanation)
+            ? null
+            : contribution.UnattributedGrossProfitExplanation;
+        UnattributedGrossProfitBlock.Visibility = contribution.HasUnattributedGrossProfit
+            ? Visibility.Visible
+            : Visibility.Collapsed;
+
+        UnattributedPanel.Visibility =
+            contribution.HasUnattributedRevenue || contribution.HasUnattributedGrossProfit
+                ? Visibility.Visible
+                : Visibility.Collapsed;
+
+        ContributionLimitations.ItemsSource = contribution.Limitations;
+        ContributionLimitationsExpander.Visibility = contribution.Limitations.Count > 0
+            ? Visibility.Visible
+            : Visibility.Collapsed;
     }
 
     private void ApplyHero(CommercialGoalMetricPresentation metric)

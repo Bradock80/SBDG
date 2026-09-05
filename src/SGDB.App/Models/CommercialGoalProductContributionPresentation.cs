@@ -161,6 +161,9 @@ public static class CommercialGoalProductContributionPresentation
         "Parte da receita da competência não possui item de produto associado e por isso não aparece no ranking por produto.";
     public const string LimitationShareNegativeTitle = "Participação percentual oculta";
 
+    public static CommercialGoalProductContributionPresentationSnapshot Empty { get; } =
+        Apply(new CommercialGoalProductContributionSnapshot());
+
     public static CommercialGoalProductContributionPresentationSnapshot Apply(
         CommercialGoalProductContributionSnapshot snapshot)
     {

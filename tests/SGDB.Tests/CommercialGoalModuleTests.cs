@@ -22,7 +22,9 @@ public class CommercialGoalModuleTests
     {
         Assert.Equal(0, CommercialGoalUi.ExpectedQueryCount);
         Assert.Equal(0, CommercialGoalLoader.ExpectedQueryCount);
+        Assert.Equal(1, CommercialGoalLoader.InheritedProductContributionQueryCount);
         Assert.Equal(0, CommercialGoalPresentation.ExpectedQueryCount);
+        Assert.Equal(0, CommercialGoalProductContributionPresentation.ExpectedQueryCount);
         Assert.Equal("meta_comercial", CommercialGoalUi.ModuleId);
         Assert.Equal("Meta Comercial", CommercialGoalUi.ModuleTitle);
         Assert.Equal("Meta", CommercialGoalUi.ToolbarTitle);
@@ -265,6 +267,13 @@ public class CommercialGoalModuleTests
         Assert.Contains("x:Name=\"ActionPlanSection\"", xaml, StringComparison.Ordinal);
         Assert.Contains("x:Name=\"ActionPlanItems\"", xaml, StringComparison.Ordinal);
         Assert.Contains("CommercialGoalUi.ActionPlanSectionTitle", xaml, StringComparison.Ordinal);
+        Assert.Contains("x:Name=\"ContributionSection\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("x:Name=\"ContributionItems\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("CommercialGoalUi.ProductContributionSectionTitle", xaml, StringComparison.Ordinal);
+        var actionIdx = xaml.IndexOf("x:Name=\"ActionPlanSection\"", StringComparison.Ordinal);
+        var contributionIdx = xaml.IndexOf("x:Name=\"ContributionSection\"", StringComparison.Ordinal);
+        var aboutIdx = xaml.IndexOf("CommercialGoalUi.AboutNumbersTitle", StringComparison.Ordinal);
+        Assert.True(actionIdx >= 0 && contributionIdx > actionIdx && aboutIdx > contributionIdx);
         Assert.DoesNotContain("DataGrid", xaml, StringComparison.Ordinal);
         Assert.DoesNotContain("PreviewMouseWheel", xaml, StringComparison.Ordinal);
         Assert.DoesNotContain("#FEE2E2", xaml, StringComparison.Ordinal);
@@ -281,8 +290,8 @@ public class CommercialGoalModuleTests
         var xaml = ReadViewXaml();
         var start = xaml.IndexOf("x:Name=\"ActionPlanSection\"", StringComparison.Ordinal);
         Assert.True(start >= 0);
-        var expander = xaml.IndexOf("AboutNumbersTitle", start, StringComparison.Ordinal);
-        var section = xaml[start..expander];
+        var next = xaml.IndexOf("x:Name=\"ContributionSection\"", start, StringComparison.Ordinal);
+        var section = xaml[start..next];
         Assert.DoesNotContain("<Button", section, StringComparison.Ordinal);
         Assert.DoesNotContain("preço", section, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("promoção", section, StringComparison.OrdinalIgnoreCase);
@@ -312,9 +321,59 @@ public class CommercialGoalModuleTests
         Assert.Contains("Load();", next, StringComparison.Ordinal);
         var applyView = MethodBody(cs, "private void ApplyView()");
         Assert.Contains("ApplyActionPlan();", applyView, StringComparison.Ordinal);
+        Assert.Contains("ApplyContribution();", applyView, StringComparison.Ordinal);
         var empty = MethodBody(cs, "private void ApplyActionPlan()");
         Assert.Contains("plan.Items", empty, StringComparison.Ordinal);
         Assert.Contains("plan.EmptyText", empty, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void View_contribuicao_sem_acao_comercial()
+    {
+        var xaml = ReadViewXaml();
+        var start = xaml.IndexOf("x:Name=\"ContributionSection\"", StringComparison.Ordinal);
+        Assert.True(start >= 0);
+        var expander = xaml.IndexOf("AboutNumbersTitle", start, StringComparison.Ordinal);
+        var section = xaml[start..expander];
+        Assert.DoesNotContain("<Button", section, StringComparison.Ordinal);
+        Assert.DoesNotContain("DataGrid", section, StringComparison.Ordinal);
+        Assert.DoesNotContain("Promover", section, StringComparison.Ordinal);
+        Assert.DoesNotContain("Criar combo", section, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("Repor", section, StringComparison.Ordinal);
+        Assert.DoesNotContain("Comprar", section, StringComparison.Ordinal);
+        Assert.DoesNotContain("venda mais", section, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("bater a meta", section, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("fechar a meta", section, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("R$ 0", section, StringComparison.Ordinal);
+        Assert.Contains("ContributionItems", section, StringComparison.Ordinal);
+        Assert.Contains("ContributionEmpty", section, StringComparison.Ordinal);
+        Assert.Contains("GrossProfitText", section, StringComparison.Ordinal);
+        Assert.Contains("GrossMarginText", section, StringComparison.Ordinal);
+        Assert.Contains("GrossProfitShareText", section, StringComparison.Ordinal);
+        Assert.Contains("CostQualityText", section, StringComparison.Ordinal);
+        Assert.Contains("RevenueText", section, StringComparison.Ordinal);
+        Assert.Contains("CogsText", section, StringComparison.Ordinal);
+        Assert.Contains("UnattributedRevenueBlock", section, StringComparison.Ordinal);
+        Assert.Contains("UnattributedGrossProfitBlock", section, StringComparison.Ordinal);
+        Assert.Contains("ContributionLimitationsExpander", section, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void View_aplica_contribuicao_sem_recalculo()
+    {
+        var cs = ReadViewCs();
+        Assert.Contains("ApplyContribution()", cs, StringComparison.Ordinal);
+        Assert.Contains("ContributionItems.ItemsSource", cs, StringComparison.Ordinal);
+        Assert.Contains("CommercialGoalUi.VisibleContributionRows", cs, StringComparison.Ordinal);
+        Assert.DoesNotContain("CommercialGoalProductContributionService", cs, StringComparison.Ordinal);
+        Assert.DoesNotContain("CommercialGoalFinancialService", cs, StringComparison.Ordinal);
+        var apply = MethodBody(cs, "private void ApplyContribution()");
+        Assert.DoesNotContain("SELECT", apply, StringComparison.Ordinal);
+        Assert.DoesNotContain("FormatMoney", apply, StringComparison.Ordinal);
+        Assert.Contains("contribution.Limitations", apply, StringComparison.Ordinal);
+        Assert.Contains("HasUnattributedRevenue", apply, StringComparison.Ordinal);
+        Assert.Contains("HasUnattributedGrossProfit", apply, StringComparison.Ordinal);
+        Assert.Contains("rows.Count > 0", apply, StringComparison.Ordinal);
     }
 
     [Fact]

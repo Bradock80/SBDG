@@ -66,6 +66,8 @@ public sealed class CommercialGoalPresentationSnapshot
     public IReadOnlyList<CommercialGoalLimitationPresentation> Limitations { get; init; } = [];
     public CommercialGoalActionPlanPresentationSnapshot ActionPlan { get; init; } =
         CommercialGoalActionPlanPresentation.Empty;
+    public CommercialGoalProductContributionPresentationSnapshot ProductContribution { get; init; } =
+        CommercialGoalProductContributionPresentation.Empty;
 }
 
 /// <summary>
@@ -140,7 +142,8 @@ public static class CommercialGoalPresentation
 
     public static CommercialGoalPresentationSnapshot Apply(
         CommercialGoalSnapshot snapshot,
-        CommercialGoalActionPlanPresentationSnapshot? actionPlan = null)
+        CommercialGoalActionPlanPresentationSnapshot? actionPlan = null,
+        CommercialGoalProductContributionPresentationSnapshot? productContribution = null)
     {
         ArgumentNullException.ThrowIfNull(snapshot);
 
@@ -190,6 +193,7 @@ public static class CommercialGoalPresentation
             Cards = cards,
             Limitations = limitations,
             ActionPlan = actionPlan ?? CommercialGoalActionPlanPresentation.Empty,
+            ProductContribution = productContribution ?? CommercialGoalProductContributionPresentation.Empty,
         };
     }
 
@@ -294,6 +298,7 @@ public static class CommercialGoalPresentation
             CompetenceText = FormatCompetence(competence),
             Cards = [goal, realized, remaining, achievement, pace, projection, status],
             ActionPlan = CommercialGoalActionPlanPresentation.Empty,
+            ProductContribution = CommercialGoalProductContributionPresentation.Empty,
         };
     }
 

@@ -39,6 +39,10 @@ public class CommercialGoalProductContributionPresentationTests
         Assert.Equal("Contribuição para o lucro", CommercialGoalProductContributionPresentation.SectionTitle);
         var presented = Present(ExactSnapshot(Row(1, 100m, 60m, 40m, 40m, 1m)));
         Assert.Equal(0, presented.QueryCount);
+        Assert.True(CommercialGoalProductContributionPresentation.Empty.IsEmpty);
+        Assert.Equal(
+            CommercialGoalProductContributionPresentationState.Empty,
+            CommercialGoalProductContributionPresentation.Empty.State);
     }
 
     [Fact]

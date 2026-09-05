@@ -135,6 +135,10 @@ public class CommercialGoalAdminServiceTests
         Assert.DoesNotContain("SELECT", src, StringComparison.Ordinal);
         Assert.Contains("CommercialGoalComposerService.Load", src, StringComparison.Ordinal);
         Assert.Contains("CommercialGoalPresentation.Apply", src, StringComparison.Ordinal);
+        Assert.Contains("CommercialGoalProductContributionService.Load", src, StringComparison.Ordinal);
+        Assert.Contains("CommercialGoalProductContributionPresentation.Apply", src, StringComparison.Ordinal);
+        Assert.DoesNotContain("DatabaseService", src, StringComparison.Ordinal);
+        Assert.DoesNotContain("AppSettingsService", src, StringComparison.Ordinal);
     }
 
     static string Find(params string[] relative)
