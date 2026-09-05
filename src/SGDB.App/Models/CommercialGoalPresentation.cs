@@ -64,6 +64,8 @@ public sealed class CommercialGoalPresentationSnapshot
 
     public IReadOnlyList<CommercialGoalMetricPresentation> Cards { get; init; } = [];
     public IReadOnlyList<CommercialGoalLimitationPresentation> Limitations { get; init; } = [];
+    public CommercialGoalActionPlanPresentationSnapshot ActionPlan { get; init; } =
+        CommercialGoalActionPlanPresentation.Empty;
 }
 
 /// <summary>
@@ -136,7 +138,9 @@ public static class CommercialGoalPresentation
     public const string LimitationHistoricalDefaultBody =
         "Esta competência usa a meta padrão. Alterações futuras na meta padrão podem mudar a meta exibida para este mês enquanto não houver uma meta específica.";
 
-    public static CommercialGoalPresentationSnapshot Apply(CommercialGoalSnapshot snapshot)
+    public static CommercialGoalPresentationSnapshot Apply(
+        CommercialGoalSnapshot snapshot,
+        CommercialGoalActionPlanPresentationSnapshot? actionPlan = null)
     {
         ArgumentNullException.ThrowIfNull(snapshot);
 
@@ -185,6 +189,7 @@ public static class CommercialGoalPresentation
             EstimatedExplanation = estimated ? EstimatedExplanation : "",
             Cards = cards,
             Limitations = limitations,
+            ActionPlan = actionPlan ?? CommercialGoalActionPlanPresentation.Empty,
         };
     }
 
@@ -288,6 +293,7 @@ public static class CommercialGoalPresentation
             GoalSource = CommercialGoalSettingSource.None,
             CompetenceText = FormatCompetence(competence),
             Cards = [goal, realized, remaining, achievement, pace, projection, status],
+            ActionPlan = CommercialGoalActionPlanPresentation.Empty,
         };
     }
 

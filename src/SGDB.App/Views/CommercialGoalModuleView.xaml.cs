@@ -201,6 +201,7 @@ public partial class CommercialGoalModuleView : UserControl
         ApplyMetric(Context1, Context1Title, Context1Value, Context1Support, layout.Context[1]);
         ApplyStatus(layout.Context[2]);
         LimitationsList.ItemsSource = _presented.Limitations;
+        ApplyActionPlan();
         ApplyConfigurePermission();
     }
 
@@ -221,6 +222,17 @@ public partial class CommercialGoalModuleView : UserControl
         EstimatedBanner.Visibility = show ? Visibility.Visible : Visibility.Collapsed;
         EstimatedTitle.Text = _presented.EstimatedBadge;
         EstimatedBody.Text = _presented.EstimatedExplanation;
+    }
+
+    private void ApplyActionPlan()
+    {
+        var plan = _presented.ActionPlan;
+        ActionPlanHeadline.Text = plan.Headline;
+        ActionPlanSupport.Text = plan.SupportingText;
+        ActionPlanItems.ItemsSource = plan.Items;
+        var showEmpty = plan.IsEmpty && plan.EmptyText.Length > 0;
+        ActionPlanEmpty.Text = plan.EmptyText;
+        ActionPlanEmpty.Visibility = showEmpty ? Visibility.Visible : Visibility.Collapsed;
     }
 
     private void ApplyHero(CommercialGoalMetricPresentation metric)

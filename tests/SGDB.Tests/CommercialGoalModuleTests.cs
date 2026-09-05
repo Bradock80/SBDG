@@ -262,12 +262,59 @@ public class CommercialGoalModuleTests
         Assert.Contains("CommercialGoalUi.AboutNumbersTitle", xaml, StringComparison.Ordinal);
         Assert.Contains("MinWidth=\"640\"", xaml, StringComparison.Ordinal);
         Assert.Contains("ScrollViewer", xaml, StringComparison.Ordinal);
+        Assert.Contains("x:Name=\"ActionPlanSection\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("x:Name=\"ActionPlanItems\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("CommercialGoalUi.ActionPlanSectionTitle", xaml, StringComparison.Ordinal);
         Assert.DoesNotContain("DataGrid", xaml, StringComparison.Ordinal);
         Assert.DoesNotContain("PreviewMouseWheel", xaml, StringComparison.Ordinal);
         Assert.DoesNotContain("#FEE2E2", xaml, StringComparison.Ordinal);
         Assert.DoesNotContain("Previsão", xaml, StringComparison.Ordinal);
         Assert.DoesNotContain("ranking", xaml, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("plano de ação", xaml, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("URGENTE", xaml, StringComparison.Ordinal);
+        Assert.DoesNotContain("VENDA AGORA", xaml, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void View_plano_sem_botoes_de_alteracao()
+    {
+        var xaml = ReadViewXaml();
+        var start = xaml.IndexOf("x:Name=\"ActionPlanSection\"", StringComparison.Ordinal);
+        Assert.True(start >= 0);
+        var expander = xaml.IndexOf("AboutNumbersTitle", start, StringComparison.Ordinal);
+        var section = xaml[start..expander];
+        Assert.DoesNotContain("<Button", section, StringComparison.Ordinal);
+        Assert.DoesNotContain("preço", section, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("promoção", section, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("estoque", section, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("PriorityText", section, StringComparison.Ordinal);
+        Assert.Contains("ProductTitle", section, StringComparison.Ordinal);
+        Assert.Contains("ReasonText", section, StringComparison.Ordinal);
+        Assert.Contains("ConfidenceText", section, StringComparison.Ordinal);
+        Assert.Contains("ComplementsText", section, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void View_aplica_plano_no_load_e_troca_competencia()
+    {
+        var cs = ReadViewCs();
+        Assert.Contains("ApplyActionPlan()", cs, StringComparison.Ordinal);
+        Assert.Contains("ActionPlanItems.ItemsSource", cs, StringComparison.Ordinal);
+        var loadBody = MethodBody(cs, "private void Load()");
+        Assert.Contains("CommercialGoalLoader.Load(", loadBody, StringComparison.Ordinal);
+        Assert.Equal(1, CountOccurrences(loadBody, "CommercialGoalLoader.Load("));
+        Assert.Contains("ApplyView()", loadBody, StringComparison.Ordinal);
+        Assert.Contains("_competence = CommercialCompetence.FromDate(_competence.StartDate.AddMonths(-1));", cs, StringComparison.Ordinal);
+        Assert.Contains("_competence = CommercialCompetence.FromDate(_competence.StartDate.AddMonths(1));", cs, StringComparison.Ordinal);
+        var previous = MethodBody(cs, "private void PreviousMonth_Click");
+        var next = MethodBody(cs, "private void NextMonth_Click");
+        Assert.Contains("Load();", previous, StringComparison.Ordinal);
+        Assert.Contains("Load();", next, StringComparison.Ordinal);
+        var applyView = MethodBody(cs, "private void ApplyView()");
+        Assert.Contains("ApplyActionPlan();", applyView, StringComparison.Ordinal);
+        var empty = MethodBody(cs, "private void ApplyActionPlan()");
+        Assert.Contains("plan.Items", empty, StringComparison.Ordinal);
+        Assert.Contains("plan.EmptyText", empty, StringComparison.Ordinal);
     }
 
     [Fact]

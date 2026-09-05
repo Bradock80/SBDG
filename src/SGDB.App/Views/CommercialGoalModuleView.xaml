@@ -26,6 +26,7 @@
                         <RowDefinition Height="Auto"/>
                         <RowDefinition Height="Auto"/>
                         <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
                         <RowDefinition Height="*"/>
                     </Grid.RowDefinitions>
 
@@ -214,7 +215,52 @@
                         </Border>
                     </Grid>
 
-                    <Expander Grid.Row="7" Margin="10,0,10,8"
+                    <Border x:Name="ActionPlanSection" Grid.Row="7" Margin="10,4,10,8"
+                            Padding="14,12" CornerRadius="8" Background="#F8FAFC"
+                            BorderBrush="#E2E8F0" BorderThickness="1">
+                        <StackPanel>
+                            <TextBlock Text="{x:Static models:CommercialGoalUi.ActionPlanSectionTitle}"
+                                       FontSize="11" FontWeight="SemiBold" Foreground="#64748B"/>
+                            <TextBlock x:Name="ActionPlanHeadline" FontSize="14" FontWeight="SemiBold"
+                                       Foreground="#1E293B" Margin="0,6,0,0" TextWrapping="Wrap"/>
+                            <TextBlock x:Name="ActionPlanSupport" FontSize="12" Foreground="#475569"
+                                       Margin="0,4,0,0" TextWrapping="Wrap"/>
+                            <ItemsControl x:Name="ActionPlanItems" Margin="0,10,0,0">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <Border Margin="0,0,0,8" Padding="12,10" CornerRadius="8"
+                                                Background="White" BorderBrush="#E2E8F0" BorderThickness="1">
+                                            <StackPanel>
+                                                <DockPanel LastChildFill="True">
+                                                    <TextBlock DockPanel.Dock="Left"
+                                                               Text="{Binding PriorityText}"
+                                                               FontSize="11" FontWeight="SemiBold"
+                                                               Foreground="#64748B" Margin="0,0,8,0"/>
+                                                    <TextBlock Text="{Binding ProductTitle}"
+                                                               FontSize="13" FontWeight="SemiBold"
+                                                               Foreground="#1E293B" TextWrapping="Wrap"/>
+                                                </DockPanel>
+                                                <TextBlock Text="{Binding ReasonText}" FontSize="12"
+                                                           Foreground="#334155" Margin="0,4,0,0"
+                                                           TextWrapping="Wrap"/>
+                                                <TextBlock Text="{Binding ComplementsText}" FontSize="12"
+                                                           Foreground="#475569" Margin="0,4,0,0"
+                                                           TextWrapping="Wrap"
+                                                           Visibility="{Binding HasComplements, Converter={StaticResource BoolToVis}}"/>
+                                                <TextBlock Text="{Binding ConfidenceText}" FontSize="11"
+                                                           Foreground="#64748B" Margin="0,4,0,0"
+                                                           TextWrapping="Wrap"/>
+                                            </StackPanel>
+                                        </Border>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                            <TextBlock x:Name="ActionPlanEmpty" FontSize="12" Foreground="#64748B"
+                                       Margin="0,8,0,0" TextWrapping="Wrap" Visibility="Collapsed"/>
+                        </StackPanel>
+                    </Border>
+
+                    <Expander Grid.Row="8" Margin="10,0,10,8"
                               Header="{x:Static models:CommercialGoalUi.AboutNumbersTitle}"
                               FontSize="12" Foreground="#334155">
                         <ItemsControl x:Name="LimitationsList" Margin="0,8,0,0">
@@ -233,7 +279,7 @@
                         </ItemsControl>
                     </Expander>
 
-                    <Border Grid.Row="8" Padding="12,8" Background="#F8FAFC" BorderBrush="#C8C4BC"
+                    <Border Grid.Row="9" Padding="12,8" Background="#F8FAFC" BorderBrush="#C8C4BC"
                             BorderThickness="0,1,0,0" VerticalAlignment="Bottom">
                         <TextBlock x:Name="OriginFooter" FontSize="12" Foreground="#475569"
                                    TextWrapping="Wrap"/>

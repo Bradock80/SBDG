@@ -20,6 +20,7 @@ public static class CommercialGoalUi
         "Não foi possível atualizar a Meta Comercial. Os últimos dados carregados foram mantidos.";
 
     public const string ConfigureAction = "Configurar meta";
+    public const string ActionPlanSectionTitle = CommercialGoalActionPlanPresentation.SectionTitle;
     public const string AboutNumbersTitle = "Sobre estes números";
     public const string CurrentMonthAction = "Mês atual";
     public const string PreviousMonthAction = "Mês anterior";
