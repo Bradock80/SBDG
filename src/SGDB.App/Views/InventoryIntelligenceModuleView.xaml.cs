@@ -212,7 +212,7 @@ public partial class InventoryIntelligenceModuleView : UserControl
             var commercialPresented = InventoryCommercialScenarioPresentation.Apply(commercial);
             var promotion = InventoryPromotionSuggestionComposer.Compose(snapshot.Intelligence, commercial);
             var promotionPresented = InventoryPromotionSuggestionPresentation.Apply(promotion);
-            var guidance = InventoryPurchaseGuidanceComposer.Compose(snapshot);
+            var guidance = InventoryPurchaseGuidanceComposer.Compose(snapshot, facts);
             var guidancePresented = InventoryPurchaseGuidancePresentation.Apply(
                 guidance, snapshot.Intelligence, snapshot);
             _snapshot = snapshot;

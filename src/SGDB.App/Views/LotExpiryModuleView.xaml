@@ -32,6 +32,7 @@
             <Border Grid.Row="2" Padding="12,8" Background="#F8FAFC" BorderBrush="#E2E8F0"
                     BorderThickness="0,1,0,1">
                 <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                    <StackPanel x:Name="ViewModeHost" Orientation="Horizontal" Margin="0,0,12,0"/>
                     <TextBlock Text="Filtro" VerticalAlignment="Center" Margin="0,0,8,0"
                                FontSize="12" Foreground="#64748B"/>
                     <ComboBox x:Name="FilterBox" Width="150" Height="32" Margin="0,0,12,0"
@@ -71,7 +72,12 @@
                            Text="{x:Static models:ValidityControlUi.LotValueNotLoss}"/>
             </StackPanel>
 
-            <DataGrid x:Name="Grid" Grid.Row="4" Margin="10"
+            <Grid Grid.Row="4" Margin="10">
+                <ScrollViewer x:Name="SimpleCardsScroll" Visibility="Collapsed"
+                              VerticalScrollBarVisibility="Auto">
+                    <StackPanel x:Name="SimpleCardsHost"/>
+                </ScrollViewer>
+                <DataGrid x:Name="Grid"
                       AutoGenerateColumns="False" IsReadOnly="True"
                       CanUserAddRows="False" CanUserSortColumns="True"
                       HeadersVisibility="Column"
@@ -171,6 +177,7 @@
                     <DataGridTextColumn Header="Marca" Binding="{Binding BrandName}" Width="80"/>
                 </DataGrid.Columns>
             </DataGrid>
+            </Grid>
 
             <Border Grid.Row="5" Padding="12,8" Background="#F8FAFC" BorderBrush="#C8C4BC"
                     BorderThickness="0,1,0,0">

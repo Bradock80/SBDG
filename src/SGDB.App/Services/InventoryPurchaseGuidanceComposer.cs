@@ -12,26 +12,32 @@ public static class InventoryPurchaseGuidanceComposer
     public const int ExpectedQueryCount = 0;
 
     public static InventoryPurchaseGuidanceSnapshot Compose(
-        InventoryProjectionSnapshot? snapshot)
+        InventoryProjectionSnapshot? snapshot,
+        InventoryCommercialFactsSnapshot? facts = null,
+        DateTime? today = null)
     {
         snapshot ??= new InventoryProjectionSnapshot();
         var rows = snapshot.Intelligence?.Rows ?? [];
         var lookup = snapshot.ByProductId ?? new Dictionary<int, InventoryProjectedProduct>();
-        return Compose(rows, lookup, conflicts: null);
+        return Compose(rows, lookup, conflicts: null, facts, today);
     }
 
     public static InventoryPurchaseGuidanceSnapshot Compose(
         IReadOnlyList<ProductTurnoverRow>? rows,
-        IReadOnlyList<InventoryProjectedProduct>? projections)
+        IReadOnlyList<InventoryProjectedProduct>? projections,
+        InventoryCommercialFactsSnapshot? facts = null,
+        DateTime? today = null)
     {
         var lookup = IndexProjections(projections, out var conflicts);
-        return Compose(rows ?? [], lookup, conflicts);
+        return Compose(rows ?? [], lookup, conflicts, facts, today);
     }
 
     static InventoryPurchaseGuidanceSnapshot Compose(
         IReadOnlyList<ProductTurnoverRow> rows,
         IReadOnlyDictionary<int, InventoryProjectedProduct> lookup,
-        HashSet<int>? conflicts)
+        HashSet<int>? conflicts,
+        InventoryCommercialFactsSnapshot? facts,
+        DateTime? today)
     {
         var results = new List<InventoryPurchaseGuidanceResult>(rows.Count);
         var map = new Dictionary<int, InventoryPurchaseGuidanceResult>(rows.Count);
@@ -39,6 +45,9 @@ public static class InventoryPurchaseGuidanceComposer
         foreach (var row in rows)
         {
             var result = ClassifyRow(row, lookup, conflicts);
+            InventoryCommercialFacts? commercial = null;
+            facts?.ByProductId.TryGetValue(row.ProductId, out commercial);
+            result = InventoryPurchaseGuidanceQuantityEngine.Attach(result, row, commercial, today);
             results.Add(result);
             map.TryAdd(row.ProductId, result);
         }

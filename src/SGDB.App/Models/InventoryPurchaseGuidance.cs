@@ -27,6 +27,17 @@ public enum InventoryPurchaseGuidanceAction
 }
 
 /// <summary>
+/// Urgência da compra quando a ação já é ConsiderReplenishment.
+/// Não cria pedido. BuyNow = cobertura crítica ou ruptura; BuySoon = cobertura baixa.
+/// </summary>
+public enum InventoryPurchaseGuidanceUrgency
+{
+    None = 0,
+    BuyNow,
+    BuySoon,
+}
+
+/// <summary>
 /// Motivo atômico 70G-B1. None é sentinela residual (Attention/Normal isolados),
 /// não tese comercial.
 /// </summary>
@@ -98,6 +109,15 @@ public sealed class InventoryPurchaseGuidanceResult
         InventoryAttentionConfidence.Unavailable;
     public InventoryPurchaseGuidanceReason PrimaryReason { get; init; }
     public IReadOnlyList<InventoryPurchaseGuidanceReason> SecondaryReasons { get; init; } = [];
+
+    public InventoryPurchaseGuidanceUrgency Urgency { get; init; }
+    public double? RecommendedQuantity { get; init; }
+    public double? PackFactor { get; init; }
+    public int? PackCount { get; init; }
+    public double? EstimatedCost { get; init; }
+    public double? CoverageAfterPurchaseDays { get; init; }
+    public DateOnly? RecommendedOrderDate { get; init; }
+    public DateOnly? ReevaluationDate { get; init; }
 }
 
 /// <summary>

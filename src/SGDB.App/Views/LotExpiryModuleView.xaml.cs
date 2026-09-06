@@ -43,6 +43,7 @@ public partial class LotExpiryModuleView : UserControl
         Loaded += (_, _) =>
         {
             Focus();
+            RefreshViewToggle();
             Load();
             _ready = true;
         };
@@ -162,15 +163,37 @@ public partial class LotExpiryModuleView : UserControl
         }
     }
 
+    void RefreshViewToggle()
+    {
+        ViewModeHost.Children.Clear();
+        var mode = InventorySmartViewPreference.LoadIfNeeded();
+        var toggle = InventorySmartCardUi.CreateViewToggle(
+            mode,
+            (_, _) => SetView(InventorySmartViewMode.Simple),
+            (_, _) => SetView(InventorySmartViewMode.Detailed));
+        ViewModeHost.Children.Add(toggle);
+    }
+
+    void SetView(InventorySmartViewMode mode)
+    {
+        InventorySmartViewPreference.Set(mode);
+        RefreshViewToggle();
+        ApplyView();
+    }
+
     private void ApplyView()
     {
         var search = SearchBox.Text;
         var group = SelectedCombo(GroupBox);
         var brand = SelectedCombo(BrandBox);
         var rows = ValidityControlEngine.Apply(_snapshot.Rows, _filter, search, group, brand);
+        var simple = InventorySmartViewPreference.Current == InventorySmartViewMode.Simple;
+        Grid.Visibility = simple ? Visibility.Collapsed : Visibility.Visible;
+        SimpleCardsScroll.Visibility = simple ? Visibility.Visible : Visibility.Collapsed;
         Grid.ItemsSource = null;
         Grid.Items.SortDescriptions.Clear();
         Grid.ItemsSource = rows;
+        RebuildSimpleCards(rows);
         var cards = _snapshot.Cards;
         MetaText.Text = rows.Count == 0
             ? "Nenhum lote nesta faixa."
@@ -232,6 +255,95 @@ public partial class LotExpiryModuleView : UserControl
         btn.Content = stack;
         CardsPanel.Children.Add(btn);
     }
+
+    void RebuildSimpleCards(IReadOnlyList<ValidityControlRow> rows)
+    {
+        SimpleCardsHost.Children.Clear();
+        if (InventorySmartViewPreference.Current != InventorySmartViewMode.Simple)
+            return;
+
+        AddExpirySection("Urgente", rows.Where(IsUrgentExpiry).Take(12), InventorySmartUrgency.Critical);
+        AddExpirySection("Atenção", rows.Where(IsAttentionExpiry).Take(12), InventorySmartUrgency.High);
+        AddExpirySection("Corrigir lote", rows.Where(IsFixLot).Take(8), InventorySmartUrgency.Attention);
+        AddExpirySection("Sem risco", rows.Where(IsNoExpiryRisk).Take(8), InventorySmartUrgency.None);
+    }
+
+    void AddExpirySection(
+        string title,
+        IEnumerable<ValidityControlRow> items,
+        InventorySmartUrgency urgency)
+    {
+        var list = items.ToList();
+        if (list.Count == 0)
+            return;
+        SimpleCardsHost.Children.Add(new TextBlock
+        {
+            Text = title,
+            FontSize = 12,
+            FontWeight = FontWeights.SemiBold,
+            Foreground = (Brush)new BrushConverter().ConvertFromString("#334155")!,
+            Margin = new Thickness(0, 4, 0, 6),
+        });
+        foreach (var row in list)
+        {
+            var card = new InventorySmartCard
+            {
+                ProductId = row.ProductId,
+                ProductCode = row.ProductCode,
+                ProductName = row.ProductName,
+                ProductTitle = string.IsNullOrWhiteSpace(row.ProductCode)
+                    ? row.ProductName
+                    : $"{row.ProductCode} — {row.ProductName}",
+                ActionText = row.ActionUiDisplay,
+                QuantityOrDeadlineText = row.DaysDisplay,
+                ReasonText = string.IsNullOrWhiteSpace(row.SuggestedActionReason)
+                    ? row.StatusDisplay
+                    : row.SuggestedActionReason,
+                Urgency = urgency,
+                UrgencyText = InventorySmartPresentation.UrgencyLabel(urgency),
+                Tone = urgency switch
+                {
+                    InventorySmartUrgency.Critical => "alert",
+                    InventorySmartUrgency.High => "attention",
+                    InventorySmartUrgency.Attention => "notice",
+                    _ => "positive",
+                },
+            };
+            SimpleCardsHost.Children.Add(InventorySmartCardUi.Create(card, ExpiryCardDetails_Click));
+        }
+    }
+
+    void ExpiryCardDetails_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is not Button { Tag: int id })
+            return;
+        foreach (var item in Grid.Items)
+        {
+            if (item is ValidityControlRow row && row.ProductId == id)
+            {
+                Grid.SelectedItem = row;
+                UpdateDetail();
+                return;
+            }
+        }
+    }
+
+    static bool IsUrgentExpiry(ValidityControlRow row) =>
+        row.Bucket is ProductExpiryStatusKind.Expired
+            or ProductExpiryStatusKind.Today
+            or ProductExpiryStatusKind.Within7;
+
+    static bool IsAttentionExpiry(ValidityControlRow row) =>
+        row.Bucket is ProductExpiryStatusKind.Within15 or ProductExpiryStatusKind.Within30;
+
+    static bool IsFixLot(ValidityControlRow row) =>
+        row.RowKind is ValidityControlRowKind.UninformedLot
+            or ValidityControlRowKind.MissingExpiry
+            or ValidityControlRowKind.UntrackedStock
+        || row.Bucket == ProductExpiryStatusKind.Uninformed;
+
+    static bool IsNoExpiryRisk(ValidityControlRow row) =>
+        !IsUrgentExpiry(row) && !IsAttentionExpiry(row) && !IsFixLot(row);
 
     private static void FillCombo(ComboBox box, IEnumerable<string> values)
     {

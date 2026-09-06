@@ -29,7 +29,7 @@ public static class CommercialGoalActionPlanSourceLoader
             InventoryCommercialEligibilityComposer.ProductIds(projection));
         var setting = InventoryCommercialMarginSettingsService.Load();
         var policy = InventoryCommercialMarginPolicyResolver.Resolve(setting);
-        var guidance = InventoryPurchaseGuidanceComposer.Compose(projection);
+        var guidance = InventoryPurchaseGuidanceComposer.Compose(projection, facts);
         var scenarios = InventoryCommercialScenarioComposer.Compose(
             projection.Intelligence,
             projection,

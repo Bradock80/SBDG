@@ -35,6 +35,8 @@ public sealed class InventoryComboTargetSuggestionGroup
     public string Name { get; init; } = "";
     public InventoryComboTargetEligibility Eligibility { get; init; } = new();
     public IReadOnlyList<InventoryComboSuggestion> Suggestions { get; init; } = [];
+    public double TotalStock { get; init; }
+    public IReadOnlyList<InventoryComboRejectionReason> RejectionReasons { get; init; } = [];
 }
 
 /// <summary>

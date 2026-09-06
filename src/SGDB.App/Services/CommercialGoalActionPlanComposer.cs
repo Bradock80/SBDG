@@ -184,6 +184,11 @@ public static class CommercialGoalActionPlanComposer
             HasComboSuggestion = hasCombo,
             ComboSuggestionCount = comboCount,
             PurchaseGuidanceAction = guidance?.Action ?? InventoryPurchaseGuidanceAction.None,
+            RecommendedQuantity = guidance?.RecommendedQuantity,
+            PackFactor = guidance?.PackFactor,
+            PackCount = guidance?.PackCount,
+            EstimatedCost = guidance?.EstimatedCost,
+            PurchaseUrgency = guidance?.Urgency ?? InventoryPurchaseGuidanceUrgency.None,
             Limitations = limitations,
         };
     }

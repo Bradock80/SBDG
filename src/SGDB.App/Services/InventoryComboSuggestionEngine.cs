@@ -294,6 +294,10 @@ public static class InventoryComboSuggestionEngine
             ConfidenceTargetToAnchor = item.Pair.ConfidenceTargetToAnchor,
             Confidence = confidence,
             Limitations = limitations,
+            MaxSafeQuantity = Math.Max(0, Math.Floor(Math.Min(
+                item.TargetFacts.TotalStock,
+                item.AnchorFacts.TotalStock))),
+            SuggestedDurationDays = target.Reason == ComboTargetEligibilityReason.Idle ? 14 : 7,
         };
     }
 

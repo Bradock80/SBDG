@@ -21,6 +21,7 @@ public partial class InventoryPurchaseGuidanceModuleView : UserControl
     InventoryPromotionSuggestionPresentationSnapshot _promotionPresented = new();
     InventoryPurchaseGuidanceSnapshot _guidance = new();
     InventoryPurchaseGuidancePresentationSnapshot _guidancePresented = new();
+    InventoryCommercialFactsSnapshot _facts = new();
     readonly InventoryPurchaseGuidanceUiFilter _filter = new();
     string? _loadError;
     bool _hasValidSnapshot;
@@ -37,9 +38,36 @@ public partial class InventoryPurchaseGuidanceModuleView : UserControl
         {
             Focus();
             ApplyEditPermissionUi();
+            EnsureViewToggle();
             Load();
             _ready = true;
         };
+    }
+
+    void EnsureViewToggle() => RefreshViewToggle();
+
+    void RefreshViewToggle()
+    {
+        for (var i = FilterPanel.Children.Count - 1; i >= 0; i--)
+        {
+            if (FilterPanel.Children[i] is FrameworkElement { Tag: "view-mode" })
+                FilterPanel.Children.RemoveAt(i);
+        }
+
+        var mode = InventorySmartViewPreference.LoadIfNeeded();
+        var toggle = InventorySmartCardUi.CreateViewToggle(
+            mode,
+            (_, _) => SetView(InventorySmartViewMode.Simple),
+            (_, _) => SetView(InventorySmartViewMode.Detailed));
+        toggle.Tag = "view-mode";
+        FilterPanel.Children.Insert(0, toggle);
+    }
+
+    void SetView(InventorySmartViewMode mode)
+    {
+        InventorySmartViewPreference.Set(mode);
+        RefreshViewToggle();
+        ApplyView();
     }
 
     private void ApplyEditPermissionUi()
@@ -196,9 +224,10 @@ public partial class InventoryPurchaseGuidanceModuleView : UserControl
             var commercialPresented = InventoryCommercialScenarioPresentation.Apply(commercial);
             var promotion = InventoryPromotionSuggestionComposer.Compose(snapshot.Intelligence, commercial);
             var promotionPresented = InventoryPromotionSuggestionPresentation.Apply(promotion);
-            var guidance = InventoryPurchaseGuidanceComposer.Compose(snapshot);
+            var guidance = InventoryPurchaseGuidanceComposer.Compose(snapshot, facts);
             var guidancePresented = InventoryPurchaseGuidancePresentation.Apply(
                 guidance, snapshot.Intelligence, snapshot);
+            _facts = facts;
             _snapshot = snapshot;
             _presented = presented;
             _attention = attention;
@@ -282,13 +311,17 @@ public partial class InventoryPurchaseGuidanceModuleView : UserControl
     {
         var rows = InventoryPurchaseGuidanceUi.Apply(
             _guidancePresented, _snapshot.Intelligence.Rows, _filter);
+        var simple = InventorySmartViewPreference.Current == InventorySmartViewMode.Simple;
+        Grid.Visibility = simple ? Visibility.Collapsed : Visibility.Visible;
+        SimpleCardsScroll.Visibility = simple ? Visibility.Visible : Visibility.Collapsed;
         Grid.ItemsSource = null;
         Grid.Items.SortDescriptions.Clear();
         Grid.ItemsSource = rows;
+        RebuildSimpleCards(rows);
 
         var empty = InventoryPurchaseGuidanceUi.EmptyStateMessage(
             _guidancePresented.Rows.Count, rows.Count, _loadError);
-        ShowEmpty(empty);
+        ShowEmpty(simple && SimpleCardsHost.Children.Count > 0 ? "" : empty);
 
         var cards = InventoryPurchaseGuidanceUi.CountCards(_guidancePresented.Rows);
         MetaText.Text = string.IsNullOrEmpty(empty)
@@ -367,5 +400,53 @@ public partial class InventoryPurchaseGuidanceModuleView : UserControl
         });
         btn.Content = stack;
         CardsPanel.Children.Add(btn);
+    }
+
+    void RebuildSimpleCards(IReadOnlyList<InventoryPurchaseGuidanceGridRow> rows)
+    {
+        SimpleCardsHost.Children.Clear();
+        if (InventorySmartViewPreference.Current != InventorySmartViewMode.Simple)
+            return;
+
+        var smart = InventorySmartRecommendationComposer.FromGuidance(
+            _guidance, _snapshot.Intelligence, _attention, _promotion, facts: _facts);
+        var allowed = new HashSet<InventorySmartPrincipalAction>
+        {
+            InventorySmartPrincipalAction.BuyNow,
+            InventorySmartPrincipalAction.BuySoon,
+            InventorySmartPrincipalAction.DoNotBuy,
+            InventorySmartPrincipalAction.SuspendPurchase,
+            InventorySmartPrincipalAction.ReviewData,
+        };
+        var shown = 0;
+        foreach (var rec in smart.Rows)
+        {
+            if (!allowed.Contains(rec.PrincipalAction))
+                continue;
+            if (!_filter.Search.Trim().Equals("", StringComparison.Ordinal)
+                && !rec.ProductName.Contains(_filter.Search, StringComparison.OrdinalIgnoreCase)
+                && !rec.ProductCode.Contains(_filter.Search, StringComparison.OrdinalIgnoreCase))
+                continue;
+            SimpleCardsHost.Children.Add(InventorySmartCardUi.Create(
+                InventorySmartPresentation.ToCard(rec), SimpleCardDetails_Click));
+            shown++;
+            if (shown >= 40)
+                break;
+        }
+    }
+
+    void SimpleCardDetails_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is not Button { Tag: int id })
+            return;
+        foreach (var item in Grid.Items)
+        {
+            if (item is InventoryPurchaseGuidanceGridRow row && row.ProductId == id)
+            {
+                Grid.SelectedItem = row;
+                OpenProjectionDetail();
+                return;
+            }
+        }
     }
 }

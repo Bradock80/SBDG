@@ -39,7 +39,26 @@ public partial class CentralDecisionModuleView : UserControl
     {
         Loaded -= OnLoaded;
         Focus();
+        RefreshViewToggle();
         Load();
+    }
+
+    void RefreshViewToggle()
+    {
+        ViewModeHost.Children.Clear();
+        var mode = InventorySmartViewPreference.LoadIfNeeded();
+        var toggle = InventorySmartCardUi.CreateViewToggle(
+            mode,
+            (_, _) => SetView(InventorySmartViewMode.Simple),
+            (_, _) => SetView(InventorySmartViewMode.Detailed));
+        ViewModeHost.Children.Add(toggle);
+    }
+
+    void SetView(InventorySmartViewMode mode)
+    {
+        InventorySmartViewPreference.Set(mode);
+        RefreshViewToggle();
+        ApplyView();
     }
 
     static DateOnly Today() => DateOnly.FromDateTime(DateTime.Today);
@@ -237,6 +256,10 @@ public partial class CentralDecisionModuleView : UserControl
     {
         ActNowTitle.Text = _presented.ActNowTitle;
         ActNowItems.ItemsSource = _presented.ActNow;
+        var simple = InventorySmartViewPreference.Current == InventorySmartViewMode.Simple;
+        ActNowItems.Visibility = simple ? Visibility.Collapsed : Visibility.Visible;
+        SimpleActNowHost.Visibility = simple ? Visibility.Visible : Visibility.Collapsed;
+        RebuildSimpleActNow(simple);
         ActNowSection.Visibility = _presented.ActNow.Count > 0
             ? Visibility.Visible
             : Visibility.Collapsed;
@@ -247,9 +270,64 @@ public partial class CentralDecisionModuleView : UserControl
         PreserveTitle.Text = _presented.PreserveTitle;
         PreserveSubtitle.Text = _presented.PreserveSubtitle;
         PreserveItems.ItemsSource = _presented.Preserve;
+        var simple = InventorySmartViewPreference.Current == InventorySmartViewMode.Simple;
+        PreserveItems.Visibility = simple ? Visibility.Collapsed : Visibility.Visible;
+        SimplePreserveHost.Visibility = simple ? Visibility.Visible : Visibility.Collapsed;
+        RebuildSimplePreserve(simple);
         PreserveSection.Visibility = _presented.Preserve.Count > 0
             ? Visibility.Visible
             : Visibility.Collapsed;
+    }
+
+    void RebuildSimpleActNow(bool simple)
+    {
+        SimpleActNowHost.Children.Clear();
+        if (!simple)
+            return;
+        foreach (var item in _presented.ActNow)
+        {
+            var card = new InventorySmartCard
+            {
+                ProductId = item.ProductId,
+                ProductCode = item.ProductCode,
+                ProductName = item.ProductName,
+                ProductTitle = item.ProductTitle,
+                ActionText = item.WhatText,
+                QuantityOrDeadlineText = item.QuantityText,
+                ReasonText = item.WhyText,
+                UrgencyText = item.AreaText,
+                Tone = item.Tone switch
+                {
+                    CommercialGoalPresentationTone.Warning
+                        or CommercialGoalPresentationTone.Unavailable => "alert",
+                    CommercialGoalPresentationTone.Attention => "attention",
+                    _ => "notice",
+                },
+            };
+            SimpleActNowHost.Children.Add(InventorySmartCardUi.Create(card, null));
+        }
+    }
+
+    void RebuildSimplePreserve(bool simple)
+    {
+        SimplePreserveHost.Children.Clear();
+        if (!simple)
+            return;
+        foreach (var item in _presented.Preserve)
+        {
+            var card = new InventorySmartCard
+            {
+                ProductId = item.ProductId,
+                ProductCode = item.ProductCode,
+                ProductName = item.ProductName,
+                ProductTitle = item.ProductTitle,
+                ActionText = "Manter como está",
+                ReasonText = item.CoverageText,
+                UrgencyText = InventorySmartPresentation.AreaPreserve,
+                Tone = "positive",
+            };
+            SimplePreserveHost.Children.Add(InventorySmartCardUi.Create(card, null));
+        }
     }
 
     void ApplyLimitations()

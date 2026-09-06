@@ -126,6 +126,15 @@ public sealed class ProductTurnoverRow
     /// </summary>
     public bool HasPhysicalAvailabilityEvidence { get; init; }
 
+    /// <summary>Estoque mínimo cadastrado. 0 = não informado. Não inventa cobertura.</summary>
+    public double MinStock { get; init; }
+
+    /// <summary>Fator de embalagem do cadastro. &lt; 2 = unidade avulsa.</summary>
+    public double PackFactor { get; init; } = 1;
+
+    public string GroupName { get; init; } = "";
+    public bool IsCigaretteProduct { get; init; }
+
     public InventoryTurnoverSituation Situation { get; init; }
 
     /// <summary>

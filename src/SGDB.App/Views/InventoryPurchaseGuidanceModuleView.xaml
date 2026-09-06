@@ -41,7 +41,7 @@
 
                 <Border Grid.Row="2" Padding="12,8" Background="#F8FAFC" BorderBrush="#E2E8F0"
                         BorderThickness="0,1,0,1">
-                    <WrapPanel VerticalAlignment="Center">
+                    <WrapPanel x:Name="FilterPanel" VerticalAlignment="Center">
                         <TextBlock Text="Buscar produto ou código" VerticalAlignment="Center"
                                    Margin="0,0,8,4" FontSize="12" Foreground="#64748B"/>
                         <TextBox x:Name="SearchBox" Width="220" Height="32" Padding="8,0"
@@ -69,6 +69,10 @@
                 </StackPanel>
 
                 <Grid Grid.Row="4" Margin="10">
+                    <ScrollViewer x:Name="SimpleCardsScroll" Visibility="Collapsed"
+                                  VerticalScrollBarVisibility="Auto">
+                        <StackPanel x:Name="SimpleCardsHost"/>
+                    </ScrollViewer>
                     <DataGrid x:Name="Grid"
                               AutoGenerateColumns="False" IsReadOnly="True"
                               CanUserAddRows="False" CanUserSortColumns="True"

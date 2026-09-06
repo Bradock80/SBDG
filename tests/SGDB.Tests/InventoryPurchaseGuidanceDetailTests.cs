@@ -274,7 +274,7 @@ public class InventoryPurchaseGuidanceDetailTests
 
         Assert.Equal(1, CountOccurrences(ReadEiCs(), "InventoryProjectionService.Load("));
         Assert.Equal(1, CountOccurrences(ReadB4Cs(), "InventoryProjectionService.Load("));
-        Assert.Contains("InventoryPurchaseGuidanceComposer.Compose(snapshot)", ReadEiCs(), StringComparison.Ordinal);
+        Assert.Contains("InventoryPurchaseGuidanceComposer.Compose(snapshot, facts)", ReadEiCs(), StringComparison.Ordinal);
     }
 
     [Fact]

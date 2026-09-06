@@ -27,6 +27,8 @@ public static class InventoryComboAnchorEligibilityEngine
             return Blocked(productId, ComboAnchorEligibilityReason.AnchorComposition, confidence);
         if (InventoryComboEligibility.HasFactReason(facts, InventoryCommercialFactsReason.AmbiguousSaleUnit))
             return Blocked(productId, ComboAnchorEligibilityReason.AnchorAmbiguousUnit, confidence);
+        if (IsNotSellable(facts))
+            return Blocked(productId, ComboAnchorEligibilityReason.AnchorNotSellable, confidence);
         if (turnover is null
             || !InventoryIntelligenceEngine.IsFinite(turnover.TotalStock)
             || turnover.TotalStock <= Epsilon
@@ -77,6 +79,10 @@ public static class InventoryComboAnchorEligibilityEngine
             Confidence = confidence,
         };
     }
+
+    static bool IsNotSellable(InventoryCommercialFacts? facts) =>
+        facts is { AllowsSale: false }
+        || InventoryComboEligibility.HasFactReason(facts, InventoryCommercialFactsReason.SaleNotAllowed);
 
     static bool IsNegative(double value) =>
         InventoryIntelligenceEngine.IsFinite(value) && value < -Epsilon;

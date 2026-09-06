@@ -83,6 +83,8 @@ public sealed class InventoryComboTargetPresentationGroup
     public int SuggestionCount { get; init; }
     public string SuggestionCountText { get; init; } = "";
     public string EmptyMessage { get; init; } = "";
+    public IReadOnlyList<InventoryComboRejectionReason> RejectionReasons { get; init; } = [];
+    public IReadOnlyList<string> RejectionReasonTexts { get; init; } = [];
     public IReadOnlyList<InventoryComboSuggestionPresentationRow> Suggestions { get; init; } = [];
 }
 
@@ -222,10 +224,12 @@ public static class InventoryComboPresentation
             Reason = reason,
             TargetReasonText = TargetReasonText(reason),
             ConfidenceText = InventoryAttentionPresentation.ConfidenceLabel(confidence),
-            TargetStockText = count > 0 ? rows[0].TargetStockText : EmDash,
+            TargetStockText = ResolveTargetStockText(target.TotalStock, count, rows),
             SuggestionCount = count,
             SuggestionCountText = SuggestionCountText(count),
-            EmptyMessage = count == 0 ? EmptyTargetMessage : "",
+            EmptyMessage = count == 0 ? EmptyMessageOf(target) : "",
+            RejectionReasons = target.RejectionReasons ?? [],
+            RejectionReasonTexts = RejectionTexts(target.RejectionReasons),
             Suggestions = rows,
         };
     }
@@ -290,6 +294,7 @@ public static class InventoryComboPresentation
             ComboTargetEligibilityReason.ExpirySurplus => TargetReasonExpirySurplus,
             ComboTargetEligibilityReason.ProjectedExcess => TargetReasonProjectedExcess,
             ComboTargetEligibilityReason.Idle => TargetReasonIdle,
+            ComboTargetEligibilityReason.TargetNotSellable => "Produto sem permissão de venda",
             _ => EmDash,
         };
 
@@ -336,6 +341,44 @@ public static class InventoryComboPresentation
         if (count == 1)
             return "1 combinação";
         return $"{count.ToString("0", ProductPriceHelper.Br)} combinações";
+    }
+
+    static string ResolveTargetStockText(
+        double totalStock,
+        int suggestionCount,
+        IReadOnlyList<InventoryComboSuggestionPresentationRow> rows)
+    {
+        if (suggestionCount > 0
+            && Math.Abs(totalStock) <= InventoryIntelligenceEngine.Epsilon)
+            return rows[0].TargetStockText;
+
+        return InventoryIntelligenceEngine.IsFinite(totalStock)
+            ? FormatStock(totalStock)
+            : EmDash;
+    }
+
+    static string EmptyMessageOf(InventoryComboTargetSuggestionGroup target)
+    {
+        var texts = RejectionTexts(target.RejectionReasons);
+        if (texts.Count == 0)
+            return EmptyTargetMessage;
+        if (texts.Count == 1)
+            return texts[0];
+        return string.Join("; ", texts);
+    }
+
+    static IReadOnlyList<string> RejectionTexts(IReadOnlyList<InventoryComboRejectionReason>? reasons)
+    {
+        if (reasons is null || reasons.Count == 0)
+            return [];
+        var list = new List<string>(reasons.Count);
+        foreach (var reason in reasons)
+        {
+            var text = InventorySmartPresentation.RejectionLabel(reason);
+            if (!list.Contains(text))
+                list.Add(text);
+        }
+        return list;
     }
 
     public static string JointSalesText(int pairTransactions)

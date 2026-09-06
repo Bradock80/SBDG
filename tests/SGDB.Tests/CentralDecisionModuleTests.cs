@@ -262,7 +262,7 @@ public class CentralDecisionModuleTests
             result.Decision.ActNow.Select(x => x.ProductId).ToArray(),
             result.Presentation.ActNow.Select(x => x.ProductId).ToArray());
         Assert.Equal(CommercialGoalActionType.ReviewData, result.Presentation.ActNow[0].ActionType);
-        Assert.Equal(CentralDecisionPresentation.WhatReviewData, result.Presentation.ActNow[0].WhatText);
+        Assert.Equal(CentralDecisionPresentation.WhatReviewNegativeStock, result.Presentation.ActNow[0].WhatText);
 
         var preserve = CentralDecisionLoader.Assemble(
             Achieved(),
@@ -302,7 +302,7 @@ public class CentralDecisionModuleTests
                 combos: Combos(SafeCombo(1))),
             Contribution(Hist(1, 90m)));
         var reviewItem = Assert.Single(review.Presentation.ActNow);
-        Assert.Equal(CentralDecisionPresentation.WhatReviewData, reviewItem.WhatText);
+        Assert.Equal(CentralDecisionPresentation.WhatReviewNegativeStock, reviewItem.WhatText);
         Assert.Equal("", reviewItem.PromotionText);
 
         var b8Missing = CentralDecisionLoader.Assemble(

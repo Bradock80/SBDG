@@ -394,7 +394,7 @@ public class InventoryPurchaseGuidanceModuleTests
     {
         var cs = ReadViewCs();
         Assert.Contains("InventoryProjectionService.Load()", cs, StringComparison.Ordinal);
-        Assert.Contains("InventoryPurchaseGuidanceComposer.Compose(snapshot)", cs, StringComparison.Ordinal);
+        Assert.Contains("InventoryPurchaseGuidanceComposer.Compose(snapshot, facts)", cs, StringComparison.Ordinal);
         Assert.Contains("InventoryPurchaseGuidancePresentation.Apply", cs, StringComparison.Ordinal);
         Assert.Equal(1, CountOccurrences(cs, "InventoryProjectionService.Load("));
         Assert.DoesNotContain("InventoryIntelligenceService.Load", cs, StringComparison.Ordinal);

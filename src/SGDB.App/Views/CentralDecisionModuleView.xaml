@@ -67,6 +67,7 @@
                                 Style="{StaticResource SgdbPrimaryButtonStyle}"
                                 Height="32" Padding="12,6" Margin="0,0,8,4"
                                 Click="Refresh_Click"/>
+                        <StackPanel x:Name="ViewModeHost" Orientation="Horizontal" Margin="8,0,0,4"/>
                     </WrapPanel>
                 </Border>
 
@@ -163,6 +164,8 @@
                                                            FontSize="14" FontWeight="SemiBold"
                                                            Foreground="#1E293B" TextWrapping="Wrap"/>
                                             </DockPanel>
+                                            <TextBlock Text="{Binding AreaText}" FontSize="11"
+                                                       Foreground="#64748B" Margin="0,4,0,0"/>
                                             <TextBlock FontSize="11" Foreground="#64748B"
                                                        Margin="0,8,0,0" Text="O quê"/>
                                             <TextBlock Text="{Binding WhatText}" FontSize="14"
@@ -244,6 +247,7 @@
                                 </DataTemplate>
                             </ItemsControl.ItemTemplate>
                         </ItemsControl>
+                        <StackPanel x:Name="SimpleActNowHost" Margin="0,10,0,0" Visibility="Collapsed"/>
                     </StackPanel>
                 </Border>
 
@@ -281,6 +285,7 @@
                                 </DataTemplate>
                             </ItemsControl.ItemTemplate>
                         </ItemsControl>
+                        <StackPanel x:Name="SimplePreserveHost" Margin="0,8,0,0" Visibility="Collapsed"/>
                     </StackPanel>
                 </Border>
 

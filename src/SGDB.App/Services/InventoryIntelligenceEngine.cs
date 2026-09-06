@@ -322,7 +322,11 @@ public static class InventoryIntelligenceEngine
         DateTime today,
         LifeStartDecision life,
         IReadOnlyList<DailyFlow> daily,
-        bool isCompositionProduct = false)
+        bool isCompositionProduct = false,
+        double minStock = 0,
+        double packFactor = 1,
+        string? groupName = null,
+        bool isCigaretteProduct = false)
     {
         today = today.Date;
         var history = HistoryDays(today, life.StartDate);
@@ -376,6 +380,10 @@ public static class InventoryIntelligenceEngine
             IsHistoryInsufficient30 = history < Window30,
             IsHistoryInsufficient90 = history < Window90,
             HasPhysicalAvailabilityEvidence = hasEvidence,
+            MinStock = IsFinite(minStock) && minStock > 0 ? minStock : 0,
+            PackFactor = IsFinite(packFactor) && packFactor >= 2 ? packFactor : 1,
+            GroupName = groupName ?? "",
+            IsCigaretteProduct = isCigaretteProduct,
             Situation = situation,
         };
     }

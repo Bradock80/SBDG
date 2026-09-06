@@ -250,7 +250,7 @@ public class InventoryComboIntelligenceComposerTests
     }
 
     [Fact]
-    public void Financeiro_indisponivel_nao_gera_sugestao()
+    public void Politica_ausente_usa_piso_minimo_de_recomendacao()
     {
         var probe = new CoOccurrenceProbe
         {
@@ -262,7 +262,7 @@ public class InventoryComboIntelligenceComposerTests
             IdleTarget(1),
             HealthyAnchor(2));
         Assert.Equal(1, snap.PairFinancialEvaluations);
-        Assert.Empty(Assert.Single(snap.Targets).Suggestions);
+        Assert.Single(Assert.Single(snap.Targets).Suggestions);
     }
 
     [Fact]

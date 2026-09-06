@@ -148,7 +148,11 @@ public static class InventoryIntelligenceService
 
             rows.Add(InventoryIntelligenceEngine.BuildRow(
                 p.Id, p.Code, p.Name, p.Stock, p.StockFridge, day, life, flows,
-                isCompositionProduct: p.IsComposition));
+                isCompositionProduct: p.IsComposition,
+                minStock: p.MinStock,
+                packFactor: p.PackFactor,
+                groupName: p.GroupName,
+                isCigaretteProduct: p.IsCigarette));
         }
 
         rows.Sort((a, b) =>
@@ -194,7 +198,8 @@ public static class InventoryIntelligenceService
     }
 
     private readonly record struct ProductSeed(
-        int Id, string Code, string Name, double Stock, double StockFridge, DateTime? CreatedAt, bool IsComposition);
+        int Id, string Code, string Name, double Stock, double StockFridge, DateTime? CreatedAt,
+        bool IsComposition, double MinStock, double PackFactor, string GroupName, bool IsCigarette);
 
     private static DateTime? MinDate(DateTime? a, DateTime? b)
     {
@@ -213,7 +218,9 @@ public static class InventoryIntelligenceService
                    IFNULL(stock, 0),
                    IFNULL(stock_fridge, 0),
                    created_at,
-                   IFNULL(extra_json, '')
+                   IFNULL(extra_json, ''),
+                   IFNULL(min_stock, 0),
+                   IFNULL(group_name, '')
             FROM products
             WHERE IFNULL(active, 1) = 1
             ORDER BY id;
@@ -222,14 +229,23 @@ public static class InventoryIntelligenceService
         using var reader = cmd.ExecuteReader();
         while (reader.Read())
         {
+            var extraJson = reader.IsDBNull(6) ? "" : reader.GetString(6);
+            var extra = ProductExtra.Parse(extraJson);
+            var name = reader.GetString(2);
+            var group = reader.IsDBNull(8) ? "" : reader.GetString(8);
+            var pack = extra.FatorEmbalagem >= 2 ? extra.FatorEmbalagem : 1;
             list.Add(new ProductSeed(
                 reader.GetInt32(0),
                 reader.GetString(1),
-                reader.GetString(2),
+                name,
                 reader.GetDouble(3),
                 reader.GetDouble(4),
                 ParseCatalogDate(reader.IsDBNull(5) ? null : reader.GetString(5)),
-                IsCompositionProduct(reader.IsDBNull(6) ? "" : reader.GetString(6))));
+                extra.Composicao,
+                reader.IsDBNull(7) ? 0 : reader.GetDouble(7),
+                pack,
+                group,
+                ProductClassificationHelper.IsCigarette(name, group)));
         }
         return list;
     }

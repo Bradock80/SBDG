@@ -26,6 +26,7 @@ public enum ComboTargetEligibilityReason
     TargetZeroWithDemand,
     TargetAnalysisUnavailable,
     TargetNoTurnoverNeed,
+    TargetNotSellable,
     ExpirySurplus,
     ProjectedExcess,
     Idle,
@@ -52,6 +53,7 @@ public enum ComboAnchorEligibilityReason
     AnchorNoObservableDemand,
     AnchorCoverageUnsafe,
     AnchorUnitGuardrail,
+    AnchorNotSellable,
     HealthyNormalCoverage,
 }
 

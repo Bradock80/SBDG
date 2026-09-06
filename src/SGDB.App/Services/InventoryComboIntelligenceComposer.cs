@@ -87,8 +87,7 @@ public static class InventoryComboIntelligenceComposer
             input.Guidance?.ByProductId,
             static x => x.ProductId,
             out var guidanceConflicts);
-        var policy = InventoryCommercialMarginPolicyResolver.TryCreatePriceFloorPolicy(
-            input.PolicyResolution);
+        var policy = InventorySmartMargin.RecommendationPolicy(input.PolicyResolution);
         var today = ResolveToday(input.Today, intelligence.Today);
 
         var evaluated = 0;
@@ -177,15 +176,37 @@ public static class InventoryComboIntelligenceComposer
         foreach (var target in eligibleTargets)
         {
             var candidates = new List<InventoryComboCandidate>();
-            foreach (var anchorId in preselected[target.ProductId])
+            var rejections = new HashSet<InventoryComboRejectionReason>();
+            var preselectedIds = preselected[target.ProductId];
+            if (sortedAnchors.Count == 0)
+                rejections.Add(InventoryComboRejectionReason.CompanionShortageRisk);
+
+            foreach (var anchorId in preselectedIds)
             {
                 if (!anchorById.TryGetValue(anchorId, out var anchor))
+                {
+                    rejections.Add(InventoryComboRejectionReason.CompanionShortageRisk);
                     continue;
+                }
+
+                if (IsCommerciallyIncompatible(target.Facts, anchor.Facts, target.Turnover, anchor.Turnover)
+                    && !IsObservedPair(pairMap, target.ProductId, anchorId))
+                {
+                    rejections.Add(InventoryComboRejectionReason.CommerciallyIncompatible);
+                    continue;
+                }
+
                 if (!pairMap.TryGetValue((target.ProductId, anchorId), out var evidence))
+                {
+                    rejections.Add(InventoryComboRejectionReason.NoCommercialRelation);
                     continue;
+                }
                 if (evidence.Evidence is InventoryComboPairEvidence.NoneObserved
                     or InventoryComboPairEvidence.InvalidCounts)
+                {
+                    rejections.Add(InventoryComboRejectionReason.NoCommercialRelation);
                     continue;
+                }
 
                 financialEvals++;
                 var financial = InventoryComboPairFinancialEngine.Evaluate(
@@ -195,6 +216,11 @@ public static class InventoryComboIntelligenceComposer
                         AnchorFacts = anchor.Facts,
                         MinGrossMarginPolicy = policy,
                     });
+                if (financial.Status != InventoryComboPairFinancialStatus.Available)
+                {
+                    rejections.Add(MapFinancialRejection(financial, target.Facts, anchor.Facts));
+                    continue;
+                }
 
                 candidates.Add(new InventoryComboCandidate
                 {
@@ -210,6 +236,9 @@ public static class InventoryComboIntelligenceComposer
             pairCandidates += candidates.Count;
             var suggestion = InventoryComboSuggestionEngine.BuildForTarget(
                 target.Eligibility, candidates);
+            if (suggestion.Rows.Count == 0 && rejections.Count == 0)
+                rejections.Add(InventoryComboRejectionReason.InsufficientData);
+
             var group = new InventoryComboTargetSuggestionGroup
             {
                 ProductId = target.ProductId,
@@ -217,6 +246,10 @@ public static class InventoryComboIntelligenceComposer
                 Name = target.Turnover.Name ?? "",
                 Eligibility = target.Eligibility,
                 Suggestions = suggestion.Rows,
+                TotalStock = target.Turnover.TotalStock,
+                RejectionReasons = suggestion.Rows.Count == 0
+                    ? rejections.OrderBy(x => x).ToArray()
+                    : [],
             };
             groups.Add(group);
             map.TryAdd(target.ProductId, group);
@@ -310,6 +343,44 @@ public static class InventoryComboIntelligenceComposer
         }
 
         return map;
+    }
+
+    static bool IsObservedPair(
+        Dictionary<(int TargetId, int AnchorId), InventoryComboPairCoOccurrenceFacts> pairMap,
+        int targetId,
+        int anchorId) =>
+        pairMap.TryGetValue((targetId, anchorId), out var evidence)
+        && evidence.Evidence == InventoryComboPairEvidence.Observed;
+
+    static bool IsCommerciallyIncompatible(
+        InventoryCommercialFacts? targetFacts,
+        InventoryCommercialFacts? anchorFacts,
+        ProductTurnoverRow targetTurnover,
+        ProductTurnoverRow anchorTurnover)
+    {
+        var targetCig = targetFacts?.IsCigaretteProduct == true || targetTurnover.IsCigaretteProduct;
+        var anchorCig = anchorFacts?.IsCigaretteProduct == true || anchorTurnover.IsCigaretteProduct;
+        return targetCig != anchorCig;
+    }
+
+    static InventoryComboRejectionReason MapFinancialRejection(
+        InventoryComboPairFinancialFacts financial,
+        InventoryCommercialFacts? targetFacts,
+        InventoryCommercialFacts? anchorFacts)
+    {
+        if (financial.Reason == InventoryComboPairFinancialReason.PriceBelowFloor)
+            return InventoryComboRejectionReason.MarginBelowMinimum;
+        if (targetFacts?.CostQuality != InventoryCommercialCostQuality.Known
+            || anchorFacts?.CostQuality != InventoryCommercialCostQuality.Known)
+            return InventoryComboRejectionReason.MissingCost;
+        if (targetFacts?.PriceQuality != InventoryCommercialPriceQuality.Usable
+            || anchorFacts?.PriceQuality != InventoryCommercialPriceQuality.Usable)
+            return InventoryComboRejectionReason.MissingPrice;
+        if (financial.PairCost is double cost
+            && financial.NormalPairPrice is double price
+            && price < cost)
+            return InventoryComboRejectionReason.BelowCost;
+        return InventoryComboRejectionReason.InsufficientData;
     }
 
     static DateTime ResolveToday(DateTime? requested, DateTime intelligenceToday)

@@ -23,7 +23,7 @@ public static class InventoryComboIntelligenceLoader
             InventoryCommercialEligibilityComposer.ProductIds(projection));
         var setting = InventoryCommercialMarginSettingsService.Load();
         var policy = InventoryCommercialMarginPolicyResolver.Resolve(setting);
-        var guidance = InventoryPurchaseGuidanceComposer.Compose(projection);
+        var guidance = InventoryPurchaseGuidanceComposer.Compose(projection, facts);
         return InventoryComboIntelligenceComposer.Compose(new InventoryComboIntelligenceComposeInput
         {
             Today = projection.Today,

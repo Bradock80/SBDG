@@ -93,6 +93,11 @@ public sealed class CommercialGoalActionItem
     public bool HasComboSuggestion { get; init; }
     public int ComboSuggestionCount { get; init; }
     public InventoryPurchaseGuidanceAction PurchaseGuidanceAction { get; init; }
+    public double? RecommendedQuantity { get; init; }
+    public double? PackFactor { get; init; }
+    public int? PackCount { get; init; }
+    public double? EstimatedCost { get; init; }
+    public InventoryPurchaseGuidanceUrgency PurchaseUrgency { get; init; }
 
     public CommercialGoalActionLimitation Limitations { get; init; }
 }

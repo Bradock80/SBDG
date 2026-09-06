@@ -23,6 +23,9 @@ public sealed class CentralDecisionActNowPresentation
     public bool HasComboSuggestion { get; init; }
     public string ComboText { get; init; } = "";
     public string ReplenishmentText { get; init; } = "";
+    public string QuantityText { get; init; } = "";
+    public InventorySmartArea Area { get; init; }
+    public string AreaText { get; init; } = "";
     public CommercialGoalPresentationTone Tone { get; init; }
 }
 
@@ -87,7 +90,7 @@ public static class CentralDecisionPresentation
     public const string Subtitle =
         "Veja o que merece atenção agora, por quê e quais produtos convém preservar.";
 
-    public const string ActNowTitle = "Agir agora";
+    public const string ActNowTitle = "O que fazer hoje";
     public const string PreserveTitle = "Preservar";
     public const string PreserveSubtitle =
         "Produtos com boa contribuição histórica e estoque em condição adequada, "
@@ -106,16 +109,18 @@ public static class CentralDecisionPresentation
     public const string InventoryOnlyNote =
         "As orientações abaixo seguem o estoque; não há perseguição numérica de uma meta válida neste estado.";
 
-    public const string WhatReviewData = "Revisar dados";
+    public const string WhatReviewData = "Corrigir dados";
+    public const string WhatReviewNegativeStock = "Corrigir estoque negativo";
+    public const string WhatReviewLotDivergence = "Corrigir divergência de lote";
     public const string WhatRemoveExpired = "Retirar produto vencido";
-    public const string WhatExpiry = "Priorizar produto com risco de validade";
-    public const string WhatExcess = "Priorizar giro do excesso";
-    public const string WhatIdle = "Priorizar produto parado";
-    public const string WhatProtect = "Proteger disponibilidade";
+    public const string WhatExpiry = "Priorizar validade";
+    public const string WhatExcess = "Suspender compra";
+    public const string WhatIdle = "Suspender compra";
+    public const string WhatProtect = "Comprar agora";
     public const string WhatMonitor = "Acompanhar";
 
     public const string WhyReviewData =
-        "Os dados precisam ser revisados antes de uma decisão comercial.";
+        "Os dados precisam ser corrigidos antes de uma decisão comercial.";
     public const string WhyRemoveExpired = "Há produto vencido para retirada.";
     public const string WhyExpiry = "Há risco de sobra antes da validade.";
     public const string WhyExpiresToday = "O produto vence hoje.";
@@ -125,7 +130,7 @@ public static class CentralDecisionPresentation
     public const string WhyMonitor = "Acompanhe este produto.";
 
     public const string CareReviewData =
-        "A decisão comercial deve aguardar a revisão dos dados.";
+        "A decisão comercial deve aguardar a correção dos dados.";
     public const string CareProtect =
         "Não acelerar a saída enquanto houver indicação de reposição.";
     public const string CareInsufficient =
@@ -314,11 +319,11 @@ public static class CentralDecisionPresentation
             ProductName = action.ProductName,
             ProductTitle = ProductTitle(action.ProductCode, action.ProductName, action.ProductId),
             ActionType = action.ActionType,
-            WhatText = WhatText(action.ActionType),
+            WhatText = WhatText(action),
             WhyText = WhyText(action),
             CareText = CareText(action),
             Confidence = action.Confidence,
-            ConfidenceText = InventoryAttentionPresentation.ConfidenceLabel(action.Confidence),
+            ConfidenceText = ConfidenceTextOf(action, item.Contribution),
             GrossProfitText = gpText,
             GrossMarginText = marginText,
             CostQualityText = qualityText,
@@ -327,6 +332,9 @@ public static class CentralDecisionPresentation
             HasComboSuggestion = showCombo,
             ComboText = showCombo ? ComboText : "",
             ReplenishmentText = ReplenishmentText(action),
+            QuantityText = QuantityOf(action),
+            Area = AreaOf(action.ActionType),
+            AreaText = InventorySmartPresentation.AreaLabel(AreaOf(action.ActionType)),
             Tone = ActNowTone(action.ActionType),
         };
     }
@@ -383,6 +391,53 @@ public static class CentralDecisionPresentation
             _ => WhatMonitor,
         };
 
+    static string WhatText(CommercialGoalActionItem action)
+    {
+        if (action.ActionType == CommercialGoalActionType.ProtectAvailability
+            && action.RecommendedQuantity is double qty)
+        {
+            return InventorySmartPresentation.PackagingText(qty, action.PackCount, action.PackFactor);
+        }
+
+        if (action.ActionType == CommercialGoalActionType.ReviewData)
+        {
+            return action.AttentionReason switch
+            {
+                InventoryAttentionReason.NegativeStock
+                    or InventoryAttentionReason.NegativeLocationStock
+                    or InventoryAttentionReason.NegativeWarehouseStock =>
+                    WhatReviewNegativeStock,
+                InventoryAttentionReason.TrackedQuantityExceedsWarehouse
+                    or InventoryAttentionReason.InconsistentStockTotals =>
+                    WhatReviewLotDivergence,
+                _ => WhatReviewData,
+            };
+        }
+
+        return WhatText(action.ActionType);
+    }
+
+    static InventorySmartArea AreaOf(CommercialGoalActionType type) =>
+        type switch
+        {
+            CommercialGoalActionType.RemoveExpired
+                or CommercialGoalActionType.PrioritizeExpiryRisk => InventorySmartArea.Urgent,
+            CommercialGoalActionType.ProtectAvailability => InventorySmartArea.Buy,
+            CommercialGoalActionType.PrioritizeExcess
+                or CommercialGoalActionType.PrioritizeIdle => InventorySmartArea.SellFaster,
+            CommercialGoalActionType.ReviewData => InventorySmartArea.FixData,
+            _ => InventorySmartArea.Preserve,
+        };
+
+    static string QuantityOf(CommercialGoalActionItem action)
+    {
+        if (action.RecommendedQuantity is double qty)
+            return InventorySmartPresentation.PackagingText(qty, action.PackCount, action.PackFactor);
+        if (action.NearestDatedDaysUntilExpiry is int days)
+            return days <= 0 ? "vence hoje" : $"vence em {days} dia(s)";
+        return "";
+    }
+
     static string WhyText(CommercialGoalActionItem action) =>
         action.AttentionReason switch
         {
@@ -394,7 +449,7 @@ public static class CentralDecisionPresentation
             InventoryAttentionReason.Idle => WhyIdle,
             _ => action.ActionType switch
             {
-                CommercialGoalActionType.ReviewData => WhyReviewData,
+                CommercialGoalActionType.ReviewData => WhyReviewDataOf(action),
                 CommercialGoalActionType.RemoveExpired => WhyRemoveExpired,
                 CommercialGoalActionType.PrioritizeExpiryRisk => WhyExpiry,
                 CommercialGoalActionType.PrioritizeExcess => WhyExcess,
@@ -403,6 +458,34 @@ public static class CentralDecisionPresentation
                 _ => WhyMonitor,
             },
         };
+
+    static string WhyReviewDataOf(CommercialGoalActionItem action) =>
+        action.AttentionReason switch
+        {
+            InventoryAttentionReason.NegativeStock
+                or InventoryAttentionReason.NegativeLocationStock
+                or InventoryAttentionReason.NegativeWarehouseStock =>
+                "O estoque está negativo e precisa ser conferido.",
+            InventoryAttentionReason.TrackedQuantityExceedsWarehouse
+                or InventoryAttentionReason.InconsistentStockTotals =>
+                "O saldo dos lotes diverge do saldo do produto.",
+            InventoryAttentionReason.InvalidLotQuantity =>
+                "Há lote sem quantidade confiável.",
+            _ => WhyReviewData,
+        };
+
+    static string ConfidenceTextOf(
+        CommercialGoalActionItem action,
+        CommercialGoalProductContributionRow? contribution)
+    {
+        if (action.Confidence == InventoryAttentionConfidence.Unavailable
+            && contribution?.GrossProfit is not null)
+        {
+            return InventoryAttentionPresentation.ConfidenceLimited;
+        }
+
+        return InventoryAttentionPresentation.ConfidenceLabel(action.Confidence);
+    }
 
     static string CareText(CommercialGoalActionItem action)
     {
@@ -421,7 +504,9 @@ public static class CentralDecisionPresentation
         if (action.Limitations.HasFlag(CommercialGoalActionLimitation.LocationLimitation))
             parts.Add(CareLocation);
         if (action.Limitations.HasFlag(CommercialGoalActionLimitation.InsufficientHistory)
-            || action.Confidence == InventoryAttentionConfidence.Unavailable)
+            || (action.Confidence == InventoryAttentionConfidence.Unavailable
+                && !action.Limitations.HasFlag(CommercialGoalActionLimitation.FinancialUnavailable)
+                && action.ActionType == CommercialGoalActionType.ReviewData))
         {
             parts.Add(CareInsufficient);
         }

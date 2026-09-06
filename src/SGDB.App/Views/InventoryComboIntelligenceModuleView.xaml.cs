@@ -32,9 +32,34 @@ public partial class InventoryComboIntelligenceModuleView : UserControl
         Loaded += (_, _) =>
         {
             Focus();
+            RefreshViewToggle();
             Load();
             _ready = true;
         };
+    }
+
+    void RefreshViewToggle()
+    {
+        for (var i = FilterPanel.Children.Count - 1; i >= 0; i--)
+        {
+            if (FilterPanel.Children[i] is FrameworkElement { Tag: "view-mode" })
+                FilterPanel.Children.RemoveAt(i);
+        }
+
+        var mode = InventorySmartViewPreference.LoadIfNeeded();
+        var toggle = InventorySmartCardUi.CreateViewToggle(
+            mode,
+            (_, _) => SetView(InventorySmartViewMode.Simple),
+            (_, _) => SetView(InventorySmartViewMode.Detailed));
+        toggle.Tag = "view-mode";
+        FilterPanel.Children.Insert(0, toggle);
+    }
+
+    void SetView(InventorySmartViewMode mode)
+    {
+        InventorySmartViewPreference.Set(mode);
+        RefreshViewToggle();
+        ApplyView();
     }
 
     private void Close_Click(object sender, RoutedEventArgs e) =>
@@ -227,14 +252,18 @@ public partial class InventoryComboIntelligenceModuleView : UserControl
     private void ApplyView()
     {
         var rows = InventoryComboIntelligenceUi.Apply(_presented, _filter);
+        var simple = InventorySmartViewPreference.Current == InventorySmartViewMode.Simple;
+        Grid.Visibility = simple ? Visibility.Collapsed : Visibility.Visible;
+        SimpleCardsScroll.Visibility = simple ? Visibility.Visible : Visibility.Collapsed;
         Grid.ItemsSource = null;
         Grid.Items.SortDescriptions.Clear();
         Grid.ItemsSource = rows;
         RestoreSelection(rows);
+        RebuildSimpleCards(rows);
 
         var empty = InventoryComboIntelligenceUi.EmptyStateMessage(
             _presented.Targets.Count, rows.Count, _loadError);
-        ShowEmpty(empty);
+        ShowEmpty(simple && SimpleCardsHost.Children.Count > 0 ? "" : empty);
 
         var cards = InventoryComboIntelligenceUi.CountCards(_presented.Targets);
         MetaText.Text = string.IsNullOrEmpty(empty)
@@ -357,6 +386,77 @@ public partial class InventoryComboIntelligenceModuleView : UserControl
                 && value == status)
             {
                 StatusBox.SelectedIndex = i;
+                return;
+            }
+        }
+    }
+
+    void RebuildSimpleCards(IReadOnlyList<InventoryComboTargetGridRow> rows)
+    {
+        SimpleCardsHost.Children.Clear();
+        if (InventorySmartViewPreference.Current != InventorySmartViewMode.Simple)
+            return;
+
+        AddComboSection("Combos recomendados", rows.Where(r => r.SuggestionCount > 0).Take(12), urgent: false);
+        AddComboSection(
+            "Urgentes sem combo",
+            rows.Where(r => r.SuggestionCount == 0
+                && r.Reason == ComboTargetEligibilityReason.ExpirySurplus).Take(8),
+            urgent: true);
+        AddComboSection(
+            "Rejeitados",
+            rows.Where(r => r.SuggestionCount == 0
+                && r.Reason != ComboTargetEligibilityReason.ExpirySurplus).Take(8),
+            urgent: false);
+    }
+
+    void AddComboSection(string title, IEnumerable<InventoryComboTargetGridRow> items, bool urgent)
+    {
+        var list = items.ToList();
+        if (list.Count == 0)
+            return;
+        SimpleCardsHost.Children.Add(new TextBlock
+        {
+            Text = title,
+            FontSize = 12,
+            FontWeight = FontWeights.SemiBold,
+            Foreground = (Brush)new BrushConverter().ConvertFromString("#334155")!,
+            Margin = new Thickness(0, 4, 0, 6),
+        });
+        foreach (var row in list)
+        {
+            var card = new InventorySmartCard
+            {
+                ProductId = row.ProductId,
+                ProductCode = row.Code,
+                ProductName = row.Name,
+                ProductTitle = row.ProductTitle,
+                PrincipalAction = row.SuggestionCount > 0
+                    ? InventorySmartPrincipalAction.EvaluateCombo
+                    : InventorySmartPrincipalAction.NoSafePromotion,
+                ActionText = row.SuggestionCount > 0 ? "Avaliar combo" : "Sem combo seguro",
+                QuantityOrDeadlineText = "Estoque " + row.StockText,
+                ReasonText = row.SuggestionCount > 0
+                    ? row.ReasonText
+                    : (row.EmptyMessage.Length > 0 ? row.EmptyMessage : row.ReasonText),
+                Urgency = urgent ? InventorySmartUrgency.High : InventorySmartUrgency.None,
+                UrgencyText = urgent ? "Urgente" : row.ConfidenceText,
+                Tone = row.SuggestionCount > 0 ? "notice" : "info",
+            };
+            SimpleCardsHost.Children.Add(InventorySmartCardUi.Create(card, ComboCardDetails_Click));
+        }
+    }
+
+    void ComboCardDetails_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is not Button { Tag: int id })
+            return;
+        foreach (var item in Grid.Items)
+        {
+            if (item is InventoryComboTargetGridRow row && row.ProductId == id)
+            {
+                Grid.SelectedItem = row;
+                UpdateDetail();
                 return;
             }
         }

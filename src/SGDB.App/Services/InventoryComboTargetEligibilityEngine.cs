@@ -18,6 +18,7 @@ public static class InventoryComboTargetEligibilityEngine
         ComboTargetEligibilityReason.TargetExpiresToday,
         ComboTargetEligibilityReason.TargetComposition,
         ComboTargetEligibilityReason.TargetAmbiguousUnit,
+        ComboTargetEligibilityReason.TargetNotSellable,
         ComboTargetEligibilityReason.TargetStockUnsafe,
         ComboTargetEligibilityReason.TargetNoPhysicalEvidence,
         ComboTargetEligibilityReason.TargetReviewData,
@@ -50,6 +51,8 @@ public static class InventoryComboTargetEligibilityEngine
             return Blocked(productId, ComboTargetEligibilityReason.TargetComposition, confidence);
         if (InventoryComboEligibility.HasFactReason(facts, InventoryCommercialFactsReason.AmbiguousSaleUnit))
             return Blocked(productId, ComboTargetEligibilityReason.TargetAmbiguousUnit, confidence);
+        if (IsNotSellable(facts))
+            return Blocked(productId, ComboTargetEligibilityReason.TargetNotSellable, confidence);
         if (IsNegativeStock(turnover) || turnover?.HasLocationStockAnomaly == true)
             return Blocked(productId, ComboTargetEligibilityReason.TargetStockUnsafe, confidence);
         if (turnover is not { HasPhysicalAvailabilityEvidence: true })
@@ -73,6 +76,10 @@ public static class InventoryComboTargetEligibilityEngine
 
         return Blocked(productId, ComboTargetEligibilityReason.TargetNoTurnoverNeed, confidence);
     }
+
+    static bool IsNotSellable(InventoryCommercialFacts? facts) =>
+        facts is { AllowsSale: false }
+        || InventoryComboEligibility.HasFactReason(facts, InventoryCommercialFactsReason.SaleNotAllowed);
 
     static bool IsExpired(
         InventoryAttentionResult? attention,

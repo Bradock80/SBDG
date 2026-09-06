@@ -422,7 +422,7 @@ public class InventoryPromotionSuggestionB5ETests
         Assert.DoesNotContain("70F-B5", host, StringComparison.Ordinal);
 
         var csproj = ReadSource("src", "SGDB.App", "SGDB.App.csproj");
-        Assert.Contains("<Version>0.3.20</Version>", csproj, StringComparison.Ordinal);
+        Assert.Contains("<Version>0.3.21</Version>", csproj, StringComparison.Ordinal);
     }
 
     [Fact]

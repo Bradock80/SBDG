@@ -199,7 +199,7 @@ public class CentralDecisionLoaderTests
                 combos: Combos(SafeCombo(1))),
             Contribution(Hist(1, 90m)));
         var reviewItem = Assert.Single(review.Presentation.ActNow);
-        Assert.Equal(CentralDecisionPresentation.WhatReviewData, reviewItem.WhatText);
+        Assert.Equal(CentralDecisionPresentation.WhatReviewNegativeStock, reviewItem.WhatText);
         Assert.Equal("", reviewItem.PromotionText);
         Assert.Equal("", reviewItem.ComboText);
         Assert.Equal(CommercialGoalActionType.ReviewData, review.Decision.ActNow[0].ActionType);

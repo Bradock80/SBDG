@@ -50,6 +50,8 @@ public sealed class InventoryComboSuggestion
     public InventoryAttentionConfidence Confidence { get; init; } =
         InventoryAttentionConfidence.Unavailable;
     public IReadOnlyList<InventoryComboSuggestionLimitation> Limitations { get; init; } = [];
+    public double MaxSafeQuantity { get; init; }
+    public int SuggestedDurationDays { get; init; } = 7;
 }
 
 /// <summary>
