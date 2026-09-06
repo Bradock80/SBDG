@@ -842,6 +842,14 @@ public partial class MainWindow : Window
             UpdateToolbarHighlight();
             return;
         }
+        if (moduleId == CentralDecisionUi.ModuleId)
+        {
+            var view = new CentralDecisionModuleView();
+            view.CloseRequested += (_, _) => ShowHome();
+            MainContent.Content = view;
+            UpdateToolbarHighlight();
+            return;
+        }
 
         if (moduleId == "pdv")
         {
@@ -920,6 +928,8 @@ public partial class MainWindow : Window
         SetToolbarActive(BtnVasilhame, "vasilhame");
         SetToolbarActive(BtnReposicao, InventoryPurchaseGuidanceUi.ModuleId);
         SetToolbarActive(BtnCombos, InventoryComboIntelligenceUi.ModuleId);
+        SetToolbarActive(BtnMeta, CommercialGoalUi.ModuleId);
+        SetToolbarActive(BtnCentral, CentralDecisionUi.ModuleId);
         SetToolbarActive(BtnCompras, "compras");
         SetToolbarActive(BtnPdv, "pdv");
         SetToolbarActive(BtnDecks, "decks");
@@ -962,6 +972,8 @@ public partial class MainWindow : Window
         SetToolbarPermission(BtnVasilhame, "vasilhame");
         SetToolbarPermission(BtnReposicao, InventoryPurchaseGuidanceUi.ModuleId);
         SetToolbarPermission(BtnCombos, InventoryComboIntelligenceUi.ModuleId);
+        SetToolbarPermission(BtnMeta, CommercialGoalUi.ModuleId);
+        SetToolbarPermission(BtnCentral, CentralDecisionUi.ModuleId);
         SetToolbarPermission(BtnCompras, "compras");
         SetToolbarPermission(BtnPdv, "pdv");
         SetToolbarPermission(BtnDecks, "decks");
@@ -1059,6 +1071,8 @@ public partial class MainWindow : Window
         if (btn == BtnVasilhame) return "vasilhame";
         if (btn == BtnReposicao) return InventoryPurchaseGuidanceUi.ModuleId;
         if (btn == BtnCombos) return InventoryComboIntelligenceUi.ModuleId;
+        if (btn == BtnMeta) return CommercialGoalUi.ModuleId;
+        if (btn == BtnCentral) return CentralDecisionUi.ModuleId;
         if (btn == BtnCompras) return "compras";
         if (btn == BtnPdv) return "pdv";
         if (btn == BtnDecks) return "decks";

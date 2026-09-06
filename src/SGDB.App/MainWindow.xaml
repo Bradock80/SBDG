@@ -124,6 +124,8 @@
                               ToolTip="Sugestões de combinação para produtos que precisam girar"/>
                     <MenuItem Header="Meta Comercial" Tag="meta_comercial" Click="MenuModule_Click"
                               ToolTip="Lucro bruto realizado em relação à meta do mês"/>
+                    <MenuItem Header="Central de Decisão" Tag="central_decisao" Click="MenuModule_Click"
+                              ToolTip="O que merece atenção agora, por quê e o que convém preservar"/>
                     <Separator/>
                     <MenuItem Header="Mais vendidos" Tag="estoque_mais_vendidos" Click="MenuModule_Click"/>
                     <MenuItem Header="Menos vendidos" Tag="estoque_menos_vendidos" Click="MenuModule_Click"/>
@@ -251,6 +253,11 @@
                         Click="Toolbar_Click" x:Name="BtnMeta"
                         ToolTip="Meta Comercial">
                     <controls:ToolbarIconContent IconKey="relatorio" Label="Meta"/>
+                </Button>
+                <Button Style="{StaticResource IconToolbarButtonStyle}" Tag="central_decisao"
+                        Click="Toolbar_Click" x:Name="BtnCentral"
+                        ToolTip="Central de Decisão">
+                    <controls:ToolbarIconContent IconKey="relatorio" Label="Central"/>
                 </Button>
                 <Button Style="{StaticResource IconToolbarButtonStyle}" Tag="compras"
                         Click="Toolbar_Click" x:Name="BtnCompras">

@@ -9,13 +9,14 @@
         <BooleanToVisibilityConverter x:Key="BoolToVis"/>
     </UserControl.Resources>
     <Border BorderBrush="#C8C4BC" BorderThickness="1" Background="White">
-        <ScrollViewer x:Name="ModuleScroll"
-                      VerticalScrollBarVisibility="Auto"
-                      HorizontalScrollBarVisibility="Disabled"
-                      CanContentScroll="False">
-            <Grid x:Name="ContentRoot"
-                  MinHeight="{Binding ActualHeight, ElementName=ModuleScroll}"
-                  MinWidth="640">
+        <Grid>
+            <ScrollViewer x:Name="ModuleScroll"
+                          VerticalScrollBarVisibility="Auto"
+                          HorizontalScrollBarVisibility="Disabled"
+                          CanContentScroll="False">
+                <Grid x:Name="ContentRoot"
+                      MinHeight="{Binding ActualHeight, ElementName=ModuleScroll}"
+                      MinWidth="640">
                 <Grid.RowDefinitions>
                     <RowDefinition Height="Auto"/>
                     <RowDefinition Height="Auto"/>
@@ -310,6 +311,17 @@
                 <TextBlock x:Name="OriginFooter" Grid.Row="8" Margin="14,0,14,12"
                            FontSize="11" Foreground="#94A3B8" TextWrapping="Wrap"/>
             </Grid>
-        </ScrollViewer>
+            </ScrollViewer>
+
+            <Border x:Name="ClientBlockOverlay" Background="#F8FAFC" Visibility="Collapsed">
+                <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" MaxWidth="520" Margin="24">
+                    <TextBlock Text="{x:Static models:CentralDecisionUi.ModuleTitle}"
+                               FontWeight="SemiBold" FontSize="14"
+                               Foreground="#1E293B" TextAlignment="Center"/>
+                    <TextBlock x:Name="ClientBlockText" Margin="0,12,0,0" FontSize="13"
+                               Foreground="#475569" TextWrapping="Wrap" TextAlignment="Center"/>
+                </StackPanel>
+            </Border>
+        </Grid>
     </Border>
 </UserControl>

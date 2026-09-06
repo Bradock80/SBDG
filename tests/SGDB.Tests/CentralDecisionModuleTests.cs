@@ -10,7 +10,7 @@ using SGDB.Utils;
 namespace SGDB.Tests;
 
 /// <summary>
-/// 71C-B5 — módulo visual executivo. Inspeção estrutural + pipeline B4.
+/// 71C-B5/B6 — módulo visual + integração menu/toolbar.
 /// Sem instanciar UserControl WPF; sem banco da loja nos testes estruturais.
 /// </summary>
 [Collection(TempDatabaseCollection.Name)]
@@ -59,13 +59,10 @@ public class CentralDecisionModuleTests
     }
 
     [Fact]
-    public void View_sem_B6_sem_cliente_sem_promocao()
+    public void View_sem_promocao_sem_segundo_loader()
     {
         var cs = ReadViewCs();
         var xaml = ReadViewXaml();
-        Assert.DoesNotContain("StoreNetworkMode", cs, StringComparison.Ordinal);
-        Assert.DoesNotContain("ShowClientBlocked", cs, StringComparison.Ordinal);
-        Assert.DoesNotContain("ClientBlock", cs, StringComparison.Ordinal);
         Assert.DoesNotContain("AccessControl", cs, StringComparison.Ordinal);
         Assert.DoesNotContain("RelatoriosAcesso", cs, StringComparison.Ordinal);
         Assert.DoesNotContain("ShowModule", cs, StringComparison.Ordinal);
@@ -75,10 +72,108 @@ public class CentralDecisionModuleTests
         Assert.DoesNotContain("ValiditySuggestedAction", cs, StringComparison.Ordinal);
         Assert.DoesNotContain("ConsiderPromotion", cs, StringComparison.Ordinal);
         Assert.DoesNotContain("PdvService", cs, StringComparison.Ordinal);
+        Assert.DoesNotContain("CommercialGoalLoader", cs, StringComparison.Ordinal);
         Assert.DoesNotContain("DataGrid", xaml, StringComparison.Ordinal);
         Assert.DoesNotContain("DataGrid", cs, StringComparison.Ordinal);
         Assert.DoesNotContain("<Button", Section(xaml, "ActNowSection", "PreserveSection"), StringComparison.Ordinal);
         Assert.DoesNotContain("<Button", Section(xaml, "PreserveSection", "LimitationsSection"), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void View_bloqueia_cliente_antes_do_load()
+    {
+        var cs = ReadViewCs();
+        var xaml = ReadViewXaml();
+        var clientIdx = cs.IndexOf("StoreNetworkMode.IsClient", StringComparison.Ordinal);
+        var loadIdx = cs.IndexOf("CentralDecisionLoader.Load(", StringComparison.Ordinal);
+        Assert.InRange(clientIdx, 0, loadIdx - 1);
+        Assert.Contains("ShowClientBlocked();", cs, StringComparison.Ordinal);
+        Assert.Contains("x:Name=\"ClientBlockOverlay\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("x:Name=\"ClientBlockText\"", xaml, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Menu_e_toolbar_chamam_mesmo_modulo()
+    {
+        var xaml = ReadSource("src", "SGDB.App", "MainWindow.xaml");
+        Assert.Contains("Tag=\"central_decisao\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("Header=\"Central de Decisão\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("Label=\"Central\"", xaml, StringComparison.Ordinal);
+        var metaMenu = xaml.IndexOf("Header=\"Meta Comercial\"", StringComparison.Ordinal);
+        var centralMenu = xaml.IndexOf("Header=\"Central de Decisão\"", StringComparison.Ordinal);
+        Assert.True(metaMenu >= 0 && centralMenu > metaMenu);
+        var toolbarMeta = xaml.IndexOf("x:Name=\"BtnMeta\"", StringComparison.Ordinal);
+        var toolbarCentral = xaml.IndexOf("x:Name=\"BtnCentral\"", StringComparison.Ordinal);
+        var toolbarCompras = xaml.IndexOf("x:Name=\"BtnCompras\"", StringComparison.Ordinal);
+        Assert.True(toolbarMeta >= 0 && toolbarCentral > toolbarMeta && toolbarCompras > toolbarCentral);
+        Assert.Contains("Tag=\"inicio\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("x:Name=\"BtnMeuNegocio\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("Tag=\"home\"", xaml, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Cliente_RedeLoja_bloqueado_antes_da_view()
+    {
+        var mode = ReadSource("src", "SGDB.App", "Services", "StoreNetworkMode.cs");
+        var main = ReadSource("src", "SGDB.App", "MainWindow.xaml.cs");
+        Assert.Contains("or \"central_decisao\"", mode, StringComparison.Ordinal);
+        var blockIdx = main.IndexOf("StoreNetworkMode.IsModuleBlockedOnClient(moduleId)", StringComparison.Ordinal);
+        var viewIdx = main.IndexOf("new CentralDecisionModuleView()", StringComparison.Ordinal);
+        Assert.InRange(blockIdx, 0, viewIdx - 1);
+        Assert.Contains("CentralDecisionUi.ModuleId", main, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Highlight_Central_e_BtnMeta_corrigidos()
+    {
+        var main = ReadSource("src", "SGDB.App", "MainWindow.xaml.cs");
+        Assert.Contains("SetToolbarActive(BtnMeta, CommercialGoalUi.ModuleId)", main, StringComparison.Ordinal);
+        Assert.Contains("SetToolbarActive(BtnCentral, CentralDecisionUi.ModuleId)", main, StringComparison.Ordinal);
+        Assert.Contains("SetToolbarPermission(BtnMeta, CommercialGoalUi.ModuleId)", main, StringComparison.Ordinal);
+        Assert.Contains("SetToolbarPermission(BtnCentral, CentralDecisionUi.ModuleId)", main, StringComparison.Ordinal);
+        Assert.Contains("if (btn == BtnMeta) return CommercialGoalUi.ModuleId;", main, StringComparison.Ordinal);
+        Assert.Contains("if (btn == BtnCentral) return CentralDecisionUi.ModuleId;", main, StringComparison.Ordinal);
+        var highlight = MethodBody(main, "private void UpdateToolbarHighlight()");
+        Assert.Contains("BtnMeta", highlight, StringComparison.Ordinal);
+        Assert.Contains("BtnCentral", highlight, StringComparison.Ordinal);
+        Assert.Contains("BtnMeuNegocio", highlight, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void RelatoriosAcesso_e_perfis()
+    {
+        var access = ReadSource("src", "SGDB.App", "Services", "AccessControl.cs");
+        Assert.Contains("or \"central_decisao\"", access, StringComparison.Ordinal);
+        var centralIdx = access.IndexOf("or \"central_decisao\"", StringComparison.Ordinal);
+        var relIdx = access.IndexOf("=> p.RelatoriosAcesso", centralIdx, StringComparison.Ordinal);
+        Assert.True(relIdx > centralIdx);
+
+        TestDataHelper.SetSessionRole("gestor");
+        Assert.True(AccessControl.CanAccessModule(CentralDecisionUi.ModuleId));
+        Assert.True(AccessControl.Can("RelatoriosAcesso"));
+
+        TestDataHelper.SetSessionRole("admin");
+        Assert.True(AccessControl.CanAccessModule(CentralDecisionUi.ModuleId));
+
+        TestDataHelper.SetSessionRole("vendedor");
+        Assert.False(AccessControl.CanAccessModule(CentralDecisionUi.ModuleId));
+
+        TestDataHelper.SetSessionCustomPermissions("vendedor", p => p.RelatoriosAcesso = true);
+        Assert.True(AccessControl.CanAccessModule(CentralDecisionUi.ModuleId));
+    }
+
+    [Fact]
+    public void MainWindow_registra_Central_sem_substituir_Home()
+    {
+        var mainCs = ReadSource("src", "SGDB.App", "MainWindow.xaml.cs");
+        var mainXaml = ReadSource("src", "SGDB.App", "MainWindow.xaml");
+        Assert.Contains("CentralDecisionModuleView", mainCs, StringComparison.Ordinal);
+        Assert.Contains("CentralDecisionUi.ModuleId", mainCs, StringComparison.Ordinal);
+        Assert.Contains("central_decisao", mainXaml, StringComparison.Ordinal);
+        Assert.Contains("ShowHome()", mainCs, StringComparison.Ordinal);
+        Assert.Contains("Tag=\"inicio\"", mainXaml, StringComparison.Ordinal);
+        Assert.Contains("Label=\"Meu Negócio\"", mainXaml, StringComparison.Ordinal);
+        Assert.DoesNotContain("CentralDecisionLoader.Load", mainCs, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -267,17 +362,6 @@ public class CentralDecisionModuleTests
         Assert.Empty(future.Presentation.ActNow);
         Assert.True(future.QueryCount <= 5, $"futuro: {future.QueryCount}");
         Assert.Equal(0, future.Decision.ActionPlan!.QueryCount);
-    }
-
-    [Fact]
-    public void MainWindow_ainda_nao_registra_B5()
-    {
-        var mainCs = ReadSource("src", "SGDB.App", "MainWindow.xaml.cs");
-        var mainXaml = ReadSource("src", "SGDB.App", "MainWindow.xaml");
-        Assert.DoesNotContain("CentralDecisionModuleView", mainCs, StringComparison.Ordinal);
-        Assert.DoesNotContain("central_decisao", mainCs, StringComparison.Ordinal);
-        Assert.DoesNotContain("central_decisao", mainXaml, StringComparison.Ordinal);
-        Assert.DoesNotContain("CentralDecisionModuleView", mainXaml, StringComparison.Ordinal);
     }
 
     [Fact]

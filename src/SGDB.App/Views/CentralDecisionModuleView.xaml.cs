@@ -20,6 +20,7 @@ public partial class CentralDecisionModuleView : UserControl
     DateOnly _referenceDate;
     CentralDecisionPresentationSnapshot _presented;
     bool _hasValidSnapshot;
+    bool _clientBlocked;
     bool _loading;
 
     public CentralDecisionModuleView()
@@ -50,7 +51,8 @@ public partial class CentralDecisionModuleView : UserControl
     {
         if (e.Key == Key.F5 || (e.Key == Key.R && Keyboard.Modifiers == ModifierKeys.Control))
         {
-            Load();
+            if (!_clientBlocked)
+                Load();
             e.Handled = true;
         }
         else if (e.Key == Key.Escape)
@@ -60,22 +62,29 @@ public partial class CentralDecisionModuleView : UserControl
         }
     }
 
-    private void Refresh_Click(object sender, RoutedEventArgs e) => Load();
+    private void Refresh_Click(object sender, RoutedEventArgs e)
+    {
+        if (!_clientBlocked)
+            Load();
+    }
 
     private void PreviousMonth_Click(object sender, RoutedEventArgs e)
     {
+        if (_clientBlocked) return;
         _competence = CommercialCompetence.FromDate(_competence.StartDate.AddMonths(-1));
         Load();
     }
 
     private void NextMonth_Click(object sender, RoutedEventArgs e)
     {
+        if (_clientBlocked) return;
         _competence = CommercialCompetence.FromDate(_competence.StartDate.AddMonths(1));
         Load();
     }
 
     private void CurrentMonth_Click(object sender, RoutedEventArgs e)
     {
+        if (_clientBlocked) return;
         _competence = CommercialCompetence.FromDate(Today());
         Load();
     }
@@ -84,6 +93,16 @@ public partial class CentralDecisionModuleView : UserControl
     {
         if (_loading)
             return;
+
+        if (StoreNetworkMode.IsClient)
+        {
+            ShowClientBlocked();
+            return;
+        }
+
+        _clientBlocked = false;
+        ClientBlockOverlay.Visibility = Visibility.Collapsed;
+        ContentRoot.Visibility = Visibility.Visible;
 
         var referenceDate = Today();
         _referenceDate = referenceDate;
@@ -122,7 +141,7 @@ public partial class CentralDecisionModuleView : UserControl
         finally
         {
             Cursor = previousCursor;
-            BtnRefresh.IsEnabled = true;
+            BtnRefresh.IsEnabled = !_clientBlocked;
             _loading = false;
         }
 
@@ -134,6 +153,15 @@ public partial class CentralDecisionModuleView : UserControl
                 MessageBoxButton.OK,
                 MessageBoxImage.Warning);
         }
+    }
+
+    private void ShowClientBlocked()
+    {
+        _clientBlocked = true;
+        ContentRoot.Visibility = Visibility.Collapsed;
+        ClientBlockOverlay.Visibility = Visibility.Visible;
+        ClientBlockText.Text = StoreNetworkMode.ClientBlockedModuleMessage;
+        BtnRefresh.IsEnabled = false;
     }
 
     private void ApplyView()

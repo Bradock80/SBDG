@@ -225,6 +225,7 @@ public static class StoreNetworkMode
                 or "reposicao_inteligente"
                 or "combos_inteligentes"
                 or "meta_comercial"
+                or "central_decisao"
                 or "auditoria"
                 or "usuarios"
                 or "residuos_unificacoes"
