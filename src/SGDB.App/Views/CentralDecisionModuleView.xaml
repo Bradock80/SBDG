@@ -1,0 +1,315 @@
+<UserControl x:Class="SGDB.Views.CentralDecisionModuleView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:models="clr-namespace:SGDB.Models"
+             Background="{StaticResource SgdbBgBrush}"
+             Focusable="True"
+             PreviewKeyDown="Root_PreviewKeyDown">
+    <UserControl.Resources>
+        <BooleanToVisibilityConverter x:Key="BoolToVis"/>
+    </UserControl.Resources>
+    <Border BorderBrush="#C8C4BC" BorderThickness="1" Background="White">
+        <ScrollViewer x:Name="ModuleScroll"
+                      VerticalScrollBarVisibility="Auto"
+                      HorizontalScrollBarVisibility="Disabled"
+                      CanContentScroll="False">
+            <Grid x:Name="ContentRoot"
+                  MinHeight="{Binding ActualHeight, ElementName=ModuleScroll}"
+                  MinWidth="640">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="*"/>
+                </Grid.RowDefinitions>
+
+                <!-- Cabeçalho -->
+                <Border Grid.Row="0" Padding="10,6" Background="#F0F0F0"
+                        BorderBrush="#C8C4BC" BorderThickness="0,0,0,1">
+                    <Grid>
+                        <StackPanel VerticalAlignment="Center" Margin="0,0,36,0">
+                            <TextBlock Text="{x:Static models:CentralDecisionUi.ModuleTitle}"
+                                       FontWeight="SemiBold" FontSize="13" Foreground="#1E293B"/>
+                            <TextBlock Text="{x:Static models:CentralDecisionUi.Subtitle}"
+                                       FontSize="11" Foreground="#64748B" Margin="0,1,0,0"
+                                       TextWrapping="Wrap"/>
+                        </StackPanel>
+                        <Button Style="{StaticResource ModuleTabCloseStyle}"
+                                HorizontalAlignment="Right" VerticalAlignment="Center"
+                                Click="Close_Click"/>
+                    </Grid>
+                </Border>
+
+                <!-- Competência -->
+                <Border Grid.Row="1" Padding="12,8" Background="#F8FAFC" BorderBrush="#E2E8F0"
+                        BorderThickness="0,0,0,1">
+                    <WrapPanel VerticalAlignment="Center">
+                        <Button Content="←" Width="36" Height="32" Margin="0,0,8,4"
+                                Click="PreviousMonth_Click"
+                                ToolTip="{x:Static models:CentralDecisionUi.PreviousMonthAction}"/>
+                        <TextBlock x:Name="CompetenceText" FontSize="14" FontWeight="SemiBold"
+                                   Foreground="#1E293B" VerticalAlignment="Center"
+                                   Margin="0,0,8,4" MinWidth="160"/>
+                        <Button Content="→" Width="36" Height="32" Margin="0,0,12,4"
+                                Click="NextMonth_Click"
+                                ToolTip="{x:Static models:CentralDecisionUi.NextMonthAction}"/>
+                        <Button Content="{x:Static models:CentralDecisionUi.CurrentMonthAction}"
+                                Height="32" Padding="12,6" Margin="0,0,8,4"
+                                Click="CurrentMonth_Click"/>
+                        <Button x:Name="BtnRefresh" Content="Atualizar (F5)"
+                                Style="{StaticResource SgdbPrimaryButtonStyle}"
+                                Height="32" Padding="12,6" Margin="0,0,8,4"
+                                Click="Refresh_Click"/>
+                    </WrapPanel>
+                </Border>
+
+                <!-- Headline / estado -->
+                <Border x:Name="StateBanner" Grid.Row="2" Margin="10,8,10,0" Padding="14,12"
+                        CornerRadius="8" Background="#F8FAFC" BorderBrush="#E2E8F0"
+                        BorderThickness="1" Visibility="Collapsed">
+                    <StackPanel>
+                        <TextBlock x:Name="StateHeadline" FontSize="14" FontWeight="SemiBold"
+                                   Foreground="#1E293B" TextWrapping="Wrap"/>
+                        <TextBlock x:Name="StateSupport" FontSize="12" Foreground="#475569"
+                                   Margin="0,4,0,0" TextWrapping="Wrap"/>
+                    </StackPanel>
+                </Border>
+
+                <!-- Faixa Meta compacta -->
+                <Border x:Name="GoalStripSection" Grid.Row="3" Margin="10,10,10,4" Padding="14,12"
+                        CornerRadius="10" Background="#F8FAFC" BorderBrush="#E2E8F0"
+                        BorderThickness="1">
+                    <StackPanel>
+                        <UniformGrid Columns="4">
+                            <StackPanel Margin="0,0,8,0">
+                                <TextBlock x:Name="GoalTitle" FontSize="11" Foreground="#64748B"/>
+                                <TextBlock x:Name="GoalValue" FontSize="16" FontWeight="SemiBold"
+                                           Foreground="#1E293B" Margin="0,4,0,0" TextWrapping="Wrap"/>
+                            </StackPanel>
+                            <StackPanel Margin="0,0,8,0">
+                                <TextBlock x:Name="RealizedTitle" FontSize="11" Foreground="#64748B"/>
+                                <TextBlock x:Name="RealizedValue" FontSize="16" FontWeight="SemiBold"
+                                           Foreground="#1E293B" Margin="0,4,0,0" TextWrapping="Wrap"/>
+                            </StackPanel>
+                            <StackPanel Margin="0,0,8,0">
+                                <TextBlock x:Name="RemainingTitle" FontSize="11" Foreground="#64748B"/>
+                                <TextBlock x:Name="RemainingValue" FontSize="16" FontWeight="SemiBold"
+                                           Foreground="#1E293B" Margin="0,4,0,0" TextWrapping="Wrap"/>
+                            </StackPanel>
+                            <StackPanel>
+                                <TextBlock x:Name="StatusTitle" FontSize="11" Foreground="#64748B"/>
+                                <Border x:Name="StatusBadge" Margin="0,4,0,0" Padding="8,4"
+                                        CornerRadius="6" HorizontalAlignment="Left">
+                                    <TextBlock x:Name="StatusValue" FontSize="13" FontWeight="SemiBold"
+                                               TextWrapping="Wrap"/>
+                                </Border>
+                            </StackPanel>
+                        </UniformGrid>
+                        <TextBlock x:Name="EstimatedBadgeText" FontSize="11" FontWeight="SemiBold"
+                                   Foreground="#92400E" Margin="0,8,0,0" TextWrapping="Wrap"
+                                   Visibility="Collapsed"/>
+                        <TextBlock x:Name="InventoryOnlyNote" FontSize="12" Foreground="#475569"
+                                   Margin="0,8,0,0" TextWrapping="Wrap" Visibility="Collapsed"/>
+                    </StackPanel>
+                </Border>
+
+                <!-- Empty / Unavailable / Future text -->
+                <TextBlock x:Name="DecisionEmptyText" Grid.Row="4" Margin="14,8,14,0"
+                           FontSize="13" Foreground="#64748B" TextWrapping="Wrap"
+                           Visibility="Collapsed"/>
+
+                <!-- Agir Agora -->
+                <Border x:Name="ActNowSection" Grid.Row="5" Margin="10,8,10,4"
+                        Padding="14,12" CornerRadius="8" Background="#F8FAFC"
+                        BorderBrush="#E2E8F0" BorderThickness="1">
+                    <StackPanel>
+                        <TextBlock x:Name="ActNowTitle" FontSize="12" FontWeight="SemiBold"
+                                   Foreground="#334155"/>
+                        <ItemsControl x:Name="ActNowItems" Margin="0,10,0,0">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <Border Margin="0,0,0,10" Padding="14,12" CornerRadius="8"
+                                            BorderBrush="#E2E8F0" BorderThickness="1">
+                                        <Border.Style>
+                                            <Style TargetType="Border">
+                                                <Setter Property="Background" Value="White"/>
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding Tone}" Value="Unavailable">
+                                                        <Setter Property="Background" Value="#F1F5F9"/>
+                                                    </DataTrigger>
+                                                    <DataTrigger Binding="{Binding Tone}" Value="Warning">
+                                                        <Setter Property="Background" Value="#FEF3C7"/>
+                                                    </DataTrigger>
+                                                    <DataTrigger Binding="{Binding Tone}" Value="Attention">
+                                                        <Setter Property="Background" Value="#FFFBEB"/>
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </Border.Style>
+                                        <StackPanel>
+                                            <DockPanel LastChildFill="True">
+                                                <TextBlock DockPanel.Dock="Right"
+                                                           Text="{Binding ConfidenceText}"
+                                                           FontSize="11" Foreground="#64748B"
+                                                           Margin="8,0,0,0"/>
+                                                <TextBlock Text="{Binding ProductTitle}"
+                                                           FontSize="14" FontWeight="SemiBold"
+                                                           Foreground="#1E293B" TextWrapping="Wrap"/>
+                                            </DockPanel>
+                                            <TextBlock FontSize="11" Foreground="#64748B"
+                                                       Margin="0,8,0,0" Text="O quê"/>
+                                            <TextBlock Text="{Binding WhatText}" FontSize="14"
+                                                       FontWeight="SemiBold" Foreground="#1E293B"
+                                                       TextWrapping="Wrap"/>
+                                            <TextBlock FontSize="11" Foreground="#64748B"
+                                                       Margin="0,8,0,0" Text="Por quê"/>
+                                            <TextBlock Text="{Binding WhyText}" FontSize="12"
+                                                       Foreground="#334155" TextWrapping="Wrap"/>
+                                            <TextBlock FontSize="11" Foreground="#64748B"
+                                                       Margin="0,8,0,0" Text="Cuidado">
+                                                <TextBlock.Style>
+                                                    <Style TargetType="TextBlock">
+                                                        <Setter Property="Visibility" Value="Visible"/>
+                                                        <Style.Triggers>
+                                                            <DataTrigger Binding="{Binding CareText}" Value="">
+                                                                <Setter Property="Visibility" Value="Collapsed"/>
+                                                            </DataTrigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </TextBlock.Style>
+                                            </TextBlock>
+                                            <TextBlock Text="{Binding CareText}" FontSize="12"
+                                                       Foreground="#92400E" TextWrapping="Wrap">
+                                                <TextBlock.Style>
+                                                    <Style TargetType="TextBlock">
+                                                        <Setter Property="Visibility" Value="Visible"/>
+                                                        <Style.Triggers>
+                                                            <DataTrigger Binding="{Binding CareText}" Value="">
+                                                                <Setter Property="Visibility" Value="Collapsed"/>
+                                                            </DataTrigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </TextBlock.Style>
+                                            </TextBlock>
+                                            <WrapPanel Margin="0,8,0,0">
+                                                <Border Margin="0,0,8,4" Padding="8,3" CornerRadius="4"
+                                                        Background="#F8FAFC" BorderBrush="#E2E8F0"
+                                                        BorderThickness="1"
+                                                        Visibility="{Binding HasPromotionSuggestion, Converter={StaticResource BoolToVis}}">
+                                                    <TextBlock Text="{Binding PromotionText}" FontSize="11"
+                                                               Foreground="#475569"/>
+                                                </Border>
+                                                <Border Margin="0,0,8,4" Padding="8,3" CornerRadius="4"
+                                                        Background="#F8FAFC" BorderBrush="#E2E8F0"
+                                                        BorderThickness="1"
+                                                        Visibility="{Binding HasComboSuggestion, Converter={StaticResource BoolToVis}}">
+                                                    <TextBlock Text="{Binding ComboText}" FontSize="11"
+                                                               Foreground="#475569"/>
+                                                </Border>
+                                                <Border Margin="0,0,8,4" Padding="8,3" CornerRadius="4"
+                                                        Background="#F8FAFC" BorderBrush="#E2E8F0"
+                                                        BorderThickness="1">
+                                                    <Border.Style>
+                                                        <Style TargetType="Border">
+                                                            <Setter Property="Visibility" Value="Visible"/>
+                                                            <Style.Triggers>
+                                                                <DataTrigger Binding="{Binding ReplenishmentText}" Value="">
+                                                                    <Setter Property="Visibility" Value="Collapsed"/>
+                                                                </DataTrigger>
+                                                            </Style.Triggers>
+                                                        </Style>
+                                                    </Border.Style>
+                                                    <TextBlock Text="{Binding ReplenishmentText}" FontSize="11"
+                                                               Foreground="#475569"/>
+                                                </Border>
+                                            </WrapPanel>
+                                            <TextBlock FontSize="11" Foreground="#64748B" Margin="0,8,0,0"
+                                                       TextWrapping="Wrap">
+                                                <Run Text="Lucro bruto realizado:"/>
+                                                <Run Text="{Binding GrossProfitText}" FontWeight="SemiBold"/>
+                                                <Run Text=" · Margem:"/>
+                                                <Run Text="{Binding GrossMarginText}"/>
+                                                <Run Text=" · Qualidade:"/>
+                                                <Run Text="{Binding CostQualityText}"/>
+                                            </TextBlock>
+                                        </StackPanel>
+                                    </Border>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </StackPanel>
+                </Border>
+
+                <!-- Preservar (secundário) -->
+                <Border x:Name="PreserveSection" Grid.Row="6" Margin="10,4,10,4"
+                        Padding="12,10" CornerRadius="8" Background="White"
+                        BorderBrush="#E2E8F0" BorderThickness="1">
+                    <StackPanel>
+                        <TextBlock x:Name="PreserveTitle" FontSize="11" FontWeight="SemiBold"
+                                   Foreground="#64748B"/>
+                        <TextBlock x:Name="PreserveSubtitle" FontSize="11" Foreground="#94A3B8"
+                                   Margin="0,4,0,0" TextWrapping="Wrap"/>
+                        <ItemsControl x:Name="PreserveItems" Margin="0,8,0,0">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <Border Margin="0,0,0,6" Padding="10,8" CornerRadius="6"
+                                            Background="#F8FAFC" BorderBrush="#E2E8F0"
+                                            BorderThickness="1">
+                                        <StackPanel>
+                                            <TextBlock Text="{Binding ProductTitle}" FontSize="12"
+                                                       FontWeight="SemiBold" Foreground="#475569"
+                                                       TextWrapping="Wrap"/>
+                                            <TextBlock FontSize="11" Foreground="#64748B"
+                                                       Margin="0,4,0,0" TextWrapping="Wrap">
+                                                <Run Text="{Binding GrossProfitText}"/>
+                                                <Run Text=" · "/>
+                                                <Run Text="{Binding GrossMarginText}"/>
+                                                <Run Text=" · "/>
+                                                <Run Text="{Binding CoverageText}"/>
+                                                <Run Text=" · "/>
+                                                <Run Text="{Binding CostQualityText}"/>
+                                            </TextBlock>
+                                        </StackPanel>
+                                    </Border>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </StackPanel>
+                </Border>
+
+                <!-- Limitações -->
+                <Border x:Name="LimitationsSection" Grid.Row="7" Margin="10,4,10,8"
+                        Padding="12,10" CornerRadius="8" Background="White"
+                        BorderBrush="#E2E8F0" BorderThickness="1" Visibility="Collapsed">
+                    <StackPanel>
+                        <TextBlock Text="{x:Static models:CentralDecisionUi.AboutNumbersTitle}"
+                                   FontSize="11" FontWeight="SemiBold" Foreground="#64748B"/>
+                        <ItemsControl x:Name="LimitationsList" Margin="0,8,0,0">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <StackPanel Margin="0,0,0,8">
+                                        <TextBlock Text="{Binding Title}" FontSize="12"
+                                                   FontWeight="SemiBold" Foreground="#334155"
+                                                   TextWrapping="Wrap"/>
+                                        <TextBlock Text="{Binding Body}" FontSize="11"
+                                                   Foreground="#64748B" Margin="0,2,0,0"
+                                                   TextWrapping="Wrap"/>
+                                    </StackPanel>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </StackPanel>
+                </Border>
+
+                <TextBlock x:Name="OriginFooter" Grid.Row="8" Margin="14,0,14,12"
+                           FontSize="11" Foreground="#94A3B8" TextWrapping="Wrap"/>
+            </Grid>
+        </ScrollViewer>
+    </Border>
+</UserControl>
