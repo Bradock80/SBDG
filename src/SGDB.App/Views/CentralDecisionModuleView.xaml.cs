@@ -19,6 +19,11 @@ public partial class CentralDecisionModuleView : UserControl
     CommercialCompetence _competence;
     DateOnly _referenceDate;
     CentralDecisionPresentationSnapshot _presented;
+    InventoryProjectionSnapshot? _projection;
+    InventoryProjectionPresentationSnapshot? _projectionPresented;
+    InventoryAttentionPresentationSnapshot? _attentionPresented;
+    InventoryPromotionSuggestionPresentationSnapshot? _promotionPresented;
+    InventoryPurchaseGuidancePresentationSnapshot? _guidancePresented;
     bool _hasValidSnapshot;
     bool _clientBlocked;
     bool _loading;
@@ -135,6 +140,11 @@ public partial class CentralDecisionModuleView : UserControl
             Cursor = Cursors.Wait;
             var result = CentralDecisionLoader.Load(_competence, referenceDate);
             _presented = result.Presentation;
+            _projection = result.Projection;
+            _projectionPresented = result.ProjectionPresented;
+            _attentionPresented = result.AttentionPresented;
+            _promotionPresented = result.PromotionPresented;
+            _guidancePresented = result.GuidancePresented;
             _hasValidSnapshot = true;
             ApplyView();
             OriginFooter.Text = QueryFooter(result.QueryCount);
@@ -149,6 +159,11 @@ public partial class CentralDecisionModuleView : UserControl
                     _competence,
                     referenceDate,
                     failure.Value.OperatorMessage);
+                _projection = null;
+                _projectionPresented = null;
+                _attentionPresented = null;
+                _promotionPresented = null;
+                _guidancePresented = null;
                 ApplyView();
                 OriginFooter.Text = failure.Value.OperatorMessage;
             }
@@ -304,7 +319,7 @@ public partial class CentralDecisionModuleView : UserControl
                     _ => "notice",
                 },
             };
-            SimpleActNowHost.Children.Add(InventorySmartCardUi.Create(card, null));
+            SimpleActNowHost.Children.Add(InventorySmartCardUi.Create(card, CentralCardDetails_Click));
         }
     }
 
@@ -326,7 +341,7 @@ public partial class CentralDecisionModuleView : UserControl
                 UrgencyText = InventorySmartPresentation.AreaPreserve,
                 Tone = "positive",
             };
-            SimplePreserveHost.Children.Add(InventorySmartCardUi.Create(card, null));
+            SimplePreserveHost.Children.Add(InventorySmartCardUi.Create(card, CentralCardDetails_Click));
         }
     }
 
@@ -336,6 +351,44 @@ public partial class CentralDecisionModuleView : UserControl
         LimitationsSection.Visibility = _presented.Limitations.Count > 0
             ? Visibility.Visible
             : Visibility.Collapsed;
+    }
+
+    void ModuleScroll_PreviewMouseWheel(object sender, MouseWheelEventArgs e) =>
+        InventoryNestedWheelScroll.TryHandle(e, ModuleScroll, outer: null);
+
+    void CentralCardDetails_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is not Button btn)
+            return;
+        var id = btn.Tag is int n ? n
+            : int.TryParse(btn.Tag?.ToString(), out var parsed) ? parsed
+            : 0;
+        if (id <= 0)
+            return;
+
+        var detail = InventoryProjectionDetail.TryCreate(
+            _projection,
+            _projectionPresented,
+            id,
+            _attentionPresented,
+            commercial: null,
+            _promotionPresented,
+            _guidancePresented);
+        if (detail is null)
+        {
+            MessageBox.Show(
+                InventoryProjectionDetailUi.UnavailableDetailMessage,
+                CentralDecisionUi.ModuleTitle,
+                MessageBoxButton.OK,
+                MessageBoxImage.Information);
+            return;
+        }
+
+        var win = new InventoryProjectionDetailWindow(detail)
+        {
+            Owner = Window.GetWindow(this),
+        };
+        win.ShowDialog();
     }
 
     static string QueryFooter(int queryCount) =>

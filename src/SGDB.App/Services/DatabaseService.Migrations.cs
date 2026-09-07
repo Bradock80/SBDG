@@ -34,6 +34,7 @@ public static partial class DatabaseService
         EnsureAuditLogTable(conn);
         EnsureOpenTabsTables(conn);
         EnsureDepositAwaitsTable(conn);
+        EnsureInventoryComboCampaignsTable(conn);
     }
 
     private static void EnsureProductBarcodesTable(SqliteConnection conn)

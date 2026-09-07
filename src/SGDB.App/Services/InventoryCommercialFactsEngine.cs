@@ -94,6 +94,7 @@ public static class InventoryCommercialFactsEngine
                 || hasUnitSale
                 || input.IsCigaretteProduct
                 || input.IsCompositionProduct,
+            HasReturnableContainer = input.HasReturnableContainer,
             LimitationReasons = reasons,
         };
     }

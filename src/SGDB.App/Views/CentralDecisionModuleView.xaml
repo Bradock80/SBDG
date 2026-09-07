@@ -13,7 +13,8 @@
             <ScrollViewer x:Name="ModuleScroll"
                           VerticalScrollBarVisibility="Auto"
                           HorizontalScrollBarVisibility="Disabled"
-                          CanContentScroll="False">
+                          CanContentScroll="False"
+                          PreviewMouseWheel="ModuleScroll_PreviewMouseWheel">
                 <Grid x:Name="ContentRoot"
                       MinHeight="{Binding ActualHeight, ElementName=ModuleScroll}"
                       MinWidth="640">
@@ -242,6 +243,10 @@
                                                 <Run Text=" · Qualidade:"/>
                                                 <Run Text="{Binding CostQualityText}"/>
                                             </TextBlock>
+                                            <Button Content="{x:Static models:InventorySmartPresentation.DetailsButton}"
+                                                    Padding="10,4" Margin="0,10,0,0" HorizontalAlignment="Left"
+                                                    Tag="{Binding ProductId}"
+                                                    Click="CentralCardDetails_Click"/>
                                         </StackPanel>
                                     </Border>
                                 </DataTemplate>
@@ -280,6 +285,10 @@
                                                 <Run Text=" · "/>
                                                 <Run Text="{Binding CostQualityText}"/>
                                             </TextBlock>
+                                            <Button Content="{x:Static models:InventorySmartPresentation.DetailsButton}"
+                                                    Padding="10,4" Margin="0,8,0,0" HorizontalAlignment="Left"
+                                                    Tag="{Binding ProductId}"
+                                                    Click="CentralCardDetails_Click"/>
                                         </StackPanel>
                                     </Border>
                                 </DataTemplate>

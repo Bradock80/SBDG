@@ -178,6 +178,14 @@ public static class SaleExchangeService
                     ?? throw new SaleExchangeException($"Produto #{n.ProductId} não encontrado.");
                 if (!product.Active)
                     throw new SaleExchangeException($"Produto inativo: {product.Name}");
+                try
+                {
+                    InventoryComboLifecycleService.ThrowIfNotSellable(product, n.Qty);
+                }
+                catch (PdvException ex)
+                {
+                    throw new SaleExchangeException(ex.Message);
+                }
 
                 SaleExchangeResolvedNewLine resolved;
                 try
@@ -257,10 +265,12 @@ public static class SaleExchangeService
                         refId: exchangeId,
                         operation: "devolucao_troca");
                 }
+
+                InventoryComboLifecycleService.ApplySoldDelta(conn, tx, product.Id, -line.Qty);
             }
 
             // Estoque: novos (quantidade física = qty × StockUnitsPerSale)
-            foreach (var (product, _, _, _, _, stockQty, _, _) in newLines)
+            foreach (var (product, qty, _, _, _, stockQty, _, _) in newLines)
             {
                 foreach (var (comp, deduct) in ProductCompositionService.StockMovementsForSale(product, stockQty))
                 {
@@ -269,6 +279,8 @@ public static class SaleExchangeService
                         refType: "sale_exchange",
                         refId: exchangeId);
                 }
+
+                InventoryComboLifecycleService.ApplySoldDelta(conn, tx, product.Id, qty);
             }
 
             foreach (var line in returnLines)

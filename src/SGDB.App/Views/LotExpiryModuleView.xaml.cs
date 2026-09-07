@@ -99,6 +99,22 @@ public partial class LotExpiryModuleView : UserControl
 
     private void Grid_MouseDoubleClick(object sender, MouseButtonEventArgs e) => OpenProduct();
 
+    void Root_PreviewMouseWheel(object sender, MouseWheelEventArgs e)
+    {
+        if (InventoryNestedWheelScroll.IsInside(e.OriginalSource, SimpleCardsScroll, Grid))
+            return;
+        if (SimpleCardsScroll.Visibility == Visibility.Visible)
+            InventoryNestedWheelScroll.TryHandle(e, SimpleCardsScroll, outer: null);
+        else
+            InventoryNestedWheelScroll.TryHandleDataGrid(e, Grid, outer: null);
+    }
+
+    void SimpleCardsScroll_PreviewMouseWheel(object sender, MouseWheelEventArgs e) =>
+        InventoryNestedWheelScroll.TryHandle(e, SimpleCardsScroll, outer: null);
+
+    void Grid_PreviewMouseWheel(object sender, MouseWheelEventArgs e) =>
+        InventoryNestedWheelScroll.TryHandleDataGrid(e, Grid, outer: null);
+
     private void OpenProduct_Click(object sender, RoutedEventArgs e) => OpenProduct();
 
     private void OpenLots_Click(object sender, RoutedEventArgs e)

@@ -234,6 +234,56 @@ public static partial class DatabaseService
         ExecuteSql(conn, "CREATE INDEX IF NOT EXISTS idx_bank_movements_operator ON bank_movements(operator_name);");
     }
 
+    internal static void EnsureInventoryComboCampaignsTable(SqliteConnection conn)
+    {
+        ExecuteSql(conn, """
+            CREATE TABLE IF NOT EXISTS inventory_combo_campaigns (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                product_id INTEGER,
+                suggestion_key TEXT NOT NULL,
+                status TEXT NOT NULL DEFAULT 'suggested',
+                commercial_name TEXT NOT NULL DEFAULT '',
+                internal_code TEXT NOT NULL DEFAULT '',
+                target_product_id INTEGER NOT NULL DEFAULT 0,
+                anchor_product_id INTEGER NOT NULL DEFAULT 0,
+                target_name TEXT NOT NULL DEFAULT '',
+                anchor_name TEXT NOT NULL DEFAULT '',
+                target_qty REAL NOT NULL DEFAULT 1,
+                anchor_qty REAL NOT NULL DEFAULT 1,
+                price REAL NOT NULL DEFAULT 0,
+                cost REAL NOT NULL DEFAULT 0,
+                margin_percent REAL NOT NULL DEFAULT 0,
+                start_date TEXT NOT NULL DEFAULT '',
+                end_date TEXT NOT NULL DEFAULT '',
+                max_qty REAL NOT NULL DEFAULT 0,
+                sold_qty REAL NOT NULL DEFAULT 0,
+                origin TEXT NOT NULL DEFAULT 'Estoque Inteligente',
+                suggestion_json TEXT NOT NULL DEFAULT '{}',
+                reason TEXT NOT NULL DEFAULT '',
+                limitations TEXT NOT NULL DEFAULT '',
+                confidence TEXT NOT NULL DEFAULT '',
+                approved_by TEXT NOT NULL DEFAULT '',
+                approved_at TEXT,
+                rejected_by TEXT NOT NULL DEFAULT '',
+                rejected_at TEXT,
+                rejection_signature TEXT NOT NULL DEFAULT '',
+                created_at TEXT NOT NULL DEFAULT (datetime('now','localtime')),
+                updated_at TEXT NOT NULL DEFAULT (datetime('now','localtime')),
+                FOREIGN KEY (product_id) REFERENCES products(id)
+            );
+            """);
+        ExecuteSql(conn, "CREATE UNIQUE INDEX IF NOT EXISTS idx_combo_campaigns_suggestion_key ON inventory_combo_campaigns(suggestion_key);");
+        ExecuteSql(conn, "CREATE INDEX IF NOT EXISTS idx_combo_campaigns_product ON inventory_combo_campaigns(product_id);");
+        ExecuteSql(conn, "CREATE INDEX IF NOT EXISTS idx_combo_campaigns_status ON inventory_combo_campaigns(status);");
+        var columns = GetTableColumns(conn, "inventory_combo_campaigns");
+        AddColumnIfMissing(conn, "inventory_combo_campaigns", ref columns, "internal_code", "TEXT NOT NULL DEFAULT ''");
+        AddColumnIfMissing(conn, "inventory_combo_campaigns", ref columns, "limitations", "TEXT NOT NULL DEFAULT ''");
+        AddColumnIfMissing(conn, "inventory_combo_campaigns", ref columns, "confidence", "TEXT NOT NULL DEFAULT ''");
+        AddColumnIfMissing(conn, "inventory_combo_campaigns", ref columns, "rejection_signature", "TEXT NOT NULL DEFAULT ''");
+        AddColumnIfMissing(conn, "inventory_combo_campaigns", ref columns, "target_name", "TEXT NOT NULL DEFAULT ''");
+        AddColumnIfMissing(conn, "inventory_combo_campaigns", ref columns, "anchor_name", "TEXT NOT NULL DEFAULT ''");
+    }
+
     private static void EnsureVasilhameTables(SqliteConnection conn)
     {
         EnsureContainerTypesTable(conn);

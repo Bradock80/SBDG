@@ -154,17 +154,28 @@ public partial class InventoryPurchaseGuidanceModuleView : UserControl
 
     private void OpenProduct_Click(object sender, RoutedEventArgs e) => OpenProduct();
 
+    int? _detailProductId;
+
     private void OpenProjectionDetail_Click(object sender, RoutedEventArgs e) => OpenProjectionDetail();
 
     private void OpenProjectionDetail()
     {
         if (_clientBlocked)
             return;
-        if (Grid.SelectedItem is not InventoryPurchaseGuidanceGridRow row || row.ProductId <= 0)
+        var productId = _detailProductId
+            ?? (Grid.SelectedItem is InventoryPurchaseGuidanceGridRow row ? row.ProductId : 0);
+        if (productId <= 0)
+        {
+            MessageBox.Show(
+                InventoryProjectionDetailUi.UnavailableDetailMessage,
+                InventoryPurchaseGuidancePresentation.ModuleTitle,
+                MessageBoxButton.OK,
+                MessageBoxImage.Information);
             return;
+        }
 
         var detail = InventoryProjectionDetail.TryCreate(
-            _snapshot, _presented, row.ProductId, _attentionPresented, _commercialPresented,
+            _snapshot, _presented, productId, _attentionPresented, _commercialPresented,
             _promotionPresented, _guidancePresented);
         if (detail is null)
         {
@@ -317,6 +328,7 @@ public partial class InventoryPurchaseGuidanceModuleView : UserControl
         Grid.ItemsSource = null;
         Grid.Items.SortDescriptions.Clear();
         Grid.ItemsSource = rows;
+        RebuildCards();
         RebuildSimpleCards(rows);
 
         var empty = InventoryPurchaseGuidanceUi.EmptyStateMessage(
@@ -378,7 +390,8 @@ public partial class InventoryPurchaseGuidanceModuleView : UserControl
             Margin = new Thickness(0, 0, 8, 8),
             Padding = new Thickness(12, 8, 12, 8),
             Background = (Brush)new BrushConverter().ConvertFromString(bg)!,
-            BorderBrush = Brushes.Transparent,
+            BorderBrush = kind == _filter.Card ? Brushes.Black : Brushes.Transparent,
+            BorderThickness = new Thickness(kind == _filter.Card ? 2 : 1),
             Cursor = Cursors.Hand,
             MinWidth = 112,
             ToolTip = $"{title}: {count} produto(s)",
@@ -402,6 +415,18 @@ public partial class InventoryPurchaseGuidanceModuleView : UserControl
         CardsPanel.Children.Add(btn);
     }
 
+    void ContentRoot_PreviewMouseWheel(object sender, MouseWheelEventArgs e) =>
+        InventoryNestedWheelScroll.TryHandleOutside(e, ModuleScroll, SimpleCardsScroll, Grid, DetailScroll);
+
+    void SimpleCardsScroll_PreviewMouseWheel(object sender, MouseWheelEventArgs e) =>
+        InventoryNestedWheelScroll.TryHandle(e, SimpleCardsScroll, ModuleScroll);
+
+    void Grid_PreviewMouseWheel(object sender, MouseWheelEventArgs e) =>
+        InventoryNestedWheelScroll.TryHandleDataGrid(e, Grid, ModuleScroll);
+
+    void DetailScroll_PreviewMouseWheel(object sender, MouseWheelEventArgs e) =>
+        InventoryNestedWheelScroll.TryHandle(e, DetailScroll, ModuleScroll);
+
     void RebuildSimpleCards(IReadOnlyList<InventoryPurchaseGuidanceGridRow> rows)
     {
         SimpleCardsHost.Children.Clear();
@@ -410,28 +435,31 @@ public partial class InventoryPurchaseGuidanceModuleView : UserControl
 
         var smart = InventorySmartRecommendationComposer.FromGuidance(
             _guidance, _snapshot.Intelligence, _attention, _promotion, facts: _facts);
-        var allowed = new HashSet<InventorySmartPrincipalAction>
+        foreach (var row in rows)
         {
-            InventorySmartPrincipalAction.BuyNow,
-            InventorySmartPrincipalAction.BuySoon,
-            InventorySmartPrincipalAction.DoNotBuy,
-            InventorySmartPrincipalAction.SuspendPurchase,
-            InventorySmartPrincipalAction.ReviewData,
-        };
-        var shown = 0;
-        foreach (var rec in smart.Rows)
-        {
-            if (!allowed.Contains(rec.PrincipalAction))
-                continue;
-            if (!_filter.Search.Trim().Equals("", StringComparison.Ordinal)
-                && !rec.ProductName.Contains(_filter.Search, StringComparison.OrdinalIgnoreCase)
-                && !rec.ProductCode.Contains(_filter.Search, StringComparison.OrdinalIgnoreCase))
-                continue;
-            SimpleCardsHost.Children.Add(InventorySmartCardUi.Create(
-                InventorySmartPresentation.ToCard(rec), SimpleCardDetails_Click));
-            shown++;
-            if (shown >= 40)
-                break;
+            InventorySmartCard card;
+            if (smart.ByProductId.TryGetValue(row.ProductId, out var rec))
+            {
+                card = InventorySmartPresentation.ToCard(rec);
+            }
+            else
+            {
+                card = new InventorySmartCard
+                {
+                    ProductId = row.ProductId,
+                    ProductCode = row.Code,
+                    ProductName = row.Name,
+                    ProductTitle = string.IsNullOrWhiteSpace(row.Code)
+                        ? row.Name
+                        : $"{row.Code} — {row.Name}",
+                    ActionText = row.ActionLabel,
+                    ReasonText = row.PrimaryReasonLabel,
+                    UrgencyText = row.ConfidenceLabel,
+                    Tone = row.Tone,
+                };
+            }
+
+            SimpleCardsHost.Children.Add(InventorySmartCardUi.Create(card, SimpleCardDetails_Click));
         }
     }
 
@@ -439,14 +467,14 @@ public partial class InventoryPurchaseGuidanceModuleView : UserControl
     {
         if (sender is not Button { Tag: int id })
             return;
-        foreach (var item in Grid.Items)
+        _detailProductId = id;
+        try
         {
-            if (item is InventoryPurchaseGuidanceGridRow row && row.ProductId == id)
-            {
-                Grid.SelectedItem = row;
-                OpenProjectionDetail();
-                return;
-            }
+            OpenProjectionDetail();
+        }
+        finally
+        {
+            _detailProductId = null;
         }
     }
 }

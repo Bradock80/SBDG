@@ -112,6 +112,7 @@ public sealed class CommercialGoalActionPlanSources
     public InventoryPromotionSuggestionSnapshot? Promotion { get; init; }
     public InventoryPurchaseGuidanceSnapshot? Guidance { get; init; }
     public InventoryComboIntelligenceSnapshot? Combos { get; init; }
+    public InventoryProjectionSnapshot? Projection { get; init; }
     public int QueryCount { get; init; }
 }
 

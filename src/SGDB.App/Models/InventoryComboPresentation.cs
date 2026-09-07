@@ -65,6 +65,7 @@ public sealed class InventoryComboSuggestionPresentationRow
     public IReadOnlyList<string> LimitationsText { get; init; } = [];
     public IReadOnlyList<InventoryComboScenarioPresentation> Scenarios { get; init; } = [];
     public bool HasReferenceScenario { get; init; }
+    public string Signature { get; init; } = "";
 }
 
 /// <summary>
@@ -285,6 +286,13 @@ public static class InventoryComboPresentation
             LimitationsText = PresentLimitations(suggestion.Limitations),
             Scenarios = scenarios,
             HasReferenceScenario = reference is not null,
+            Signature = InventoryComboLifecycleRules.Signature(
+                suggestion.TargetProductId,
+                suggestion.AnchorProductId,
+                current?.PairPrice ?? suggestion.NormalPairPrice,
+                suggestion.PairCost,
+                suggestion.PairEvidence,
+                suggestion.MaxSafeQuantity),
         };
     }
 

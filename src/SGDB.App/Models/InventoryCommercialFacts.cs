@@ -59,6 +59,7 @@ public sealed class InventoryCommercialFactsInput
     public double WholesalePrice { get; init; }
     public double WholesaleMinimumQuantity { get; init; }
     public double UnitSalePrice { get; init; }
+    public bool HasReturnableContainer { get; init; }
 }
 
 /// <summary>
@@ -85,6 +86,7 @@ public sealed class InventoryCommercialFacts
     public bool HasUnitSalePricing { get; init; }
     public double? UnitSalePrice { get; init; }
     public bool HasSpecialPricingContext { get; init; }
+    public bool HasReturnableContainer { get; init; }
     public IReadOnlyList<InventoryCommercialFactsReason> LimitationReasons { get; init; } = [];
 }
 

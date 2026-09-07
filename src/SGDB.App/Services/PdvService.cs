@@ -52,6 +52,9 @@ public static class PdvService
         if (product is null)
             return null;
 
+        if (!InventoryComboLifecycleService.IsPdvSellable(product))
+            return null;
+
         return ToScanResult(product, t, cigaretteMode);
     }
 
@@ -68,6 +71,8 @@ public static class PdvService
         using var conn = DatabaseService.OpenConnection();
         var product = MatchExactBarcode(conn, t);
         if (product is null)
+            return null;
+        if (!InventoryComboLifecycleService.IsPdvSellable(product))
             return null;
         return ToScanResult(product, t, cigaretteMode);
     }
@@ -324,7 +329,9 @@ public static class PdvService
             """;
         cmd.Parameters.AddWithValue("$like", $"%{escaped.ToUpperInvariant()}%");
         cmd.Parameters.AddWithValue("$lim", limit);
-        return ReadProducts(cmd);
+        return ReadProducts(cmd)
+            .Where(p => InventoryComboLifecycleService.IsPdvSellable(p))
+            .ToList();
     }
 
     /// <summary>
@@ -344,6 +351,7 @@ public static class PdvService
                 ?? throw new PdvException($"Produto #{item.ProductId} não encontrado.");
             if (!product.Active)
                 throw new PdvException($"Produto inativo: {product.Name}");
+            InventoryComboLifecycleService.ThrowIfNotSellable(product, item.Quantity);
 
             var unitPrice = item.UnitPrice > 0 ? item.UnitPrice : product.SalePrice;
             ThrowIfQuantityBlocked(item, product, unitPrice);
@@ -393,6 +401,7 @@ public static class PdvService
                 throw new PdvException($"Produto #{item.ProductId} não encontrado.");
             if (!product.Active)
                 throw new PdvException($"Produto inativo: {product.Name}");
+            InventoryComboLifecycleService.ThrowIfNotSellable(product, item.Quantity);
 
             var unitPrice = item.UnitPrice > 0 ? item.UnitPrice : product.SalePrice;
             if (unitPrice < 0)
@@ -492,6 +501,8 @@ public static class PdvService
                     notes: $"Venda Pedido #{saleId}",
                     refType: "sale", refId: saleId);
             }
+
+            InventoryComboLifecycleService.ApplySoldDelta(conn, tx, product.Id, qty);
         }
 
         TestAfterInsertSaleItems?.Invoke();
@@ -597,6 +608,8 @@ public static class PdvService
                     notes: $"Cancelamento Pedido #{saleId}",
                     refType: "sale_cancel", refId: saleId);
             }
+
+            InventoryComboLifecycleService.ApplySoldDelta(conn, tx, product.Id, -item.Quantity);
         }
 
         CashService.DeleteSaleMovements(conn, tx, saleId);
@@ -699,6 +712,8 @@ public static class PdvService
                     notes: $"Troca item Pedido #{saleId} (devolução)",
                     refType: "sale_edit", refId: saleId);
             }
+
+            InventoryComboLifecycleService.ApplySoldDelta(conn, tx, plan.OldProduct.Id, -plan.OldQty);
         }
 
         // Baixa estoque do novo (após devolução, se for o mesmo produto o estoque já inclui o que voltou)
@@ -712,6 +727,9 @@ public static class PdvService
                 notes: $"Troca item Pedido #{saleId} (nova baixa)",
                 refType: "sale_edit", refId: saleId);
         }
+
+        InventoryComboLifecycleService.ThrowIfNotSellable(stockOk, plan.Qty);
+        InventoryComboLifecycleService.ApplySoldDelta(conn, tx, stockOk.Id, plan.Qty);
 
         var swapCostAtSale = SaleCostSnapshotRules.ComputeForProduct(
             plan.NewProduct, plan.Qty, plan.NewStockQty);

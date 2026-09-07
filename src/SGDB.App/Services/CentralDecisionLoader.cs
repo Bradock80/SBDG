@@ -54,10 +54,35 @@ public static class CentralDecisionLoader
         var plan = CommercialGoalActionPlanComposer.Compose(goal, sources);
         var decision = CentralDecisionComposer.Compose(goal, plan, contribution, sources);
         var presentation = CentralDecisionPresentation.Apply(decision);
+        InventoryProjectionPresentationSnapshot? projectionPresented = null;
+        InventoryAttentionPresentationSnapshot? attentionPresented = null;
+        InventoryPromotionSuggestionPresentationSnapshot? promotionPresented = null;
+        InventoryPurchaseGuidancePresentationSnapshot? guidancePresented = null;
+        var projection = sources?.Projection;
+        if (projection is not null)
+        {
+            projectionPresented = InventoryProjectionPresentation.Apply(projection);
+            if (sources?.Attention is not null)
+                attentionPresented = InventoryAttentionPresentation.Apply(sources.Attention, projectionPresented);
+            if (sources?.Promotion is not null)
+                promotionPresented = InventoryPromotionSuggestionPresentation.Apply(sources.Promotion);
+            if (sources?.Guidance is not null)
+            {
+                guidancePresented = InventoryPurchaseGuidancePresentation.Apply(
+                    sources.Guidance, projection.Intelligence, projection);
+            }
+        }
+
         return new CentralDecisionLoadResult
         {
             Decision = decision,
             Presentation = presentation,
+            Sources = sources,
+            Projection = projection,
+            ProjectionPresented = projectionPresented,
+            AttentionPresented = attentionPresented,
+            PromotionPresented = promotionPresented,
+            GuidancePresented = guidancePresented,
         };
     }
 }

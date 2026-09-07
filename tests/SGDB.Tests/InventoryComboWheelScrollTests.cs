@@ -88,18 +88,18 @@ public class InventoryComboWheelScrollTests
     }
 
     [Fact]
-    public void Preview_so_no_painel_direito()
+    public void Preview_rota_inner_depois_outer_sem_ModuleScroll()
     {
         var xaml = ReadSource("src", "SGDB.App", "Views", "InventoryComboIntelligenceModuleView.xaml");
         var cs = ReadSource("src", "SGDB.App", "Views", "InventoryComboIntelligenceModuleView.xaml.cs");
         Assert.Contains("x:Name=\"DetailScroll\"", xaml, StringComparison.Ordinal);
         Assert.Contains("PreviewMouseWheel=\"DetailScroll_PreviewMouseWheel\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("PreviewMouseWheel=\"Grid_PreviewMouseWheel\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("PreviewMouseWheel=\"SimpleCardsScroll_PreviewMouseWheel\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("PreviewMouseWheel=\"ContentRoot_PreviewMouseWheel\"", xaml, StringComparison.Ordinal);
         Assert.DoesNotContain("PreviewMouseWheel=\"ModuleScroll", xaml, StringComparison.Ordinal);
-        var gridBlock = xaml[xaml.IndexOf("x:Name=\"Grid\"", StringComparison.Ordinal)..xaml.IndexOf("x:Name=\"EmptyOverlay\"", StringComparison.Ordinal)];
-        Assert.DoesNotContain("PreviewMouseWheel", gridBlock, StringComparison.Ordinal);
-        Assert.Contains("Keyboard.Modifiers == ModifierKeys.Shift", cs, StringComparison.Ordinal);
-        Assert.Contains("e.Handled = true", MethodBody(cs, "private void DetailScroll_PreviewMouseWheel"), StringComparison.Ordinal);
-        Assert.Contains("if (!route.Handled)", MethodBody(cs, "private void DetailScroll_PreviewMouseWheel"), StringComparison.Ordinal);
+        Assert.Contains("Keyboard.Modifiers == ModifierKeys.Shift", ReadSource("src", "SGDB.App", "Views", "InventoryNestedWheelScroll.cs"), StringComparison.Ordinal);
+        Assert.Contains("InventoryNestedWheelScroll.TryHandle", MethodBody(cs, "private void DetailScroll_PreviewMouseWheel"), StringComparison.Ordinal);
     }
 
     static string MethodBody(string source, string signature)

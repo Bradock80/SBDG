@@ -57,6 +57,7 @@ public static class CommercialGoalActionPlanSourceLoader
             Promotion = promotion,
             Guidance = guidance,
             Combos = combos,
+            Projection = projection,
             QueryCount = combos.QueryCount,
         };
     }

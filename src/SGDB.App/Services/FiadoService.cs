@@ -574,6 +574,8 @@ public static class FiadoService
                     refType: "fiado", refId: saleId,
                     operation: "estorno_fiado");
             }
+
+            InventoryComboLifecycleService.ApplySoldDelta(conn, tx, item.ProductId, -item.Quantity);
         }
     }
 

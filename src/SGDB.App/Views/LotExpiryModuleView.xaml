@@ -4,7 +4,8 @@
              xmlns:models="clr-namespace:SGDB.Models"
              Background="{StaticResource SgdbBgBrush}"
              Focusable="True"
-             PreviewKeyDown="Root_PreviewKeyDown">
+             PreviewKeyDown="Root_PreviewKeyDown"
+             PreviewMouseWheel="Root_PreviewMouseWheel">
     <Border BorderBrush="#C8C4BC" BorderThickness="1" Background="White">
         <Grid>
             <Grid.RowDefinitions>
@@ -74,7 +75,8 @@
 
             <Grid Grid.Row="4" Margin="10">
                 <ScrollViewer x:Name="SimpleCardsScroll" Visibility="Collapsed"
-                              VerticalScrollBarVisibility="Auto">
+                              VerticalScrollBarVisibility="Auto"
+                              PreviewMouseWheel="SimpleCardsScroll_PreviewMouseWheel">
                     <StackPanel x:Name="SimpleCardsHost"/>
                 </ScrollViewer>
                 <DataGrid x:Name="Grid"
@@ -86,7 +88,8 @@
                       RowHeaderWidth="0" RowHeight="32" FontSize="12.5"
                       AlternatingRowBackground="#F8FAFC"
                       MouseDoubleClick="Grid_MouseDoubleClick"
-                      SelectionChanged="Grid_SelectionChanged">
+                      SelectionChanged="Grid_SelectionChanged"
+                      PreviewMouseWheel="Grid_PreviewMouseWheel">
                 <DataGrid.Columns>
                     <DataGridTextColumn Header="Produto" Binding="{Binding ProductName}" Width="*"/>
                     <DataGridTextColumn Header="Código" Binding="{Binding ProductCode}" Width="80"/>

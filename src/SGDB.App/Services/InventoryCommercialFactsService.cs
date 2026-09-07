@@ -108,6 +108,7 @@ public static class InventoryCommercialFactsService
                 WholesalePrice = extra.PrecoAtacado,
                 WholesaleMinimumQuantity = extra.QtdAtacado,
                 UnitSalePrice = extra.PrecoAvulso,
+                HasReturnableContainer = extra.VasilhameTipoId is > 0,
             };
         }
 

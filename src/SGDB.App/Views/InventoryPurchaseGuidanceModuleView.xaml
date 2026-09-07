@@ -11,8 +11,9 @@
                           VerticalScrollBarVisibility="Auto"
                           HorizontalScrollBarVisibility="Disabled"
                           CanContentScroll="False">
-            <Grid x:Name="ContentRoot"
-                  MinHeight="{Binding ActualHeight, ElementName=ModuleScroll}">
+                <Grid x:Name="ContentRoot"
+                      MinHeight="{Binding ActualHeight, ElementName=ModuleScroll}"
+                      PreviewMouseWheel="ContentRoot_PreviewMouseWheel">
                 <Grid.RowDefinitions>
                     <RowDefinition Height="Auto"/>
                     <RowDefinition Height="Auto"/>
@@ -70,7 +71,8 @@
 
                 <Grid Grid.Row="4" Margin="10">
                     <ScrollViewer x:Name="SimpleCardsScroll" Visibility="Collapsed"
-                                  VerticalScrollBarVisibility="Auto">
+                                  VerticalScrollBarVisibility="Auto"
+                                  PreviewMouseWheel="SimpleCardsScroll_PreviewMouseWheel">
                         <StackPanel x:Name="SimpleCardsHost"/>
                     </ScrollViewer>
                     <DataGrid x:Name="Grid"
@@ -87,7 +89,8 @@
                               VirtualizingPanel.VirtualizationMode="Recycling"
                               VirtualizingPanel.ScrollUnit="Pixel"
                               MouseDoubleClick="Grid_MouseDoubleClick"
-                              SelectionChanged="Grid_SelectionChanged">
+                              SelectionChanged="Grid_SelectionChanged"
+                              PreviewMouseWheel="Grid_PreviewMouseWheel">
                         <DataGrid.Columns>
                             <DataGridTextColumn Header="Produto" Binding="{Binding Name}" Width="*" MinWidth="180">
                                 <DataGridTextColumn.ElementStyle>
@@ -226,7 +229,8 @@
 
                 <Border Grid.Row="5" Padding="12,8" Background="#F8FAFC" BorderBrush="#C8C4BC"
                         BorderThickness="0,1,0,0">
-                    <ScrollViewer VerticalScrollBarVisibility="Auto" MaxHeight="140">
+                    <ScrollViewer x:Name="DetailScroll" VerticalScrollBarVisibility="Auto" MaxHeight="140"
+                                  PreviewMouseWheel="DetailScroll_PreviewMouseWheel">
                         <StackPanel>
                             <TextBlock x:Name="DetailText" FontSize="11" Foreground="#475569" TextWrapping="Wrap"
                                        Text="{x:Static models:InventoryPurchaseGuidanceUi.SelectRowHint}"/>

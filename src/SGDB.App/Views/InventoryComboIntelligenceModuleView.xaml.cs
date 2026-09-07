@@ -13,6 +13,7 @@ public partial class InventoryComboIntelligenceModuleView : UserControl
 
     InventoryComboPresentationSnapshot _presented = new();
     readonly InventoryComboUiFilter _filter = new();
+    InventoryComboLifecycleStatus? _lifecycleTab;
     string? _loadError;
     bool _hasValidSnapshot;
     bool _ready;
@@ -144,31 +145,237 @@ public partial class InventoryComboIntelligenceModuleView : UserControl
 
     private void Grid_MouseDoubleClick(object sender, MouseButtonEventArgs e) => UpdateDetail();
 
+    void ContentRoot_PreviewMouseWheel(object sender, MouseWheelEventArgs e) =>
+        InventoryNestedWheelScroll.TryHandleOutside(
+            e, ModuleScroll, SimpleCardsScroll, Grid, DetailScroll, CampaignScroll);
+
     /// <summary>
-    /// Roda sobre o painel direito: o ScrollViewer interno costuma marcar Handled
-    /// sem mover (aninhado em ModuleScroll). Encaminha o delta ao viewer com espaço.
-    /// O DataGrid esquerdo não entra nesta rota — o Preview é só do DetailScroll.
+    /// Roda sobre painéis aninhados: o viewer interno costuma marcar Handled sem mover.
+    /// Encaminha o delta ao viewer com espaço. ComboBox aberto não entra nesta rota.
     /// </summary>
     private void DetailScroll_PreviewMouseWheel(object sender, MouseWheelEventArgs e)
     {
-        if (e.Handled || Keyboard.Modifiers == ModifierKeys.Shift)
+        InventoryNestedWheelScroll.TryHandle(e, DetailScroll, ModuleScroll);
+    }
+
+    private void SimpleCardsScroll_PreviewMouseWheel(object sender, MouseWheelEventArgs e) =>
+        InventoryNestedWheelScroll.TryHandle(e, SimpleCardsScroll, ModuleScroll);
+
+    private void Grid_PreviewMouseWheel(object sender, MouseWheelEventArgs e) =>
+        InventoryNestedWheelScroll.TryHandleDataGrid(e, Grid, ModuleScroll);
+
+    void CampaignScroll_PreviewMouseWheel(object sender, MouseWheelEventArgs e) =>
+        InventoryNestedWheelScroll.TryHandle(e, CampaignScroll, ModuleScroll);
+
+    void ApproveCombo_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is not Button { Tag: InventoryComboSuggestionPresentationRow row })
             return;
+        try
+        {
+            var draft = InventoryComboApprovalService.ReloadDraft(row.TargetProductId, row.AnchorProductId);
+            var win = new InventoryComboApprovalWindow(draft) { Owner = Window.GetWindow(this) };
+            if (win.ShowDialog() == true)
+                Load();
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show(ex.Message, InventoryComboIntelligenceUi.ModuleTitle,
+                MessageBoxButton.OK, MessageBoxImage.Warning);
+        }
+    }
 
-        var route = InventoryComboWheelScroll.Route(
-            DetailScroll.VerticalOffset,
-            DetailScroll.ScrollableHeight,
-            ModuleScroll.VerticalOffset,
-            ModuleScroll.ScrollableHeight,
-            e.Delta);
-        if (!route.Handled)
+    void SuggestionDetails_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is Button { Tag: InventoryComboSuggestionPresentationRow row })
+            DetailContext.Text = $"{row.AnchorTitle}\n{row.EvidenceDetailText}\n{row.FloorExplanation}";
+    }
+
+    void RejectSuggestion_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is not Button { Tag: InventoryComboSuggestionPresentationRow row })
             return;
+        var key = InventoryComboLifecycleRules.SuggestionKey(row.TargetProductId, row.AnchorProductId);
+        var result = InventoryComboLifecycleService.Reject(key, row.Signature, "Descartado na tela de Combos");
+        if (!result.Ok)
+        {
+            MessageBox.Show(result.Error, InventoryComboIntelligenceUi.ModuleTitle,
+                MessageBoxButton.OK, MessageBoxImage.Warning);
+            return;
+        }
 
-        if (route.MoveInner)
-            DetailScroll.ScrollToVerticalOffset(route.InnerOffset);
-        else if (route.MoveOuter)
-            ModuleScroll.ScrollToVerticalOffset(route.OuterOffset);
+        Load();
+    }
 
-        e.Handled = true;
+    void RebuildLifecycleTabs()
+    {
+        LifecycleTabs.Children.Clear();
+        AddLifecycleTab(InventoryComboLifecycleUi.SuggestionsTab, null);
+        AddLifecycleTab(InventoryComboLifecycleUi.ActiveTab, InventoryComboLifecycleStatus.Active);
+        AddLifecycleTab(InventoryComboLifecycleUi.PausedTab, InventoryComboLifecycleStatus.Paused);
+        AddLifecycleTab(InventoryComboLifecycleUi.FinishedTab, InventoryComboLifecycleStatus.Finished);
+        AddLifecycleTab(InventoryComboLifecycleUi.ExpiredTab, InventoryComboLifecycleStatus.Expired);
+        AddLifecycleTab(InventoryComboLifecycleUi.RejectedTab, InventoryComboLifecycleStatus.Rejected);
+    }
+
+    void AddLifecycleTab(string title, InventoryComboLifecycleStatus? status)
+    {
+        var selected = _lifecycleTab == status;
+        var btn = new Button
+        {
+            Content = title,
+            Tag = status as object ?? "",
+            Margin = new Thickness(0, 0, 8, 4),
+            Padding = new Thickness(12, 6, 12, 6),
+            BorderBrush = selected ? Brushes.Black : Brushes.Transparent,
+            BorderThickness = new Thickness(selected ? 2 : 1),
+            Cursor = Cursors.Hand,
+        };
+        btn.Click += (_, _) =>
+        {
+            _lifecycleTab = status;
+            ApplyView();
+        };
+        LifecycleTabs.Children.Add(btn);
+    }
+
+    void RebuildCampaignCards()
+    {
+        CampaignHost.Children.Clear();
+        if (_lifecycleTab is not InventoryComboLifecycleStatus status)
+            return;
+        foreach (var campaign in InventoryComboLifecycleService.ListByStatus(status))
+        {
+            var possible = InventoryComboLifecycleService.PossibleStock(campaign);
+            var remaining = campaign.MaxQty > 0
+                ? Math.Min(campaign.RemainingQty, possible)
+                : possible;
+            var box = new StackPanel { Margin = new Thickness(0, 0, 0, 10) };
+            box.Children.Add(new TextBlock
+            {
+                Text = campaign.CommercialName,
+                FontWeight = FontWeights.SemiBold,
+                FontSize = 13,
+                TextWrapping = TextWrapping.Wrap,
+            });
+            box.Children.Add(new TextBlock
+            {
+                Text =
+                    $"{campaign.TargetName} ({campaign.TargetQty:0.##}) + {campaign.AnchorName} ({campaign.AnchorQty:0.##})\n" +
+                    $"Preço {campaign.Price:N2} · margem aprovada {campaign.MarginPercent:0.#}% · " +
+                    $"estoque possível {possible:0.##} · máximo {campaign.MaxQty:0.##} · " +
+                    $"vendidos {campaign.SoldQty:0.##} · saldo {remaining:0.##}\n" +
+                    $"{campaign.StartDate:dd/MM/yyyy}–{campaign.EndDate:dd/MM/yyyy} · " +
+                    InventoryComboLifecycleRules.StatusLabel(campaign.EffectiveStatus),
+                FontSize = 12,
+                Foreground = (Brush)new BrushConverter().ConvertFromString("#475569")!,
+                TextWrapping = TextWrapping.Wrap,
+                Margin = new Thickness(0, 4, 0, 6),
+            });
+            var actions = new WrapPanel();
+            if (status == InventoryComboLifecycleStatus.Active)
+            {
+                actions.Children.Add(CampaignButton("Pausar", () => ApplyResult(InventoryComboLifecycleService.Pause(campaign.Id))));
+                actions.Children.Add(CampaignButton("Encerrar", () => ApplyResult(InventoryComboLifecycleService.Finish(campaign.Id))));
+            }
+            if (status == InventoryComboLifecycleStatus.Paused)
+            {
+                actions.Children.Add(CampaignButton("Reativar", () => ApplyResult(InventoryComboLifecycleService.Reactivate(campaign.Id))));
+                actions.Children.Add(CampaignButton("Encerrar", () => ApplyResult(InventoryComboLifecycleService.Finish(campaign.Id))));
+            }
+            actions.Children.Add(CampaignButton("Alterar data final", () => ChangeEndDate(campaign)));
+            actions.Children.Add(CampaignButton("Consultar vendas", () => ShowSales(campaign)));
+            actions.Children.Add(CampaignButton("Histórico", () => ShowHistory(campaign)));
+            box.Children.Add(actions);
+            CampaignHost.Children.Add(new Border
+            {
+                BorderBrush = (Brush)new BrushConverter().ConvertFromString("#E2E8F0")!,
+                BorderThickness = new Thickness(1),
+                Padding = new Thickness(12, 10, 12, 10),
+                Margin = new Thickness(0, 0, 0, 8),
+                Child = box,
+            });
+        }
+    }
+
+    void ChangeEndDate(InventoryComboCampaign campaign)
+    {
+        var win = new Window
+        {
+            Title = "Alterar data final",
+            Width = 320,
+            Height = 160,
+            WindowStartupLocation = WindowStartupLocation.CenterOwner,
+            Owner = Window.GetWindow(this),
+            ResizeMode = ResizeMode.NoResize,
+        };
+        var box = new TextBox
+        {
+            Margin = new Thickness(16),
+            Text = campaign.EndDate.ToString("dd/MM/yyyy"),
+            Height = 32,
+            VerticalContentAlignment = VerticalAlignment.Center,
+        };
+        var ok = new Button { Content = "Confirmar", Width = 100, Height = 32, Margin = new Thickness(0, 0, 8, 0) };
+        ok.Click += (_, _) =>
+        {
+            if (!DateOnly.TryParse(box.Text, out var end)
+                && !DateOnly.TryParseExact(box.Text, "dd/MM/yyyy", System.Globalization.CultureInfo.GetCultureInfo("pt-BR"),
+                    System.Globalization.DateTimeStyles.None, out end))
+            {
+                MessageBox.Show("Informe a data no formato dd/MM/aaaa.", win.Title, MessageBoxButton.OK, MessageBoxImage.Information);
+                return;
+            }
+
+            win.Tag = end;
+            win.DialogResult = true;
+        };
+        var cancel = new Button { Content = "Cancelar", Width = 100, Height = 32 };
+        cancel.Click += (_, _) => win.DialogResult = false;
+        var buttons = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Right, Margin = new Thickness(16, 0, 16, 16) };
+        buttons.Children.Add(ok);
+        buttons.Children.Add(cancel);
+        var root = new StackPanel();
+        root.Children.Add(box);
+        root.Children.Add(buttons);
+        win.Content = root;
+        if (win.ShowDialog() == true && win.Tag is DateOnly endDate)
+            ApplyResult(InventoryComboLifecycleService.ChangeEndDate(campaign.Id, endDate));
+    }
+
+    void ShowSales(InventoryComboCampaign campaign)
+    {
+        var summary = InventoryComboLifecycleService.SalesSummary(campaign.ProductId ?? 0);
+        MessageBox.Show(summary, campaign.CommercialName, MessageBoxButton.OK, MessageBoxImage.Information);
+    }
+
+    void ShowHistory(InventoryComboCampaign campaign)
+    {
+        MessageBox.Show(
+            $"Origem: {campaign.Origin}\nAprovador: {campaign.ApprovedBy}\nAprovado em: {campaign.ApprovedAt}\n" +
+            $"Motivo: {campaign.Reason}\nConfiança: {campaign.Confidence}\n{campaign.Limitations}",
+            "Histórico do combo",
+            MessageBoxButton.OK,
+            MessageBoxImage.Information);
+    }
+
+    Button CampaignButton(string title, Action action)
+    {
+        var btn = new Button { Content = title, Margin = new Thickness(0, 0, 8, 4), Padding = new Thickness(10, 4, 10, 4) };
+        btn.Click += (_, _) => action();
+        return btn;
+    }
+
+    void ApplyResult(InventoryComboApprovalResult result)
+    {
+        if (!result.Ok)
+        {
+            MessageBox.Show(result.Error, InventoryComboIntelligenceUi.ModuleTitle,
+                MessageBoxButton.OK, MessageBoxImage.Warning);
+            return;
+        }
+
+        Load();
     }
 
     private void Load()
@@ -194,9 +401,11 @@ public partial class InventoryComboIntelligenceModuleView : UserControl
         {
             Cursor = Cursors.Wait;
             var presented = InventoryComboIntelligenceLoader.Load();
-            _presented = presented;
+            _presented = InventoryComboLifecycleService.OverlaySuggestions(presented);
+            InventoryComboLifecycleService.ReviewUnsafeMargins();
             _hasValidSnapshot = true;
             _loadError = null;
+            RebuildLifecycleTabs();
             RebuildCards();
             ApplyView();
         }
@@ -251,6 +460,19 @@ public partial class InventoryComboIntelligenceModuleView : UserControl
 
     private void ApplyView()
     {
+        RebuildLifecycleTabs();
+        var campaignMode = _lifecycleTab is not null;
+        CampaignScroll.Visibility = campaignMode ? Visibility.Visible : Visibility.Collapsed;
+        if (campaignMode)
+        {
+            Grid.Visibility = Visibility.Collapsed;
+            SimpleCardsScroll.Visibility = Visibility.Collapsed;
+            RebuildCampaignCards();
+            ShowEmpty(CampaignHost.Children.Count == 0 ? "Nenhum combo neste estado." : "");
+            MetaText.Text = $"{CampaignHost.Children.Count} combo(s).";
+            return;
+        }
+
         var rows = InventoryComboIntelligenceUi.Apply(_presented, _filter);
         var simple = InventorySmartViewPreference.Current == InventorySmartViewMode.Simple;
         Grid.Visibility = simple ? Visibility.Collapsed : Visibility.Visible;
@@ -464,8 +686,7 @@ public partial class InventoryComboIntelligenceModuleView : UserControl
 }
 
 /// <summary>
-/// Roteamento puro da roda no painel de sugestões. Delta WPF: positivo = para cima.
-/// Sem query, ranking ou regra B1–B6.
+/// Compatibilidade 71A-B8F. Delega ao helper compartilhado testável.
 /// </summary>
 public static class InventoryComboWheelScroll
 {
@@ -474,39 +695,17 @@ public static class InventoryComboWheelScroll
         double innerScrollable,
         double outerOffset,
         double outerScrollable,
-        int delta)
-    {
-        if (TryApplyVertical(innerOffset, innerScrollable, delta, out var innerNext))
-            return new InventoryComboWheelRoute(true, true, false, innerNext, outerOffset);
-        if (TryApplyVertical(outerOffset, outerScrollable, delta, out var outerNext))
-            return new InventoryComboWheelRoute(true, false, true, innerOffset, outerNext);
-        return new InventoryComboWheelRoute(false, false, false, innerOffset, outerOffset);
-    }
+        int delta) =>
+        InventoryNestedWheelScroll.Route(
+            innerOffset, innerScrollable, outerOffset, outerScrollable, delta);
 
     public static bool TryApplyVertical(
         double verticalOffset,
         double scrollableHeight,
         int delta,
-        out double nextOffset)
-    {
-        nextOffset = verticalOffset;
-        if (delta == 0 || scrollableHeight <= 0 || !IsFinite(verticalOffset) || !IsFinite(scrollableHeight))
-            return false;
-
-        var candidate = verticalOffset - delta;
-        if (candidate < 0)
-            candidate = 0;
-        else if (candidate > scrollableHeight)
-            candidate = scrollableHeight;
-
-        if (candidate == verticalOffset)
-            return false;
-
-        nextOffset = candidate;
-        return true;
-    }
-
-    static bool IsFinite(double value) => !double.IsNaN(value) && !double.IsInfinity(value);
+        out double nextOffset) =>
+        InventoryNestedWheelScroll.TryApplyVertical(
+            verticalOffset, scrollableHeight, delta, out nextOffset);
 }
 
 public readonly struct InventoryComboWheelRoute

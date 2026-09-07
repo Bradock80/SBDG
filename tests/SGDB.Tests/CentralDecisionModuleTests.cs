@@ -59,6 +59,18 @@ public class CentralDecisionModuleTests
     }
 
     [Fact]
+    public void Ver_detalhes_usa_snapshot_ja_carregado()
+    {
+        var cs = ReadViewCs();
+        Assert.Contains("CentralCardDetails_Click", cs, StringComparison.Ordinal);
+        Assert.Contains("InventoryProjectionDetail.TryCreate", cs, StringComparison.Ordinal);
+        Assert.DoesNotContain("Create(card, null)", cs, StringComparison.Ordinal);
+        Assert.DoesNotContain("InventoryProjectionService.Load", cs, StringComparison.Ordinal);
+        var click = MethodBody(cs, "void CentralCardDetails_Click");
+        Assert.DoesNotContain("CentralDecisionLoader.Load", click, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void View_sem_promocao_sem_segundo_loader()
     {
         var cs = ReadViewCs();
@@ -75,8 +87,8 @@ public class CentralDecisionModuleTests
         Assert.DoesNotContain("CommercialGoalLoader", cs, StringComparison.Ordinal);
         Assert.DoesNotContain("DataGrid", xaml, StringComparison.Ordinal);
         Assert.DoesNotContain("DataGrid", cs, StringComparison.Ordinal);
-        Assert.DoesNotContain("<Button", Section(xaml, "ActNowSection", "PreserveSection"), StringComparison.Ordinal);
-        Assert.DoesNotContain("<Button", Section(xaml, "PreserveSection", "LimitationsSection"), StringComparison.Ordinal);
+        Assert.Contains("CentralCardDetails_Click", Section(xaml, "ActNowSection", "PreserveSection"), StringComparison.Ordinal);
+        Assert.Contains("CentralCardDetails_Click", Section(xaml, "PreserveSection", "LimitationsSection"), StringComparison.Ordinal);
     }
 
     [Fact]

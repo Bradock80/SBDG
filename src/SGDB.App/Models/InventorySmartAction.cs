@@ -71,6 +71,7 @@ public enum InventoryComboRejectionReason
     NotSellable,
     InactiveOrUnsellable,
     CommerciallyIncompatible,
+    ReturnableUnsupported,
 }
 
 /// <summary>

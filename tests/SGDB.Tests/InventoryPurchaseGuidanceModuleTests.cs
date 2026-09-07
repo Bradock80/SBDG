@@ -443,6 +443,21 @@ public class InventoryPurchaseGuidanceModuleTests
     }
 
     [Fact]
+    public void Visao_simples_usa_as_mesmas_linhas_filtradas_do_card()
+    {
+        var cs = ReadViewCs();
+        var rebuild = MethodBody(cs, "void RebuildSimpleCards");
+        Assert.Contains("foreach (var row in rows)", rebuild, StringComparison.Ordinal);
+        Assert.DoesNotContain("allowed", rebuild, StringComparison.Ordinal);
+        Assert.DoesNotContain("shown >= 40", rebuild, StringComparison.Ordinal);
+        var apply = MethodBody(cs, "private void ApplyView()");
+        Assert.Contains("RebuildCards()", apply, StringComparison.Ordinal);
+        Assert.Contains("kind == _filter.Card", cs, StringComparison.Ordinal);
+        Assert.Contains("ClearFilters_Click", cs, StringComparison.Ordinal);
+        Assert.Contains("_filter.Card = InventoryPurchaseGuidanceCardKind.All", cs, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void Sem_filtro_de_grupo()
     {
         var xaml = ReadViewXaml();

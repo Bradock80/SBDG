@@ -101,6 +101,12 @@ public sealed class ProductExtra
     [JsonPropertyName("barcode_embalagem")]
     public string? BarcodeEmbalagem { get; set; }
 
+    [JsonPropertyName("combo_origem")]
+    public string? ComboOrigem { get; set; }
+
+    [JsonPropertyName("combo_suggestion_key")]
+    public string? ComboSuggestionKey { get; set; }
+
     public static ProductExtra Parse(string? json)
     {
         if (string.IsNullOrWhiteSpace(json))

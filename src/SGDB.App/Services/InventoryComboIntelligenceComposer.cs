@@ -196,6 +196,13 @@ public static class InventoryComboIntelligenceComposer
                     continue;
                 }
 
+                if (target.Facts?.HasReturnableContainer == true
+                    || anchor.Facts?.HasReturnableContainer == true)
+                {
+                    rejections.Add(InventoryComboRejectionReason.ReturnableUnsupported);
+                    continue;
+                }
+
                 if (!pairMap.TryGetValue((target.ProductId, anchorId), out var evidence))
                 {
                     rejections.Add(InventoryComboRejectionReason.NoCommercialRelation);

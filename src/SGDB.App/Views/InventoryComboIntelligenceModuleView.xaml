@@ -16,8 +16,10 @@
                           CanContentScroll="False">
                 <Grid x:Name="ContentRoot"
                       MinHeight="{Binding ActualHeight, ElementName=ModuleScroll}"
-                      MinWidth="640">
+                      MinWidth="640"
+                      PreviewMouseWheel="ContentRoot_PreviewMouseWheel">
                     <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
                         <RowDefinition Height="Auto"/>
                         <RowDefinition Height="Auto"/>
                         <RowDefinition Height="Auto"/>
@@ -41,9 +43,11 @@
                         </Grid>
                     </Border>
 
-                    <WrapPanel x:Name="CardsPanel" Grid.Row="1" Margin="10,8,10,4"/>
+                    <WrapPanel x:Name="LifecycleTabs" Grid.Row="1" Margin="10,8,10,0"/>
 
-                    <Border Grid.Row="2" Padding="12,8" Background="#F8FAFC" BorderBrush="#E2E8F0"
+                    <WrapPanel x:Name="CardsPanel" Grid.Row="2" Margin="10,8,10,4"/>
+
+                    <Border Grid.Row="3" Padding="12,8" Background="#F8FAFC" BorderBrush="#E2E8F0"
                             BorderThickness="0,1,0,1">
                         <WrapPanel x:Name="FilterPanel" VerticalAlignment="Center">
                             <TextBlock Text="Buscar produto ou código" VerticalAlignment="Center"
@@ -67,7 +71,7 @@
                         </WrapPanel>
                     </Border>
 
-                    <Grid Grid.Row="3" Margin="10">
+                    <Grid Grid.Row="4" Margin="10">
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="*" MinWidth="320"/>
                             <ColumnDefinition Width="12"/>
@@ -75,8 +79,14 @@
                         </Grid.ColumnDefinitions>
 
                         <Grid Grid.Column="0">
+                            <ScrollViewer x:Name="CampaignScroll" Visibility="Collapsed"
+                                          VerticalScrollBarVisibility="Auto"
+                                          PreviewMouseWheel="CampaignScroll_PreviewMouseWheel">
+                                <StackPanel x:Name="CampaignHost"/>
+                            </ScrollViewer>
                             <ScrollViewer x:Name="SimpleCardsScroll" Visibility="Collapsed"
-                                          VerticalScrollBarVisibility="Auto">
+                                          VerticalScrollBarVisibility="Auto"
+                                          PreviewMouseWheel="SimpleCardsScroll_PreviewMouseWheel">
                                 <StackPanel x:Name="SimpleCardsHost"/>
                             </ScrollViewer>
                             <DataGrid x:Name="Grid"
@@ -93,7 +103,8 @@
                                       VirtualizingPanel.VirtualizationMode="Recycling"
                                       VirtualizingPanel.ScrollUnit="Pixel"
                                       MouseDoubleClick="Grid_MouseDoubleClick"
-                                      SelectionChanged="Grid_SelectionChanged">
+                                      SelectionChanged="Grid_SelectionChanged"
+                                      PreviewMouseWheel="Grid_PreviewMouseWheel">
                                 <DataGrid.Columns>
                                     <DataGridTextColumn Header="Produto" Binding="{Binding Name}" Width="*" MinWidth="140">
                                         <DataGridTextColumn.ElementStyle>
@@ -315,7 +326,21 @@
                                                                     </ItemsControl.ItemTemplate>
                                                                 </ItemsControl>
                                                             </StackPanel>
-                                                        </Expander>
+                                                            </Expander>
+                                                        <WrapPanel Margin="0,10,0,0">
+                                                            <Button Content="{x:Static models:InventoryComboLifecycleUi.ApproveAction}"
+                                                                    Padding="10,4" Margin="0,0,8,4"
+                                                                    Tag="{Binding}"
+                                                                    Click="ApproveCombo_Click"/>
+                                                            <Button Content="{x:Static models:InventoryComboLifecycleUi.DetailsAction}"
+                                                                    Padding="10,4" Margin="0,0,8,4"
+                                                                    Tag="{Binding}"
+                                                                    Click="SuggestionDetails_Click"/>
+                                                            <Button Content="{x:Static models:InventoryComboLifecycleUi.DiscardAction}"
+                                                                    Padding="10,4" Margin="0,0,8,4"
+                                                                    Tag="{Binding}"
+                                                                    Click="RejectSuggestion_Click"/>
+                                                        </WrapPanel>
                                                     </StackPanel>
                                                 </Border>
                                             </DataTemplate>
@@ -326,7 +351,7 @@
                         </Border>
                     </Grid>
 
-                    <Border Grid.Row="4" Padding="12,8" Background="#F8FAFC" BorderBrush="#C8C4BC"
+                    <Border Grid.Row="5" Padding="12,8" Background="#F8FAFC" BorderBrush="#C8C4BC"
                             BorderThickness="0,1,0,0">
                         <StackPanel>
                             <TextBlock x:Name="MetaText" FontSize="12" Foreground="#334155" TextWrapping="Wrap"/>

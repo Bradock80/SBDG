@@ -92,6 +92,8 @@ public static class InventorySmartPresentation
             InventoryComboRejectionReason.NotSellable
                 or InventoryComboRejectionReason.InactiveOrUnsellable => "Produto sem permissão de venda",
             InventoryComboRejectionReason.CommerciallyIncompatible => "Combinação comercialmente incompatível",
+            InventoryComboRejectionReason.ReturnableUnsupported =>
+                InventoryComboLifecycleRules.ReturnableBlockedMessage,
             _ => "Dados insuficientes",
         };
 
